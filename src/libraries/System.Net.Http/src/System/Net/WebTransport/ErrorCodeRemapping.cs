@@ -1,9 +1,9 @@
 namespace System.Net.WebTransport;
 
-class ErrorCodeRemapping
+static class ErrorCodeRemapping
 {
-    const long first = 0x52e4a40fa8db
-    const long last = 0x52e5ac983162
+    private const long first = 0x52e4a40fa8db;
+    private const long last = 0x52e5ac983162;
 
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-resetting-data-streams"/>
     public static long WebTransportCodeToHttpCode(long webtransportCode)
