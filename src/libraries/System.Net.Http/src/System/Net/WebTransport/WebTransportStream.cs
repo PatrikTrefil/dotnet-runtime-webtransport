@@ -41,7 +41,7 @@ public abstract class WebTransportStream : Stream, IDisposable
 /// <summary>
 /// Implementation that uses System.Net.Quic
 /// </summary>
-public class MsQuicWebTransportStream: WebTransportStream
+internal class MsQuicWebTransportStream: WebTransportStream
 {
     private readonly QuicStream _quicStream;
 

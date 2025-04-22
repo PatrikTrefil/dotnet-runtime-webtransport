@@ -6,6 +6,7 @@ public readonly record struct Priority(byte urgency, bool incremental)
     private byte _urgency = urgency;
     /// <summary>
     /// The value is an unsigned integer in the range [0-7].
+    /// 0 is the highest urgency.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the provided value is out of range.</exception>
     public byte Urgency {

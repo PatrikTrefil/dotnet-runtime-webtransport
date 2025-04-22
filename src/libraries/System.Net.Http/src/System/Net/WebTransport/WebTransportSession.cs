@@ -80,7 +80,7 @@ public record class WebTransportSessionCreationOptions
 
 public abstract class WebTransportSession : IDisposable
 {
-    public WebTransportSession(long id, WebTransportSessionCreationOptions? options) {
+    internal WebTransportSession(long id, WebTransportSessionCreationOptions? options) {
         Id = id;
 
         SubProtoconitl = options.SubProtocol;
@@ -102,6 +102,7 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
 
+    // TODO: priority should be providedbypeer and forpeer?
     // QUIC priority support https://github.com/dotnet/runtime/issues/90281
     /// <summary>
     /// The value may be changed during the lifetime of the session.
@@ -138,13 +139,13 @@ public abstract class WebTransportSession : IDisposable
     /// A count of the cumulative number of unidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// The value must be in the range [0, 2^62).
-    /// The value may be changed during the lifetime of the session.
+    /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitForPeer { get; set; }
+    public long UnidirectionalStreamCountLimitForPeer { get; }
 
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
     /// <summary>
@@ -155,18 +156,18 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitProvidedByPeer { get; }
+    public long BidirectionalStreamCountLimitProvidedByPeer { get; private set; }
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// The value must be in the range [0, 2^62).
-    /// The value may be changed during the lifetime of the session.
+    /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitForPeer { get; set; }
+    public long BidirectionalStreamCountLimitForPeer { get; }
 
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by this endpoint.
@@ -178,7 +179,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitProvidedByPeer { get; }
+    public long MaxDataSentLimitProvidedByPeer { get; private set; }
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by the remote endpoint.
     /// The value must be in the range [0, 2^62).
@@ -190,7 +191,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitForPeer { get; set; }
+    public long MaxDataSentLimitForPeer { get; }
 
     // TODO: consider replacing with dictionary where keys are ids
     // TODO: is this even useful? The client may want to find out how many streams were created within this session to check if it can create more
@@ -237,6 +238,7 @@ public abstract class WebTransportSession : IDisposable
     public abstract async void CloseAsync(int closeStatus, string statusDescription, CancellationToken cancellationToken = default);
     // TODO: use this in the implementation UTF8Encoding utf8WithException = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
+    // TODO: these methods can't be implemented -> we need a WebTransportConnection class! when we accept a stream, we don't know to which session it should go to
     /// <summary>
     /// Create a unidirectional stream. The calling side can write, and the remote can only read.
     /// </summary>
@@ -270,27 +272,26 @@ public abstract class WebTransportSession : IDisposable
     /// <summary>
     /// Send a datagram message (unreliable/unordered). Length is limited by <see cref="MaxDatagramSize" />.
     /// </summary>
-    /// <exception cref="WebTransportException">When the datagram is larger than the maximum allowed datagram size.<seealso cref="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
+    /// <exception cref="WebTransportException">When the datagram is larger than the <see cref="MaxDatagramSize"/>.<seealso cref="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
     public abstract async void SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default);
 
-    // TODO: this should probably return number of bytes received or something like that
-    // TODO: maybe this should be an event handler? https://github.com/dotnet/runtime/issues/53533
     /// <summary>
-    /// Receive the next datagram, if any. Typically also returns the length or
-    /// can place data into a buffer.
+    /// Receive the next datagram (unreliable/unordered).
     /// </summary>
+    /// <returns>The total number of bytes read into buffer between zero and min(<paramref name="buffer"/>.Length, <see cref="MaxDatagramSize"/>)</returns>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async void ReceiveDatagramAsync(
+    public abstract async int ReceiveDatagramAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default);
 }
 
-public sealed class MsQuicWebTransportSession: WebTransportSession
+internal sealed class MsQuicWebTransportSession: WebTransportSession
 {
     private readonly QuicConnection _connection;
+    // TODO: the same connection may be passed to multiple WebTransportSession objects. But it is not thread-safe!
     public MsQuicWebTransportSession(long id, QuicConnection connection, WebTransportSessionCreationOptions? options): base(id, options)
     {
         _connection = connection;
