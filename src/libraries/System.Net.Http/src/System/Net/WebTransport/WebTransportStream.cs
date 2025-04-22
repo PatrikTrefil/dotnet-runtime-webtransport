@@ -7,99 +7,53 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport;
 
-public enum WebTransportStreamState
+// TODO: implementation = forward all Stream abstradt methods to the private _stream, but with locking
+public abstract class WebTransportStream : Stream, IDisposable
 {
-    None = 0,
-    /// <summary>
-    /// The stream is open and can be used.
-    /// </summary>
-    Open,
-    /// <summary>
-    /// The stream is closed and can no longer be used.
-    /// </summary>
-    Closed
-    // TODO: more states probably needed
-}
-
-// TODO: QUIC differentiates between bidirectional and unidirectional streams using a simple enum.
-// TODO: how to design the api so that we can change the QUIC implementation?
-
-// Connection-level flow control limits are not supported by System.Net.Quic
-
-public abstract class WebTransportStream : IDisposable
-{
-    internal WebTransportStream(long streamId, WebTransportSession parentSession, QuicStream quicStream) {
-        StreamId = streamId;
+    public WebTransportStream(WebTransportSession parentSession, Stream stream) {
         Session = parentSession;
-        QuicStream = quicStream;
+        _stream = stream;
     }
-    internal QuicStream { get; init; }
+
+    /// <summary>
+    /// Used to lock <see cref="_stream"/>
+    /// </summary>
+    private readonly object _streamLock = new();
+    private readonly Stream _stream;
     /// <summary>
     /// The stream ID of this stream.
     /// It is a 62-bit unsigned integer.
     /// </summary>
-    long StreamId { get => QuicStream.Id }
+    public abstract long StreamId { get; }
     /// <summary>
     /// The session this stream belongs to.
     /// </summary>
-    WebTransportSession Session { get; }
+    public WebTransportSession Session { get; }
 
-    WebTransportStreamState State { get; }
-}
+    // API copied from https://learn.microsoft.com/en-us/dotnet/api/system.net.quic.quicstream.abort?view=net-9.0#system-net-quic-quicstream-abort(system-net-quic-quicabortdirection-system-int64)
+    /// <summary>
+    /// Aborts either the reading, writing, or both sides of the stream.
+    /// </summary>
+    /// <param name="abortDirection">The direction of the stream to abort.</param>
+    /// <param name="errorCode">The error code with which to abort the stream. This value is application-protocol (which is the layer above QUIC) dependent.</param>
+    public abstract void Abort(QuicAbortDirection abortDirection, long errorCode);
 
-// TODO: add operations for resetting stream https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-resetting-data-streams
-
-public interface IReadableWebTransportStream : WebTransportStream
+/// <summary>
+/// Implementation that uses System.Net.Quic
+/// </summary>
+public class MsQuicWebTransportStream: WebTransportStream
 {
-    /// <summary>
-    /// Reads data from the stream into the provided buffer.
-    /// Returns the number of bytes read, or 0 on end-of-stream.
-    /// </summary>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    Task<long> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken = default);
-    // TODO: what does receiveasync return?
-    // TODO: how many bytes can you read at once?
+    private readonly QuicStream _quicStream;
 
-    /// <summary>
-    /// Abort reading early with an application-defined error code.
-    /// </summary>
-    void AbortReceive(long errorCode);
-}
+    public MsQuicWebTransportStream(WebTransportSession parentSession, QuicStream quicStream): base(parentSession, quicStream)
+    {
+        _quicStream; = quicStream;
+    }
 
+    public override long StreamId => QuicStream.Id;
 
-public interface IWritableWebTransportStream : WebTransportStream
-{
-    // TODO: note about sending the data blocked capsule https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_data_blocked-capsule
-    // TODO: what if the stream limit is reached?
-    /// <summary>
-    /// Writes data from the buffer into the stream.
-    /// </summary>
-    /// <exception cref="WebTransportException">When you can not send more data, because the session data limit <see cref="WebTransportSession.MaxData"/> was reached.<seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-data-limits"/> or the stream is not <see cref="WebTransportStreamState.Open"/></exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    Task SendAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gracefully end the writing side of the stream so the receiver
-    /// knows no more data will arrive.
-    /// </summary>
-    /// <exception cref="WebTransportException">When the stream is not <see cref="WebTransportStreamState.Open"/></exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    Task CloseWriteAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Abort writing early with an application-defined error code.
-    /// </summary>
-    /// <exception cref="WebTransportException">When the stream is not <see cref="WebTransportStreamState.Open"/></exception>
-    void AbortSend(long errorCode);
-}
-
-public abstract class BidirectionalWebTransportStream
-    : WebTransportStream, IReadableWebTransportStream, IWritableWebTransportStream
-{
-    public BidirectionalWebTransportStream(long streamId, WebTransportSession parentSession, Stream quicStream): base(streamId, parentSession, quicStream) { }
-}
-
-public abstract class UnidirectionWebTransportStream: WebTransportStream, IReadableWebTransportStream
-{
-    public UnidirectionWebTransportStream(long streamId, WebTransportSession parentSession, Stream quicStream): base(streamId, parentSession, quicStream) { }
+    public override void Abort(QuicAbortDirection abortDirection, long errorCode)
+    {
+        _quicStream.Abort(abortDirection, errorCode);
+    }
 }
