@@ -52,7 +52,6 @@ public record class WebTransportSessionCreationOptions
 {
     // TODO: add validation in initializers
     public string? SubProtocol { get; init; }
-    public Priority InitialPriority { get; init; } = Priority.Default();
     /// <summary>
     /// Default value is zero, which indicates no support for datagrams.
     /// The value must be in the range [0, 2^62).
@@ -87,7 +86,6 @@ public abstract class WebTransportSession : IDisposable
         _sessionManager = sessionManager;
 
         SubProtoconitl = options.SubProtocol;
-        Priority = options.InitialPriority;
         MaxDatagramSize = options.InitalMaxDatagramSize;
         MaxUnidirectionalStreamCount = options.InitialMaxUnidirectionalStreamCount;
         MaxBidirectionalStreamCount = options.InitialMaxBidirectionalStreamCount;
@@ -105,17 +103,6 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
     protected WebTransportSessionManager _sessionManager { get; }
-
-    // TODO: priority should be providedbypeer and forpeer?
-    // TODO: what does it actually mean? is it only stream priority?
-    // QUIC priority support https://github.com/dotnet/runtime/issues/90281
-    /// <summary>
-    /// The value may be changed during the lifetime of the session.
-    /// </summary>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-prioritization"/>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    public Priority Priority { get; set; }
 
     public WebTransportSessionState State { get; private set; }
 
