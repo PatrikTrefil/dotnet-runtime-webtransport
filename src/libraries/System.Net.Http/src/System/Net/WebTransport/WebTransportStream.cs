@@ -7,18 +7,15 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport;
 
-// TODO: implementation = forward all Stream abstradt methods to the private _stream, but with locking
+// TODO: implementation = forward all Stream abstradt methods to the private _stream with limit counting
 public abstract class WebTransportStream : Stream, IDisposable
 {
-    public WebTransportStream(WebTransportSession parentSession, Stream stream) {
+    public WebTransportStream(WebTransportSession parentSession, Stream stream)
+    {
         Session = parentSession;
         _stream = stream;
     }
 
-    /// <summary>
-    /// Used to lock <see cref="_stream"/>
-    /// </summary>
-    private readonly object _streamLock = new();
     private readonly Stream _stream;
     /// <summary>
     /// The stream ID of this stream.
@@ -38,22 +35,22 @@ public abstract class WebTransportStream : Stream, IDisposable
     /// <param name="errorCode">The error code with which to abort the stream. This value is application-protocol (which is the layer above QUIC) dependent.</param>
     public abstract void Abort(QuicAbortDirection abortDirection, long errorCode);
 
-/// <summary>
-/// Implementation that uses System.Net.Quic
-/// </summary>
-internal class MsQuicWebTransportStream: WebTransportStream
-{
-    private readonly QuicStream _quicStream;
-
-    public MsQuicWebTransportStream(WebTransportSession parentSession, QuicStream quicStream): base(parentSession, quicStream)
+    /// <summary>
+    /// Implementation that uses System.Net.Quic
+    /// </summary>
+    internal class MsQuicWebTransportStream : WebTransportStream
     {
-        _quicStream; = quicStream;
-    }
+        private readonly QuicStream _quicStream;
 
-    public override long StreamId => QuicStream.Id;
+        public MsQuicWebTransportStream(WebTransportSession parentSession, QuicStream quicStream) : base(parentSession, quicStream)
+        {
+            _quicStream; = quicStream;
+        }
 
-    public override void Abort(QuicAbortDirection abortDirection, long errorCode)
-    {
-        _quicStream.Abort(abortDirection, errorCode);
+        public override long StreamId => QuicStream.Id;
+
+        public override void Abort(QuicAbortDirection abortDirection, long errorCode)
+        {
+            _quicStream.Abort(abortDirection, errorCode);
+        }
     }
-}

@@ -12,8 +12,9 @@ namespace System.Net.WebTransport;
 
 // TODO: https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-use-of-keying-material-expo
 // TODO: maybe use IAsyncDisposable instead of IDisposable everywhere?
+// TODO: add throw ArgumentNullException for all properties that are not nullable in all files
 
-public enum WebTransportState
+public enum WebTransportSessionState
 {
     None = 0;
     /// <summary>
@@ -80,8 +81,10 @@ public record class WebTransportSessionCreationOptions
 
 public abstract class WebTransportSession : IDisposable
 {
-    internal WebTransportSession(long id, WebTransportSessionCreationOptions? options) {
+    internal WebTransportSession(long id, WebTransportSessionManager sessionManager, WebTransportSessionCreationOptions? options)
+    {
         Id = id;
+        _sessionManager = sessionManager;
 
         SubProtoconitl = options.SubProtocol;
         Priority = options.InitialPriority;
@@ -101,27 +104,20 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
+    protected WebTransportSessionManager _sessionManager { get; }
 
     // TODO: priority should be providedbypeer and forpeer?
+    // TODO: what does it actually mean? is it only stream priority?
     // QUIC priority support https://github.com/dotnet/runtime/issues/90281
     /// <summary>
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-prioritization"/>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
+    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     public Priority Priority { get; set; }
 
-    public WebTransportState State { get; private set; }
-
-    // TODO: I think the max datagram size is actually a property of the underlying QUIC connection and should be removed from this class.
-    /// <summary>
-    /// The maximum size of a datagram that can be sent within the session, in units of bytes.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/>
-    public long MaxDatagramSize { get; set; }
+    public WebTransportSessionState State { get; private set; }
 
     // TODO: add validation in setters for config properties
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#streamcapacitycallback
@@ -143,7 +139,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
+    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitForPeer { get; }
 
@@ -165,7 +161,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
+    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitForPeer { get; }
 
@@ -189,7 +185,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportState.Open"/>.</exception>
+    /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitForPeer { get; }
 
@@ -232,13 +228,12 @@ public abstract class WebTransportSession : IDisposable
     /// If null is provided, the message will be empty.
     /// </param>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    /// <exception cref="ArgumentException">Thrown when the statusDescription is longer than 1024 bytes after encoding.</exception> 
+    /// <exception cref="ArgumentException">Thrown when the statusDescription is longer than 1024 bytes after encoding.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
     public abstract async void CloseAsync(int closeStatus, string statusDescription, CancellationToken cancellationToken = default);
     // TODO: use this in the implementation UTF8Encoding utf8WithException = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    // TODO: these methods can't be implemented -> we need a WebTransportConnection class! when we accept a stream, we don't know to which session it should go to
     /// <summary>
     /// Create a unidirectional stream. The calling side can write, and the remote can only read.
     /// </summary>
@@ -288,18 +283,28 @@ public abstract class WebTransportSession : IDisposable
         CancellationToken cancellationToken = default);
 }
 
-internal sealed class MsQuicWebTransportSession: WebTransportSession
+/// <summary>
+/// Implementation that uses System.Net.Quic
+/// </summary>
+internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
     private readonly QuicConnection _connection;
-    // TODO: the same connection may be passed to multiple WebTransportSession objects. But it is not thread-safe!
-    public MsQuicWebTransportSession(long id, QuicConnection connection, WebTransportSessionCreationOptions? options): base(id, options)
+    internal MsQuicWebTransportSession(
+        long id,
+        WebTransportSessionManager sessionManager,
+        QuicConnection connection,
+        WebTransportSessionCreationOptions? options) : base(id, sessionManager, options)
     {
         _connection = connection;
     }
     public override async WebTransportStream ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {
-        var stream = await _connection.AcceptInboundStreamAsync(cancellationToken);
-        // TODO: write the stream type and session id
+        var stream = await _sessionManager.ReceiveUnidirectionalStreamAsync(cancellationToken);
+        return new MsQuicWebTransportStream(this, stream);
+    }
+    public override async WebTransportStream ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default)
+    {
+        var stream = await _sessionManager.ReceiveBidirectionalStreamAsync(cancellationToken);
         return new MsQuicWebTransportStream(this, stream);
     }
 }
