@@ -56,18 +56,21 @@ public record class WebTransportSessionCreationOptions
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
     public long InitialMaxUnidirectionalStreamCount { get; init; } = 0;
     /// <summary>
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
     public long InitialMaxBidirectionalStreamCount { get; init; } = 0;
     /// <summary>
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
     public long InitialMaxData { get; init; } = 0;
 }
@@ -109,7 +112,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value must be in the range [0, 2^62).
     /// The value may be changed during the lifetime of the session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitProvidedByPeer { get; }
     /// <summary>
@@ -118,7 +121,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value must be in the range [0, 2^62).
     /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
@@ -131,7 +134,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value must be in the range [0, 2^62).
     /// The value may be changed during the lifetime of the session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitProvidedByPeer { get; private set; }
     /// <summary>
@@ -140,7 +143,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value must be in the range [0, 2^62).
     /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
@@ -153,7 +156,7 @@ public abstract class WebTransportSession : IDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitProvidedByPeer { get; private set; }
@@ -164,7 +167,7 @@ public abstract class WebTransportSession : IDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is larger then 2^60</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
