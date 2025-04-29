@@ -53,12 +53,6 @@ public record class WebTransportSessionCreationOptions
     // TODO: add validation in initializers
     public string? SubProtocol { get; init; }
     /// <summary>
-    /// Default value is zero, which indicates no support for datagrams.
-    /// The value must be in the range [0, 2^62).
-    /// </summary>
-    /// <seealso cref="https://www.rfc-editor.org/rfc/rfc9221#name-transport-parameter"/>
-    public long InitalMaxDatagramSize { get; init; } = 0;
-    /// <summary>
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
