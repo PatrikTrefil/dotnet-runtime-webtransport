@@ -57,21 +57,21 @@ public record class WebTransportSessionCreationOptions
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
     public long InitialMaxUnidirectionalStreamCount { get; init; } = 0;
     /// <summary>
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
     public long InitialMaxBidirectionalStreamCount { get; init; } = 0;
     /// <summary>
     /// Default value is zero
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
     public long InitialMaxData { get; init; } = 0;
 }
 
@@ -109,7 +109,7 @@ public abstract class WebTransportSession : IDisposable
     /// <summary>
     /// The application-layer protocol used in this session. The value is constant for the lifetime of the session.
     /// </summary>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
     protected WebTransportSessionManager _sessionManager { get; }
 
@@ -125,7 +125,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitProvidedByPeer { get; }
     /// <summary>
     /// A count of the cumulative number of unidirectional streams that can be opened
@@ -136,7 +136,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitForPeer { get; }
 
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
@@ -147,7 +147,7 @@ public abstract class WebTransportSession : IDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitProvidedByPeer { get; private set; }
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
@@ -158,7 +158,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitForPeer { get; }
 
     /// <summary>
@@ -170,7 +170,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitProvidedByPeer { get; private set; }
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by the remote endpoint.
@@ -182,7 +182,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitForPeer { get; }
 
     /// <summary>
@@ -190,7 +190,7 @@ public abstract class WebTransportSession : IDisposable
     /// value is the "Application Error Code" part of the capsule.
     /// When the session is closed cleanly using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
     /// </summary>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public uint? CloseStatusCode { get; private set; }
 
     /// <summary>
@@ -199,13 +199,13 @@ public abstract class WebTransportSession : IDisposable
     /// When the session is closed cleanly using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
     /// The description may be up to 1024 bytes long in UTF-8 encoding.
     /// </summary>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public string? CloseStatusDescription { get; private set; }
 
     /// <summary>
     /// Initiate a graceful close of the session.
     /// </summary>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
     public async void CloseAsync(CancellationToken cancellationToken = default)
@@ -221,7 +221,7 @@ public abstract class WebTransportSession : IDisposable
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// If null is provided, the message will be empty.
     /// </param>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
@@ -239,7 +239,7 @@ public abstract class WebTransportSession : IDisposable
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// If null is provided, the message will be empty.
     /// </param>
-    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
@@ -256,7 +256,7 @@ public abstract class WebTransportSession : IDisposable
     /// <summary>
     /// Create a unidirectional stream. The calling side can write, and the remote can only read.
     /// </summary>
-    /// <exception cref="WebTransportException">When you can not create more streams because of the peer's unidirectional stream count limit.<seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
+    /// <exception cref="WebTransportException">When you can not create more streams because of the peer's unidirectional stream count limit.<seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
     public abstract async Task<WebTransportStream> CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
@@ -286,7 +286,7 @@ public abstract class WebTransportSession : IDisposable
     /// <summary>
     /// Send a datagram message (unreliable/unordered). Length is limited by <see cref="MaxDatagramSize" />.
     /// </summary>
-    /// <exception cref="WebTransportException">When the datagram is larger than the <see cref="MaxDatagramSize"/>.<seealso cref="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
+    /// <exception cref="WebTransportException">When the datagram is larger than the <see cref="MaxDatagramSize"/>.<seealso href="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
     public abstract async void SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default);

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace System.Net.WebTransport;
 
-/// <seealso cref="https://datatracker.ietf.org/doc/html/rfc9297"/>
+/// <seealso href="https://datatracker.ietf.org/doc/html/rfc9297"/>
 internal abstract class Capsule
 {
     public abstract async void Serialize(Stream stream);
