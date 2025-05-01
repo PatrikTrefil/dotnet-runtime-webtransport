@@ -95,7 +95,7 @@ public abstract class WebTransportSession : IDisposable
     /// Create a WebTransport session. If you need to create multiple sessions over a single HTTP/3 connection, use <see cref="WebTransportSessionManager.Create"/>.
     /// </summary>
     /// <exception cref="ArgumentException">The uri is not a valid WebTransport URI</exception>
-    public static async WebTransportSession Create(Uri uri, HttpClient httpClient, WebTransportSessionCreationOptions? options)
+    public static async Task<WebTransportSession Create(Uri uri, HttpClient httpClient, WebTransportSessionCreationOptions? options)
     {
         WebTransportSessionManager sessionManager = WebTransportSessionManager.Create(Uri, httpClient);
         return await sessionManager.CreateSessionAsync(options);
@@ -243,7 +243,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public async CloseAsync(int closeStatus, ReadOnlySpan<byte> statusDescription, CancellationToken cancellationToken = default)
+    public async void CloseAsync(int closeStatus, ReadOnlySpan<byte> statusDescription, CancellationToken cancellationToken = default)
     {
         if (statusDescription.Length > 1024)
         {
@@ -259,7 +259,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="WebTransportException">When you can not create more streams because of the peer's unidirectional stream count limit.<seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async WebTransportStream CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    public abstract async Task<WebTransportStream> CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Create a bidirectional stream. Both ends can read and write.
@@ -267,21 +267,21 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="WebTransportException">When you can not create more streams because of the peer's bidirectional stream count limit</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async WebTransportStream CreateBidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    public abstract async Task<WebTransportStream> CreateBidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receive a unidirectional stream. The initiator can write, and the receiver can read.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async WebTransportStream ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    public abstract async Task<WebTransportStream> ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receive a bidirectional stream. Both ends can read and write.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async WebTransportStream ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    public abstract async Task<WebTransportStream> ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Send a datagram message (unreliable/unordered). Length is limited by <see cref="MaxDatagramSize" />.
@@ -297,7 +297,7 @@ public abstract class WebTransportSession : IDisposable
     /// <returns>The total number of bytes read into buffer between zero and min(<paramref name="buffer"/>.Length, <see cref="MaxDatagramSize"/>)</returns>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async int ReceiveDatagramAsync(
+    public abstract async Task<int> ReceiveDatagramAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default);
 }
@@ -320,12 +320,12 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _connection = connection;
         _controlStream = controlStream;
     }
-    public override async WebTransportStream ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default)
+    public override async Task<WebTransportStream> ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {
         var stream = await _sessionManager.ReceiveUnidirectionalStreamAsync(cancellationToken);
         return new MsQuicWebTransportStream(this, stream);
     }
-    public override async WebTransportStream ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default)
+    public override async Task<WebTransportStream> ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {
         var stream = await _sessionManager.ReceiveBidirectionalStreamAsync(cancellationToken);
         return new MsQuicWebTransportStream(this, stream);

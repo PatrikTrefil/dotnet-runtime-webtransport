@@ -25,7 +25,7 @@ public abstract class WebTransportSessionManager
         _httpClient = httpClient;
         _uri = uri;
     }
-    public abstract async WebTransportSession CreateSessionAsync(WebTransportSessionCreationOptions? options);
+    public abstract async Task<WebTransportSession> CreateSessionAsync(WebTransportSessionCreationOptions? options);
     /// <param name="maxSessions">The maximum number of sessions that can be created within the connection. Setting this limit only makes sense on the server side.</param>
     /// <exception cref="ArgumentException">The uri is not a valid WebTransport URI</exception>
     /// <exception cref="WebTransportException">The connection is already managed by another session manager</exception>
@@ -39,8 +39,8 @@ public abstract class WebTransportSessionManager
         // detect type and session ID
         // add to _pendingUnidirectionalStreams or _pendingBidirectionalStreams under stream ID
     }
-    internal async Stream ReceiveUnidirectionalStreamAsync(long sessionId, CancellationToken cancellationToken = default) { }
-    internal async Stream ReceiveBidirectionalStreamAsync(long sessionId, CancellationToken cancellationToken = default) { }
+    internal async Task<Stream> ReceiveUnidirectionalStreamAsync(long sessionId, CancellationToken cancellationToken = default) { }
+    internal async Task<Stream> ReceiveBidirectionalStreamAsync(long sessionId, CancellationToken cancellationToken = default) { }
 }
 
 /// <summary>
@@ -54,7 +54,7 @@ internal sealed class MsQuicWebTransportSessionManager : WebTransportSessionMana
     internal MsQuicWebTransportSessionManager(Uri uri, HttpClient httpClient, long? maxSessions) : base(uri, httpClient, maxSessions) { }
 
     /// <exception cref="WebTransportException">Maximum number of sessions reached or specified <see cref="WebTransportSessionCreationOptions.SubProtocol"/> is not supported</exception>
-    internal override async WebTransportSession CreateSessionAsync(WebTransportSessionCreationOptions? options)
+    internal override async Task<WebTransportSession> CreateSessionAsync(WebTransportSessionCreationOptions? options)
     {
         HttpRequestMessage requestMessage = new(HttpMethod.Connect, uri) { Version = HttpVersion.Version30 };
         HttpResponseMessage response = await httpClient.SendAsync(requestMessage).ConfigureAwait(false);
