@@ -77,9 +77,12 @@ public record class WebTransportSessionCreationOptions
 
 public abstract class WebTransportSession : IDisposable
 {
-    internal WebTransportSession(long id, WebTransportSessionManager sessionManager, WebTransportSessionCreationOptions? options)
+    private static readonly Encoding _encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private readonly Stream _controlStream;
+    internal WebTransportSession(long id, Stream controlStream, WebTransportSessionManager sessionManager, WebTransportSessionCreationOptions? options)
     {
         Id = id;
+        _controlStream = controlStream;
         _sessionManager = sessionManager;
 
         SubProtoconitl = options.SubProtocol;
@@ -87,6 +90,15 @@ public abstract class WebTransportSession : IDisposable
         MaxUnidirectionalStreamCount = options.InitialMaxUnidirectionalStreamCount;
         MaxBidirectionalStreamCount = options.InitialMaxBidirectionalStreamCount;
         MaxData = options.InitialMaxData;
+    }
+    /// <summary>
+    /// Create a WebTransport session. If you need to create multiple sessions over a single HTTP/3 connection, use <see cref="WebTransportSessionManager.Create"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">The uri is not a valid WebTransport URI</exception>
+    public static async WebTransportSession Create(Uri uri, HttpClient httpClient, WebTransportSessionCreationOptions? options)
+    {
+        WebTransportSessionManager sessionManager = WebTransportSessionManager.Create(Uri, httpClient);
+        return await sessionManager.CreateSessionAsync(options);
     }
 
     /// <summary>
@@ -173,10 +185,6 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitForPeer { get; }
 
-    // TODO: consider replacing with dictionary where keys are ids
-    // TODO: is this even useful? The client may want to find out how many streams were created within this session to check if it can create more
-    public IReadOnlyList<WebTransportStream> OpenStreams { get; }
-
     /// <summary>
     /// When the session has been closed by a CLOSE_WEBTRANSPORT_SESSION capsule, the
     /// value is the "Application Error Code" part of the capsule.
@@ -200,22 +208,49 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async void CloseAsync(CancellationToken cancellationToken = default);
+    public async void CloseAsync(CancellationToken cancellationToken = default)
+    {
+    }
 
     /// <summary>
     /// Close the session using using a CLOSE_WEBTRANSPORT_SESSION capsule.
     /// </summary>
     /// <param name="closeStatus">Reason code sent in the capsule.</param>
     /// <param name="statusDescription">
-    /// Message sent in the capsule. The message will be encoded to UTF-8.
+    /// Message sent in the capsule. The message will be encoded to UTF-8 without BOM.
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// If null is provided, the message will be empty.
     /// </param>
     /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    /// <exception cref="ArgumentException">Thrown when the statusDescription is longer than 1024 bytes after encoding.</exception>
+    /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async void CloseAsync(int closeStatus, string statusDescription, CancellationToken cancellationToken = default);
+    public async void CloseAsync(int closeStatus, string statusDescription, CancellationToken cancellationToken = default)
+    {
+        ReadOnlySpan<byte> statusDescriptionUtf8 = _encoding.GetBytes(statusDescription);
+        await CloseAsync(closeStatus, statusDescriptionUtf8, cancellationToken);
+    }
+    /// <summary>
+    /// Close the session using using a CLOSE_WEBTRANSPORT_SESSION capsule.
+    /// </summary>
+    /// <param name="closeStatus">Reason code sent in the capsule.</param>
+    /// <param name="statusDescription">
+    /// Message sent in the capsule. The message is expected to be encoded to UTF-8 without BOM.
+    /// The maximum length of the message after the encoding is 1024 bytes.
+    /// If null is provided, the message will be empty.
+    /// </param>
+    /// <seealso cref="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
+    /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes.</exception>
+    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
+    public async CloseAsync(int closeStatus, ReadOnlySpan<byte> statusDescription, CancellationToken cancellationToken = default)
+    {
+        if (statusDescription.Length > 1024)
+        {
+            throw new ArgumentException("The status description is longer than 1024 bytes after encoding.", nameof(statusDescription));
+        }
+        CloseSessionCapsule closeSessionCapsule = new(this, closeStatus, statusDescription);
+    }
     // TODO: use this in the implementation UTF8Encoding utf8WithException = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     /// <summary>
@@ -273,13 +308,17 @@ public abstract class WebTransportSession : IDisposable
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
     private readonly QuicConnection _connection;
+    private readonly QuicStream _controlStream; // TODO: this should probably be a backing field of a Stream property? see WebTransport overview RFC
+    private readonly object _controlStreamSyncObject = new();
     internal MsQuicWebTransportSession(
         long id,
         WebTransportSessionManager sessionManager,
         QuicConnection connection,
+        QuicStream controlStream,
         WebTransportSessionCreationOptions? options) : base(id, sessionManager, options)
     {
         _connection = connection;
+        _controlStream = controlStream;
     }
     public override async WebTransportStream ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {

@@ -27,7 +27,6 @@ public abstract class WebTransportStream : Stream, IDisposable
     /// </summary>
     public WebTransportSession Session { get; }
 
-    // API copied from https://learn.microsoft.com/en-us/dotnet/api/system.net.quic.quicstream.abort?view=net-9.0#system-net-quic-quicstream-abort(system-net-quic-quicabortdirection-system-int64)
     /// <summary>
     /// Aborts either the reading, writing, or both sides of the stream.
     /// </summary>
