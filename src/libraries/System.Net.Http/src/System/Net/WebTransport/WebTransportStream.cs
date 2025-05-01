@@ -33,7 +33,7 @@ public abstract class WebTransportStream : Stream, IDisposable
     /// </summary>
     /// <param name="abortDirection">The direction of the stream to abort.</param>
     /// <param name="errorCode">The error code with which to abort the stream. This value is application-protocol (which is the layer above QUIC) dependent.</param>
-    public abstract void Abort(QuicAbortDirection abortDirection, long errorCode);
+    public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
 
     /// <summary>
     /// Implementation that uses System.Net.Quic
@@ -49,8 +49,16 @@ public abstract class WebTransportStream : Stream, IDisposable
 
         public override long StreamId => QuicStream.Id;
 
-        public override void Abort(QuicAbortDirection abortDirection, long errorCode)
+        private WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection) => abortDirection switch
         {
-            _quicStream.Abort(abortDirection, errorCode);
+            WebTransportAbortDirection.Read => QuicAbortDirection.Read,
+            WebTransportAbortDirection.Write => QuicAbortDirection.Write,
+            WebTransportAbortDirection.Both => QuicAbortDirection.Both,
+            _ => throw new ArgumentOutOfRangeException(nameof(abortDirection), abortDirection, "Invalid abort direction.")
+        };
+        public override void Abort(WebTransportAbortDirection abortDirection, long errorCode)
+        {
+            QuicAbortDirection quicAbortDirection = WebTransportAbortDirectionToQuicAbortDirection(abortDirection);
+            _quicStream.Abort(quicAbortDirection, errorCode);
         }
     }
