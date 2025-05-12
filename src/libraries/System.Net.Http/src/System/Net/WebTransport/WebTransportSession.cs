@@ -2,103 +2,141 @@ using System;
 using System.Threading.Tasks;
 using System.Threading;
 using System.IO;
-using System.IO.Ports;
-using System.Net.WebSockets;
 using System.Text;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Net.Http;
+using System.Net.Quic;
+using System.Numerics;
 
 namespace System.Net.WebTransport;
 
 // TODO: https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-use-of-keying-material-expo
-// TODO: maybe use IAsyncDisposable instead of IDisposable everywhere?
+// TODO: maybe use IAsyncDisposable an addition to IDisposable everywhere?
 // TODO: add throw ArgumentNullException for all properties that are not nullable in all files
+// TODO: who manages the connection settings - i.e. SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI , etc.?
 
 public enum WebTransportSessionState
 {
-    None = 0;
-    /// <summary>
-    /// The connection is negotiating the handshake with the remote endpoint.
-    /// </summary>
-    Connecting;
-
-    /// <summary>
-    /// The initial state after the HTTP handshake has been completed.
-    /// </summary>
-    Open;
-
-    /// <summary>
-    /// A close message was sent to the remote endpoint.
-    /// </summary>
-    CloseSent;
-
-    /// <summary>
-    /// A close message was received from the remote endpoint.
-    /// </summary>
-    CloseReceived;
-
-    /// <summary>
-    /// Indicates the session close handshake completed gracefully.
-    /// </summary>
-    Closed;
-
-    /// <summary>
-    /// Indicates that the session has been aborted.
-    /// </summary>
-    Aborted;
+    None = 0,
+    Connecting,
+    Open,
+    Closed,
+    Aborted
 }
 
-public record class WebTransportSessionCreationOptions
+internal static class VariableLengthIntegerValidator
 {
-    // TODO: add validation in initializers
+    private const long MaxValue = (1L << 62) - 1;
+    public static void ThrowIfInvalid(long value)
+    {
+        if (value is < 0 or > MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "The value must be in the range [0, 2^62)");
+        }
+    }
+}
+
+public sealed record class WebTransportSessionCreationOptions
+{
+    private readonly long _initialMaxUnidirectionalStreamCount;
+    private readonly long _initialMaxBidirectionalStreamCount;
+    private readonly long _initialMaxData;
     public string? SubProtocol { get; init; }
     /// <summary>
-    /// Default value is zero
+    /// Default value is zero.
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
-    public long InitialMaxUnidirectionalStreamCount { get; init; } = 0;
+    public long InitialMaxUnidirectionalStreamCount
+    {
+        get => _initialMaxUnidirectionalStreamCount;
+        init
+        {
+            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            _initialMaxUnidirectionalStreamCount = value;
+        }
+    }
     /// <summary>
-    /// Default value is zero
+    /// Default value is zero.
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
-    public long InitialMaxBidirectionalStreamCount { get; init; } = 0;
+    public long InitialMaxBidirectionalStreamCount
+    {
+        get => _initialMaxBidirectionalStreamCount; init
+        {
+            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            _initialMaxBidirectionalStreamCount = value;
+        }
+    }
     /// <summary>
-    /// Default value is zero
+    /// Default value is zero.
     /// The value must be in the range [0, 2^62).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
-    public long InitialMaxData { get; init; } = 0;
+    public long InitialMaxData
+    {
+        get => _initialMaxData;
+        init
+        {
+            VariableLengthIntegerValidator.ThrowIfInvalid(value); _initialMaxData = value;
+        }
+    }
 }
 
 public abstract class WebTransportSession : IDisposable
 {
     private static readonly Encoding _encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private readonly CapsuleConsumer _capsuleConsumer;
     private readonly Stream _controlStream;
-    internal WebTransportSession(long id, Stream controlStream, WebTransportSessionManager sessionManager, WebTransportSessionCreationOptions? options)
-    {
-        Id = id;
-        _controlStream = controlStream;
-        _sessionManager = sessionManager;
+    private bool _disposedValue;
 
-        SubProtoconitl = options.SubProtocol;
-        MaxDatagramSize = options.InitalMaxDatagramSize;
-        MaxUnidirectionalStreamCount = options.InitialMaxUnidirectionalStreamCount;
-        MaxBidirectionalStreamCount = options.InitialMaxBidirectionalStreamCount;
-        MaxData = options.InitialMaxData;
+    /// <exception cref="ArgumentNullException">When <paramref name="controlStream"/> or <paramref name="sessionManager"/> is null</exception>
+    protected internal WebTransportSession(long id, Stream controlStream, WebTransportSessionManager sessionManager) : this(id, controlStream, sessionManager, new WebTransportSessionCreationOptions()) { }
+    /// <exception cref="ArgumentNullException">When <paramref name="controlStream"/> or <paramref name="sessionManager"/> or <paramref name="options"/> is null</exception>
+    protected internal WebTransportSession(long id, Stream controlStream, WebTransportSessionManager sessionManager, WebTransportSessionCreationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(controlStream);
+        ArgumentNullException.ThrowIfNull(sessionManager);
+        Id = id;
+        _capsuleConsumer = new CapsuleConsumer(controlStream, this);
+        _controlStream = controlStream;
+        this.sessionManager = sessionManager;
+
+        SubProtocol = options.SubProtocol;
+        UnidirectionalStreamCountLimitForPeer = options.InitialMaxUnidirectionalStreamCount;
+        BidirectionalStreamCountLimitForPeer = options.InitialMaxBidirectionalStreamCount;
+        MaxDataSentLimitForPeer = options.InitialMaxData;
+    }
+    internal void Init()
+    {
+        using (ExecutionContext.SuppressFlow())
+        {
+            _ = ProcessIncomingCapsules();
+        }
+    }
+    internal async Task ProcessIncomingCapsules()
+    {
+        while (true)
+        {
+            await _capsuleConsumer.ProcessNextCapsule().ConfigureAwait(false);
+            // TODO: handle WebTransportExceptions and QuicExceptions?
+        }
     }
     /// <summary>
     /// Create a WebTransport session. If you need to create multiple sessions over a single HTTP/3 connection, use <see cref="WebTransportSessionManager.Create"/>.
     /// </summary>
     /// <exception cref="ArgumentException">The uri is not a valid WebTransport URI</exception>
-    public static async Task<WebTransportSession Create(Uri uri, HttpClient httpClient, WebTransportSessionCreationOptions? options)
+    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> or <paramref name="httpClient"/> is null</exception>
+    public static async Task<WebTransportSession> Create(Uri uri, HttpClient httpClient, WebTransportSessionCreationOptions? options)
     {
-        WebTransportSessionManager sessionManager = WebTransportSessionManager.Create(Uri, httpClient);
-        return await sessionManager.CreateSessionAsync(options);
+        WebTransportSessionManager sessionManager = WebTransportSessionManager.Create(uri, httpClient);
+        return await sessionManager.CreateSessionAsync(options).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -111,7 +149,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
-    protected WebTransportSessionManager _sessionManager { get; }
+    protected WebTransportSessionManager sessionManager { get; }
 
     public WebTransportSessionState State { get; private set; }
 
@@ -126,7 +164,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitProvidedByPeer { get; }
+    public long UnidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
     /// <summary>
     /// A count of the cumulative number of unidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
@@ -137,7 +175,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitForPeer { get; }
+    public long UnidirectionalStreamCountLimitForPeer { get; set; }
 
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
     /// <summary>
@@ -148,7 +186,7 @@ public abstract class WebTransportSession : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitProvidedByPeer { get; private set; }
+    public long BidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
@@ -159,7 +197,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitForPeer { get; }
+    public long BidirectionalStreamCountLimitForPeer { get; set; }
 
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by this endpoint.
@@ -171,7 +209,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitProvidedByPeer { get; private set; }
+    public long MaxDataSentLimitProvidedByPeer { get; internal set; }
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by the remote endpoint.
     /// The value must be in the range [0, 2^62).
@@ -183,7 +221,7 @@ public abstract class WebTransportSession : IDisposable
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     /// <exception cref="WebTransportException">When calling the setter, but the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitForPeer { get; }
+    public long MaxDataSentLimitForPeer { get; set; }
 
     /// <summary>
     /// When the session has been closed by a CLOSE_WEBTRANSPORT_SESSION capsule, the
@@ -208,8 +246,11 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public async void CloseAsync(CancellationToken cancellationToken = default)
+    public async Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        DrainSessionCapsule drainSessionCapsule = new();
+        drainSessionCapsule.Serialize(_controlStream);
+        await _controlStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -224,11 +265,12 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public async void CloseAsync(int closeStatus, string statusDescription, CancellationToken cancellationToken = default)
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="statusDescription"/> is null</exception>
+    public async void CloseAsync(uint closeStatus, string statusDescription, CancellationToken cancellationToken = default)
     {
-        ReadOnlySpan<byte> statusDescriptionUtf8 = _encoding.GetBytes(statusDescription);
-        await CloseAsync(closeStatus, statusDescriptionUtf8, cancellationToken);
+        ReadOnlyMemory<byte> statusDescriptionUtf8 = _encoding.GetBytes(statusDescription);
+        await CloseAsync(closeStatus, statusDescriptionUtf8, cancellationToken).ConfigureAwait(false);
     }
     /// <summary>
     /// Close the session using using a CLOSE_WEBTRANSPORT_SESSION capsule.
@@ -242,64 +284,96 @@ public abstract class WebTransportSession : IDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public async void CloseAsync(int closeStatus, ReadOnlySpan<byte> statusDescription, CancellationToken cancellationToken = default)
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    public async Task CloseAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
     {
         if (statusDescription.Length > 1024)
         {
             throw new ArgumentException("The status description is longer than 1024 bytes after encoding.", nameof(statusDescription));
         }
         CloseSessionCapsule closeSessionCapsule = new(this, closeStatus, statusDescription);
+        await closeSessionCapsule.SerializeAsync(_controlStream, cancellationToken).ConfigureAwait(false);
+        await _controlStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
-    // TODO: use this in the implementation UTF8Encoding utf8WithException = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    /// <summary>
+    /// This method should be called when the session is closed using a CLOSE_WEBTRANSPORT_SESSION capsule.
+    /// </summary>
+    internal void ReceiveClose(uint closeStatus, string statusDescription)
+    {
+        CloseStatusCode = closeStatus;
+        CloseStatusDescription = statusDescription;
+    }
 
     /// <summary>
     /// Create a unidirectional stream. The calling side can write, and the remote can only read.
     /// </summary>
     /// <exception cref="WebTransportException">When you can not create more streams because of the peer's unidirectional stream count limit.<seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async Task<WebTransportStream> CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    public abstract Task<WebTransportStream> CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Create a bidirectional stream. Both ends can read and write.
     /// </summary>
     /// <exception cref="WebTransportException">When you can not create more streams because of the peer's bidirectional stream count limit</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async Task<WebTransportStream> CreateBidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    public abstract Task<WebTransportStream> CreateBidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receive a unidirectional stream. The initiator can write, and the receiver can read.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async Task<WebTransportStream> ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    public abstract Task<WebTransportStream> ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receive a bidirectional stream. Both ends can read and write.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async Task<WebTransportStream> ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    public abstract Task<WebTransportStream> ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Send a datagram message (unreliable/unordered). Length is limited by <see cref="MaxDatagramSize" />.
+    /// Send a datagram message (unreliable/unordered). Length is limited by maximum datagram size of the underlying transport.
     /// </summary>
-    /// <exception cref="WebTransportException">When the datagram is larger than the <see cref="MaxDatagramSize"/>.<seealso href="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
+    /// <exception cref="WebTransportException">When the datagram is larger than the maximum datagram size of the underlying transport.<seealso href="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async void SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default);
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="data"/> is null</exception>
+    public abstract Task SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receive the next datagram (unreliable/unordered).
     /// </summary>
-    /// <returns>The total number of bytes read into buffer between zero and min(<paramref name="buffer"/>.Length, <see cref="MaxDatagramSize"/>)</returns>
+    /// <returns>The total number of bytes read into buffer between zero and min(<paramref name="buffer"/>.Length, maximum datagram size of the underlying transport]</returns>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a closed session.</exception>
-    public abstract async Task<int> ReceiveDatagramAsync(
+    /// <exception cref="ObjectDisposedException">When calling method on a session in <see cref="WebTransportSessionState.Closed"/> state.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="buffer"/> is null</exception>
+    public abstract Task<int> ReceiveDatagramAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default);
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                // TODO: dispose managed state (managed objects)
+            }
+
+            // TODO: set large fields to null
+            _disposedValue = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }
 
 /// <summary>
@@ -308,26 +382,37 @@ public abstract class WebTransportSession : IDisposable
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
     private readonly QuicConnection _connection;
-    private readonly QuicStream _controlStream; // TODO: this should probably be a backing field of a Stream property? see WebTransport overview RFC
-    private readonly object _controlStreamSyncObject = new();
+    private readonly QuicStream _controlStream;
+    private readonly MsQuicWebTransportServerSessionManager _msQuicSessionManager;
     internal MsQuicWebTransportSession(
         long id,
-        WebTransportSessionManager sessionManager,
+        MsQuicWebTransportServerSessionManager sessionManager,
+        QuicConnection connection,
+        QuicStream controlStream) : this(id, sessionManager, connection, controlStream, new WebTransportSessionCreationOptions()) { }
+    internal MsQuicWebTransportSession(
+        long id,
+        MsQuicWebTransportServerSessionManager sessionManager,
         QuicConnection connection,
         QuicStream controlStream,
-        WebTransportSessionCreationOptions? options) : base(id, sessionManager, options)
+        WebTransportSessionCreationOptions options) : base(id, controlStream, sessionManager, options)
     {
         _connection = connection;
         _controlStream = controlStream;
+        _msQuicSessionManager = sessionManager;
     }
     public override async Task<WebTransportStream> ReceiveUnidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {
-        var stream = await _sessionManager.ReceiveUnidirectionalStreamAsync(cancellationToken);
+        QuicStream stream = await _msQuicSessionManager.ReceiveUnidirectionalStreamAsync(Id, cancellationToken).ConfigureAwait(false);
         return new MsQuicWebTransportStream(this, stream);
     }
     public override async Task<WebTransportStream> ReceiveBidirectionalStreamAsync(CancellationToken cancellationToken = default)
     {
-        var stream = await _sessionManager.ReceiveBidirectionalStreamAsync(cancellationToken);
+        QuicStream stream = await _msQuicSessionManager.ReceiveBidirectionalStreamAsync(Id, cancellationToken).ConfigureAwait(false);
         return new MsQuicWebTransportStream(this, stream);
     }
+
+    public override Task<WebTransportStream> CreateUnidirectionalStreamAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public override Task<WebTransportStream> CreateBidirectionalStreamAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public override Task SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public override Task<int> ReceiveDatagramAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 }
