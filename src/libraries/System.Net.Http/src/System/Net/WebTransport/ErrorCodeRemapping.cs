@@ -1,6 +1,6 @@
 namespace System.Net.WebTransport;
 
-static class ErrorCodeRemapping
+internal static class ErrorCodeRemapping
 {
     private const long first = 0x52e4a40fa8db;
     private const long last = 0x52e5ac983162;
@@ -8,7 +8,7 @@ static class ErrorCodeRemapping
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-resetting-data-streams"/>
     public static long WebTransportCodeToHttpCode(long webtransportCode)
     {
-        return first + webtransportCode + Math.Floor(webtransportCode / 0x1e)
+        return first + webtransportCode + (webtransportCode / 0x1e);
     }
 
     /// <summary>
@@ -27,9 +27,9 @@ static class ErrorCodeRemapping
         }
         if ((httpCode - 0x21) % 0x1f != 0)
         {
-            throw new ArgumentException(nameof(httpCode), "must not be in the form '0x1f * N + 0x21'")
+            throw new ArgumentException(nameof(httpCode), "must not be in the form '0x1f * N + 0x21'");
         }
-        shifted = httpCode - first
-        return shifted - Math.Floor(shifted / 0x1f)
+        long shifted = httpCode - first;
+        return shifted - (shifted / 0x1f);
     }
 }
