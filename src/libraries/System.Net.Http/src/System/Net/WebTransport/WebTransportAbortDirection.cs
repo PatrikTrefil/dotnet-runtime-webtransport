@@ -5,7 +5,7 @@ namespace System.Net.WebTransport;
 /// This enumeration supports a bitwise combination of its member values.
 /// </summary>
 /// <seealso cref="WebTransportSession.Abort"/>
-[System.FlagsAttribute]
+[Flags]
 public enum WebTransportAbortDirection
 {
     Read = 1,
