@@ -1,4 +1,8 @@
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Buffers.Binary;
+using System.Diagnostics;
 
 namespace System.Net.WebTransport;
 
@@ -21,48 +25,68 @@ internal static class VariableLengthIntegerStreamHelper
     /// Reads exactly one variable length integer from the <paramref name="stream"/>.
     /// </summary>
     /// <returns>the parsed integer</returns>
-    public static async long ReadAsync(Stream stream, CancellationToken cancellationToken = default)
+    /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
+    public static long Read(Stream stream) => Read(stream, out int _);
+
+    // TODO: should the read/write methods be async? maybe use ValueTask to reduce allocations?
+    /// <summary>
+    /// Reads exactly one variable length integer from the <paramref name="stream"/>.
+    /// </summary>
+    /// <param name="bytesRead">Number of bytes that has been read from the stream, i.e. how many bytes were used to encode the parsed value.</param>
+    /// <returns>the parsed integer</returns>
+    /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
+    public static long Read(Stream stream, out int bytesRead)
     {
-        byte firstByte = stream.ReadByte();
+        int firstByte = stream.ReadByte();
+        if (firstByte == -1)
+        {
+            throw new ArgumentException("Stream is empty");
+        }
 
         switch (firstByte & LengthMask)
         {
             case InitialOneByteLengthMask:
+                bytesRead = 1;
                 return firstByte;
             case InitialTwoByteLengthMask:
-                var buffer = stackalloc new byte[2];
-                await stream.ReadExactlyAsync(buffer, 2, cancellationToken)
-                if (BinaryPrimitives.TryReadUInt16BigEndian(buffer, out ushort serializedShort))
+                Span<byte> twoByteBuffer = stackalloc byte[2];
+                stream.ReadExactly(twoByteBuffer);
+                if (BinaryPrimitives.TryReadUInt16BigEndian(twoByteBuffer, out ushort serializedShort))
                 {
+                    bytesRead = 2;
                     return serializedShort - TwoByteLengthMask;
                 }
                 break;
             case InitialFourByteLengthMask:
-                var buffer = stackalloc new byte[4];
-                await stream.ReadExactlyAsync(buffer, 4, cancellationToken)
-                if (BinaryPrimitives.TryReadUInt32BigEndian(buffer, out uint serializedInt))
+                Span<byte> fourByteBuffer = stackalloc byte[4];
+                stream.ReadExactly(fourByteBuffer);
+                if (BinaryPrimitives.TryReadUInt32BigEndian(fourByteBuffer, out uint serializedInt))
                 {
+                    bytesRead = 4;
                     return serializedInt - FourByteLengthMask;
                 }
                 break;
             default: // InitialEightByteLengthMask
                 Debug.Assert((firstByte & LengthMask) == InitialEightByteLengthMask);
-                var buffer = stackalloc new byte[8];
-                await stream.ReadExactlyAsync(buffer, 8, cancellationToken)
-                if (BinaryPrimitives.TryReadUInt64BigEndian(buffer, out ulong serializedLong))
+                Span<byte> eightByteBuffer = stackalloc byte[8];
+                stream.ReadExactly(eightByteBuffer);
+                if (BinaryPrimitives.TryReadUInt64BigEndian(eightByteBuffer, out ulong serializedLong))
                 {
-                    Debug.Assert(value >= 0 && value <= EightByteLimit, "Serialized values are within [0, 2^62).");
+                    bytesRead = 8;
                     return (long)(serializedLong - EightByteLengthMask);
                 }
                 break;
         }
         throw new Exception("Should be unreachable");
     }
-    public static async void WriteAsync(Stream stream, long value, CancellationToken cancellationToken = default)
+    public static void Write(Stream stream, long value)
     {
-        Span<byte> buffer = stackalloc new byte[MaximumEncodedLength];
-        bool isSuccess = VariableLengthIntegerHelper.TryWrite(buffer, value, out int bytesWritten);
+        Span<byte> buffer = stackalloc byte[MaximumEncodedLength];
+        bool isSuccess = System.Net.Http.VariableLengthIntegerHelper.TryWrite(buffer, value, out int bytesWritten);
         Debug.Assert(isSuccess, $"Should always succeed because the {nameof(buffer)} has length of {nameof(MaximumEncodedLength)}");
-        await stream.WriteAsync(buffer, 0, bytesWritten, cancellationToken);
+        for (int i = 0; i < bytesWritten; i++)
+        {
+            stream.WriteByte(buffer[i]);
+        }
     }
 }
