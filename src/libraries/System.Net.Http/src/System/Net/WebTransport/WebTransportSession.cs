@@ -41,9 +41,17 @@ internal static class VariableLengthIntegerValidator
 
 public sealed record class WebTransportSessionCreationOptions
 {
-    private readonly long _initialMaxUnidirectionalStreamCount;
-    private readonly long _initialMaxBidirectionalStreamCount;
-    private readonly long _initialMaxData;
+    // TODO: maybe the shutdown handler should have a CancellationToken parameter?
+    /// <summary>
+    /// This function is invoked when peer requests a graceful shutdown. The session may be used to send more data,
+    /// but is should be terminated as soon as possible.
+    /// </summary>
+    /// <remarks>
+    /// The default handler calls <see cref="WebTransportSession.CloseAsync(long, string, CancellationToken)"/> with status code 0 and an empty message.
+    /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
+    /// </remarks>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
+    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => session.CloseAsync(0, "");
     public string? SubProtocol { get; init; }
     /// <summary>
     /// Default value is zero.
@@ -53,25 +61,27 @@ public sealed record class WebTransportSessionCreationOptions
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
     public long InitialMaxUnidirectionalStreamCount
     {
-        get => _initialMaxUnidirectionalStreamCount;
+        get;
         init
         {
             VariableLengthIntegerValidator.ThrowIfInvalid(value);
-            _initialMaxUnidirectionalStreamCount = value;
+            field = value;
         }
     }
+
     /// <summary>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is equal or greater than 2^62</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
     public long InitialMaxBidirectionalStreamCount
     {
-        get => _initialMaxBidirectionalStreamCount; init
+        get;
+        init
         {
             VariableLengthIntegerValidator.ThrowIfInvalid(value);
-            _initialMaxBidirectionalStreamCount = value;
+            field = value;
         }
     }
 
@@ -83,10 +93,11 @@ public sealed record class WebTransportSessionCreationOptions
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
     public long InitialMaxData
     {
-        get => _initialMaxData;
+        get;
         init
         {
-            VariableLengthIntegerValidator.ThrowIfInvalid(value); _initialMaxData = value;
+            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            field = value;
         }
     }
 }
