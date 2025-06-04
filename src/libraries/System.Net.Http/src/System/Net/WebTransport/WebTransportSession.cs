@@ -13,31 +13,6 @@ using System.Numerics;
 
 namespace System.Net.WebTransport;
 
-// TODO: https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-use-of-keying-material-expo
-// TODO: maybe use IAsyncDisposable an addition to IDisposable everywhere?
-// TODO: add throw ArgumentNullException for all properties that are not nullable in all files
-// TODO: who manages the connection settings - i.e. SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI , etc.?
-
-public enum WebTransportSessionState
-{
-    None = 0,
-    Connecting,
-    Open,
-    Closed,
-    Aborted
-}
-
-internal static class VariableLengthIntegerValidator
-{
-    private const long MaxValue = (1L << 62) - 1;
-    public static void ThrowIfInvalid(long value)
-    {
-        if (value is < 0 or > MaxValue)
-        {
-            throw new ArgumentOutOfRangeException(nameof(value), "The value must be in the range [0, 2^62)");
-        }
-    }
-}
 
 public sealed record class WebTransportSessionCreationOptions
 {
