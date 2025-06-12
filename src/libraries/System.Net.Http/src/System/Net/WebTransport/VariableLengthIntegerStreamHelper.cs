@@ -7,8 +7,6 @@ using System.Diagnostics;
 
 namespace System.Net.WebTransport;
 
-// TODO: this could be merged into VariableLengthIntegerHelper
-
 internal static class VariableLengthIntegerStreamHelper
 {
     public const int MaximumEncodedLength = 8;
@@ -29,11 +27,11 @@ internal static class VariableLengthIntegerStreamHelper
     /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
     public static long Read(Stream stream) => Read(stream, out int _);
 
-    // TODO: should the read/write methods be async? maybe use ValueTask to reduce allocations?
     /// <summary>
     /// Reads exactly one variable length integer from the <paramref name="stream"/>.
     /// </summary>
     /// <param name="bytesRead">Number of bytes that has been read from the stream, i.e. how many bytes were used to encode the parsed value.</param>
+    /// <param name="stream">Stream to read from</param>
     /// <returns>the parsed integer</returns>
     /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
     public static long Read(Stream stream, out int bytesRead)
@@ -83,7 +81,7 @@ internal static class VariableLengthIntegerStreamHelper
     public static void Write(Stream stream, long value)
     {
         Span<byte> buffer = stackalloc byte[MaximumEncodedLength];
-        bool isSuccess = System.Net.Http.VariableLengthIntegerHelper.TryWrite(buffer, value, out int bytesWritten);
+        bool isSuccess = Http.VariableLengthIntegerHelper.TryWrite(buffer, value, out int bytesWritten);
         Debug.Assert(isSuccess, $"Should always succeed because the {nameof(buffer)} has length of {nameof(MaximumEncodedLength)}");
         for (int i = 0; i < bytesWritten; i++)
         {
