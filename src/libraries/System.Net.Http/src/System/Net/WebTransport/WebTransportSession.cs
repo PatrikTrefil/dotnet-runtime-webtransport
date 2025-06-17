@@ -81,8 +81,12 @@ public sealed record class WebTransportSessionCreationOptions
 /// Represents a WebTransport session.
 /// </summary>
 /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-1.2-3.2.1"/>
+public abstract partial class WebTransportSession : IAsyncDisposable
 {
-    private static readonly Encoding _encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    [SupportedOSPlatformGuard("windows")]
+    [SupportedOSPlatformGuard("linux")]
+    [SupportedOSPlatformGuard("osx")]
+    public static bool IsSupported => QuicConnection.IsSupported;
     private readonly CapsuleConsumer _capsuleConsumer;
     private long _unidirectionalStreamCountLimitForPeer;
     private long _bidirectionalStreamCountLimitForPeer;
