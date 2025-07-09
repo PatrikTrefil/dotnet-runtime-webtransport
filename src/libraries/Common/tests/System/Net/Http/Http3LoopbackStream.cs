@@ -30,6 +30,7 @@ namespace System.Net.Test.Common
         public const long MaxHeaderListSize = 0x6;
 
         private readonly QuicStream _stream;
+        public QuicStream QuicStream => _stream;
 
         public bool CanRead => _stream.CanRead;
         public bool CanWrite => _stream.CanWrite;
@@ -57,15 +58,15 @@ namespace System.Net.Test.Common
             await _stream.WriteAsync(buffer.AsMemory(0, bytesWritten)).ConfigureAwait(false);
         }
 
-        public async Task SendSettingsFrameAsync(SettingsEntry[] settingsEntries)
+        public async Task SendSettingsFrameAsync(Http3SettingsEntry[] settingsEntries)
         {
             var buffer = new byte[settingsEntries.Length * MaximumVarIntBytes * 2];
 
             int bytesWritten = 0;
 
-            foreach (SettingsEntry setting in settingsEntries)
+            foreach (Http3SettingsEntry setting in settingsEntries)
             {
-                bytesWritten += EncodeHttpInteger((int)setting.SettingId, buffer.AsSpan(bytesWritten));
+                bytesWritten += EncodeHttpInteger((long)setting.SettingId, buffer.AsSpan(bytesWritten));
                 bytesWritten += EncodeHttpInteger(setting.Value, buffer.AsSpan(bytesWritten));
             }
 

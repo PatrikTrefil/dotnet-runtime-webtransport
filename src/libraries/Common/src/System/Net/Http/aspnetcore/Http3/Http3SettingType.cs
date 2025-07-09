@@ -3,7 +3,7 @@
 
 namespace System.Net.Http
 {
-    internal enum Http3SettingType : long
+    public enum Http3SettingType : long
     {
         /// <summary>
         /// SETTINGS_QPACK_MAX_TABLE_CAPACITY
@@ -36,10 +36,18 @@ namespace System.Net.Http
         QPackBlockedStreams = 0x7,
 
         /// <summary>
-        /// SETTINGS_ENABLE_WEBTRANSPORT, default is 0 (off)
-        /// https://www.ietf.org/archive/id/draft-ietf-webtrans-http3-01.html#name-http-3-settings-parameter-r
+        /// SETTINGS_ENABLE_CONNECT_PROTOCOL
+        /// Value 1 indicates support for the Extended CONNECT
+        /// https://www.rfc-editor.org/rfc/rfc9220#section-5-2.4.1
         /// </summary>
-        EnableWebTransport = 0x2b603742,
+        EnableConnect = 0x8,
+
+        /// <summary>
+        /// The SETTINGS_WEBTRANSPORT_MAX_SESSIONS
+        /// Indicates that the specified HTTP/3 endpoint is WebTransport-capable and the number of concurrent sessions it is willing to receive.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-2"/>
+        WebTransportMaxSessions = 0xc671706a,
 
         /// <summary>
         /// H3_DATAGRAM, default is 0 (off)
