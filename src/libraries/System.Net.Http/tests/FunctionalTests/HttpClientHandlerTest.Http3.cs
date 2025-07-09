@@ -1795,7 +1795,7 @@ namespace System.Net.Http.Functional.Tests
                         await connection.OutboundControlStream.DisposeAsync();
                         try
                         {
-                            await connection.EstablishControlStreamAsync(Array.Empty<SettingsEntry>());
+                            await connection.EstablishControlStreamAsync(Array.Empty<Http3SettingsEntry>());
                         }
                         catch (QuicException ex) when (ex.QuicError == QuicError.ConnectionAborted && ex.ApplicationErrorCode == Http3LoopbackConnection.H3_CLOSED_CRITICAL_STREAM)
                         {
