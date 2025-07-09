@@ -37,8 +37,8 @@
       $(DefineConstants);TARGET_WASI</DefineConstants>
     <DefineConstants Condition="'$(FeatureWasmManagedThreads)' == 'true'">
       $(DefineConstants);FEATURE_WASM_MANAGED_THREADS</DefineConstants>
-    <EmitCompilerGeneratedFiles
-      Condition="'$(Configuration)' == 'Debug' and '$(TargetPlatformIdentifier)' == 'browser'">true</EmitCompilerGeneratedFiles>
+    <EmitCompilerGeneratedFiles Condition="'$(Configuration)' == 'Debug' and '$(TargetPlatformIdentifier)' == 'browser'">true</EmitCompilerGeneratedFiles>
+    <ApiExclusionListPath Condition="'$(TargetPlatformIdentifier)' != 'windows' and '$(TargetPlatformIdentifier)' != 'osx' and '$(TargetPlatformIdentifier)' != 'linux'">ExcludeApiList.PNSE.txt</ApiExclusionListPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -74,6 +74,8 @@
       Include="System\Net\Http\HttpClientHandler.cs" />
     <Compile Include="System\Net\Http\HttpCompletionOption.cs" />
     <Compile Include="System\Net\Http\HttpContent.cs" />
+    <Compile Include="System\Net\Http\Http3ExtendedConnectManager.cs" />
+    <Compile Include="System\Net\Http\Http3ExtendedConnectContent.cs" />
     <Compile Include="System\Net\Http\HttpMessageHandler.cs" />
     <Compile Include="System\Net\Http\HttpMessageInvoker.cs" />
     <Compile Include="System\Net\Http\HttpMethod.cs" />
@@ -149,48 +151,42 @@
     <Compile Include="System\Net\Http\Metrics\HttpMetricsEnrichmentContext.cs" />
     <Compile Include="System\Net\Http\Metrics\MetricsHandler.cs" />
     <Compile Include="System\Net\Http\SocketsHttpHandler\SocketsHttpPlaintextStreamFilterContext.cs" />
+    <Compile Include="$(CommonPath)DisableRuntimeMarshalling.cs" Link="Common\DisableRuntimeMarshalling.cs" />
+    <Compile Include="$(CommonPath)System\IO\DelegatingStream.cs" Link="Common\System\IO\DelegatingStream.cs" />
+    <Compile Include="$(CommonPath)System\IO\ReadOnlyMemoryStream.cs" Link="Common\System\IO\ReadOnlyMemoryStream.cs" />
+    <Compile Include="$(CommonPath)System\Text\StringBuilderCache.cs" Link="Common\System\Text\StringBuilderCache.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.cs" Link="Common\System\Net\Logging\NetEventSource.Common.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.Associate.cs" Link="Common\System\Net\Logging\NetEventSource.Common.Associate.cs" />
+    <Compile Include="$(CommonPath)System\Net\HttpDateParser.cs" Link="Common\System\Net\HttpDateParser.cs" />
+    <Compile Include="$(CommonPath)System\Text\SimpleRegex.cs" Link="Common\System\Text\SimpleRegex.cs" />
+    <Compile Include="$(CommonPath)System\HexConverter.cs" Link="Common\System\HexConverter.cs" />
+    <Compile Include="$(CommonPath)System\Net\ArrayBuffer.cs" Link="Common\System\Net\ArrayBuffer.cs" />
+    <Compile Include="$(CommonPath)System\Net\MultiArrayBuffer.cs" Link="Common\System\Net\MultiArrayBuffer.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http2\Hpack\H2StaticTable.cs" Link="Common\System\Net\Http\aspnetcore\Http2\Hpack\H2StaticTable.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\QPack\H3StaticTable.cs" Link="Common\System\Net\Http\aspnetcore\Http3\QPack\H3StaticTable.cs" />
+    <Compile Include="$(CommonPath)System\Text\ValueStringBuilder.cs" Link="Common\System\Text\ValueStringBuilder.cs" />
+    <Compile Include="$(CommonPath)System\Text\ValueStringBuilder.AppendSpanFormattable.cs" Link="Common\System\Text\ValueStringBuilder.AppendSpanFormattable.cs" />
+    <Compile Include="$(CommonPath)System\Obsoletions.cs" Link="Common\System\Obsoletions.cs" />
+    <Compile Include="$(CommonPath)System\Net\CredentialCacheKey.cs" Link="Common\System\Net\CredentialCacheKey.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
     <Compile Include="System\Net\WebTransport\WebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
+    <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportSessionManager.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
     <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
     <Compile Include="System\Net\WebTransport\VariableLengthIntegerStreamHelper.cs" />
-    <Compile Include="$(CommonPath)DisableRuntimeMarshalling.cs"
-      Link="Common\DisableRuntimeMarshalling.cs" />
-    <Compile Include="$(CommonPath)System\IO\DelegatingStream.cs"
-      Link="Common\System\IO\DelegatingStream.cs" />
-    <Compile Include="$(CommonPath)System\IO\ReadOnlyMemoryStream.cs"
-      Link="Common\System\IO\ReadOnlyMemoryStream.cs" />
-    <Compile Include="$(CommonPath)System\Text\StringBuilderCache.cs"
-      Link="Common\System\Text\StringBuilderCache.cs" />
-    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.cs"
-      Link="Common\System\Net\Logging\NetEventSource.Common.cs" />
-    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.Associate.cs"
-      Link="Common\System\Net\Logging\NetEventSource.Common.Associate.cs" />
-    <Compile Include="$(CommonPath)System\Net\HttpDateParser.cs"
-      Link="Common\System\Net\HttpDateParser.cs" />
-    <Compile Include="$(CommonPath)System\Text\SimpleRegex.cs"
-      Link="Common\System\Text\SimpleRegex.cs" />
-    <Compile Include="$(CommonPath)System\HexConverter.cs"
-      Link="Common\System\HexConverter.cs" />
-    <Compile Include="$(CommonPath)System\Net\ArrayBuffer.cs"
-      Link="Common\System\Net\ArrayBuffer.cs" />
-    <Compile Include="$(CommonPath)System\Net\MultiArrayBuffer.cs"
-      Link="Common\System\Net\MultiArrayBuffer.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http2\Hpack\H2StaticTable.cs"
-      Link="Common\System\Net\Http\aspnetcore\Http2\Hpack\H2StaticTable.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\QPack\H3StaticTable.cs"
-      Link="Common\System\Net\Http\aspnetcore\Http3\QPack\H3StaticTable.cs" />
-    <Compile Include="$(CommonPath)System\Text\ValueStringBuilder.cs"
-      Link="Common\System\Text\ValueStringBuilder.cs" />
-    <Compile Include="$(CommonPath)System\Text\ValueStringBuilder.AppendSpanFormattable.cs"
-      Link="Common\System\Text\ValueStringBuilder.AppendSpanFormattable.cs" />
-    <Compile Include="$(CommonPath)System\Obsoletions.cs"
-      Link="Common\System\Obsoletions.cs" />
-    <Compile Include="$(CommonPath)System\Net\CredentialCacheKey.cs"
-      Link="Common\System\Net\CredentialCacheKey.cs" />
+    <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'windows' and '$(TargetPlatformIdentifier)' != 'osx' and '$(TargetPlatformIdentifier)' != 'linux'">
+    <Compile Include="System\Net\WebTransport\WebTransportSession.Unsupported.cs" />
   </ItemGroup>
 
   <!-- SocketsHttpHandler implementation -->
@@ -533,8 +529,7 @@
     <Reference Include="System.Net.Quic" />
     <Reference Include="System.Net.Security" />
     <Reference Include="System.Net.Sockets" />
-    <Reference Include="System.Security.Claims"
-      Condition="'$(TargetPlatformIdentifier)' == 'windows'" />
+    <Reference Include="System.Security.Claims" Condition="'$(TargetPlatformIdentifier)' == 'windows'" />
     <Reference Include="System.Security.Cryptography" />
     <Reference Include="System.Security.Principal.Windows" />
     <Reference Include="System.Threading.Channels" />
