@@ -246,6 +246,21 @@
              Link="ProductionCode\Common\System\Net\MultiArrayBuffer.cs" />
     <Compile Include="$(CommonPath)System\Net\StreamBuffer.cs"
              Link="ProductionCode\Common\System\Net\StreamBuffer.cs" />
+    <Compile Include="$(CommonTestPath)System\Net\Http\Http3SettingsEntry.cs"
+             Link="ProductionCode\Common\System\Net\Http\Http3SettingsEntry.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Http3SettingType.cs"
+             Link="ProductionCode\Common\System\Net\Http\aspnetcore\Http3\Http3SettingsType.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
+    <Compile Include="WebTransport\WebTransportTestBase.cs" />
+    <Compile Include="WebTransport\WebTransportSessionTests.cs" />
+    <Compile Include="WebTransport\WebTransportPlatformDetectionTests.cs" />
+    <Compile Include="WebTransport\WebTransportLoopbackServer.cs" />
+    <Compile Include="$(CommonPath)\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs"
+             Link="ProductionCode\Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
+    <Compile Include="..\..\src\System\Net\WebTransport\VariableLengthIntegerStreamHelper.cs"
+             Link="ProductionCode\System\Net\WebTransport\VariableLengthIntegerStreamHelper.cs" />
   </ItemGroup>
 
   <!-- Windows specific files -->
