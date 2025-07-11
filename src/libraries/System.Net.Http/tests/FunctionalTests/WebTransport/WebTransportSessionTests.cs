@@ -247,11 +247,6 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-        });
-
         Task clientTask = Task.Run(async () =>
         {
             using HttpClient client = CreateHttpClient();
@@ -259,6 +254,12 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetMaxDataSentLimitForPeerAsync(invalidVarInt));
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await clientTask; // prevent server session from closing before client task runs
         });
 
 
