@@ -19,6 +19,8 @@ namespace System.Net.WebTransport;
 
 // TODO: maybe the public properties values should depend on _isDisposed or maybe even throw?
 // TODO: implement application protocol negotiation
+// TODO: add tracing/logging
+// TODO: separate out error messages to resx file
 
 public sealed record class WebTransportSessionCreationOptions
 {
