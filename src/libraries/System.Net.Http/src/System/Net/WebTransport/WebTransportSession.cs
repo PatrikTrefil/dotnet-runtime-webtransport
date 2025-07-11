@@ -17,6 +17,8 @@ using System.Collections.Generic;
 
 namespace System.Net.WebTransport;
 
+// TODO: maybe the public properties values should depend on _isDisposed or maybe even throw?
+// TODO: implement application protocol negotiation
 
 public sealed record class WebTransportSessionCreationOptions
 {
