@@ -95,6 +95,8 @@ namespace System.Net.Http
                 HttpRequestError.InvalidResponse => "invalid_response",
                 HttpRequestError.ResponseEnded => "response_ended",
                 HttpRequestError.ConfigurationLimitExceeded => "configuration_limit_exceeded",
+                HttpRequestError.MissingExtendedConnectManager => "missing_extended_connect_manager",
+                HttpRequestError.ServerSettingsValidationFailed => "server_settings_validation_failed",
 
                 // Fall back to the exception type name in case of HttpRequestError.Unknown or when exception is not an HttpRequestException.
                 _ => exception.GetType().FullName!

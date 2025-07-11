@@ -1509,11 +1509,9 @@ namespace System.Net.Http.Functional.Tests
                 },
                 async server =>
                 {
-                    var setting = new SettingsEntry { SettingId = SettingId.MaxHeaderListSize, Value = Limit };
-
                     await using GenericLoopbackConnection connection = UseVersion.Major == 2
-                        ? await ((Http2LoopbackServer)server).EstablishConnectionAsync(setting)
-                        : await ((Http3LoopbackServer)server).EstablishConnectionAsync(setting);
+                        ? await ((Http2LoopbackServer)server).EstablishConnectionAsync(new SettingsEntry { SettingId = SettingId.MaxHeaderListSize, Value = Limit })
+                        : await ((Http3LoopbackServer)server).EstablishConnectionAsync(new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = Limit });
 
                     await connection.ReadRequestDataAsync();
                     await connection.SendResponseAsync(content: "Hello world");

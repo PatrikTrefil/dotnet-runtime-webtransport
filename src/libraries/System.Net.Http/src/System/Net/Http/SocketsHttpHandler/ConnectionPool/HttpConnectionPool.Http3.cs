@@ -110,6 +110,35 @@ namespace System.Net.Http
                     {
                         return null;
                     }
+                    // TODO: move this if into the next SendAsync for easier implementation of the dispose callback
+                    if (request.IsExtendedConnectRequest)
+                    {
+                        await connection.InitialSettingsReceived.WaitAsync(cancellationToken).ConfigureAwait(false);
+                        if (!connection.IsConnectEnabled)
+                        {
+                            HttpRequestException exception = new(HttpRequestError.ExtendedConnectNotSupported, SR.net_unsupported_extended_connect);
+                            exception.Data["SETTINGS_ENABLE_CONNECT_PROTOCOL"] = false;
+                            throw exception;
+                        }
+
+                        _ = request.Options.TryGetValue<Func<Action, Http3ExtendedConnectManager>>(Http3ExtendedConnectManager.RequestOptionsKey, out Func<Action, Http3ExtendedConnectManager>? valueFactory);
+                        if (valueFactory == null)
+                        {
+                            throw new HttpRequestException(HttpRequestError.MissingExtendedConnectManager, SR.net_missing_extended_connect_manager);
+                        }
+                        string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
+
+                        Action disposeCallback = () => { }; // TODO: implement this callback
+                        Http3ExtendedConnectManager extendedconnectManager = connection.ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory.Invoke(disposeCallback));
+                        try
+                        {
+                            extendedconnectManager.ValidateServerSettings(connection.NonHttpSettings);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new HttpRequestException(HttpRequestError.ServerSettingsValidationFailed, SR.net_server_settings_validation_failed, e);
+                        }
+                    }
 
                     HttpResponseMessage response = await connection.SendAsync(request, queueStartingTimestamp, waitForConnectionActivity, cancellationToken).ConfigureAwait(false);
 
@@ -518,7 +547,8 @@ namespace System.Net.Http
                     if (NetEventSource.Log.IsEnabled()) connection.Trace("HTTP3 connection no longer usable");
                     connection.Dispose();
                 }
-            };
+            }
+            ;
         }
 
         /// <summary>

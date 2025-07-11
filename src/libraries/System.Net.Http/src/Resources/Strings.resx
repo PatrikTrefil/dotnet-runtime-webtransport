@@ -582,4 +582,10 @@
   <data name="net_ping_request_timed_out" xml:space="preserve">
     <value>The HTTP/2 server didn't respond to a ping request within the configured KeepAlivePingDelay.</value>
   </data>
+  <data name="net_server_settings_validation_failed" xml:space="preserve">
+    <value>The validation of server settings using the provided HTTP/3 extended connect manager failed.</value>
+  </data>
+  <data name="net_missing_extended_connect_manager" xml:space="preserve">
+    <value>The request message using extended CONNECT does not contain a factory for an instance of an HTTP/3 extended connect manager.</value>
+  </data>
 </root>
