@@ -26,7 +26,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         foreach (SessionWithChannels sessionWithChannels in _idSessionWithChannelsDict.Values)
         {
             goAwayHandlerTasks[i] = sessionWithChannels.Session?.GracefulShutdownHandler.Invoke() ?? Task.CompletedTask;
-            ++i;
+            i++;
         }
         await Task.WhenAll(goAwayHandlerTasks).ConfigureAwait(false);
     }
