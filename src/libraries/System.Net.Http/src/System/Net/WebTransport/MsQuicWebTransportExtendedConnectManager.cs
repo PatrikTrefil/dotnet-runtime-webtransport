@@ -16,16 +16,16 @@ namespace System.Net.WebTransport;
 
 internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedConnectManager
 {
-    private readonly ConcurrentDictionary<long, SessionWithChannels> _idSessionWithChannelsDict = new();
+    private readonly ConcurrentDictionary<long, SessionAndChannels> _idSessionAndChannelsDict = new();
     public MsQuicWebTransportExtendedConnectManager(Action disposedCallback) : base(disposedCallback) { }
 
     public override async Task GoAwayReceivedAsync()
     {
-        Task[] goAwayHandlerTasks = new Task[_idSessionWithChannelsDict.Count];
+        Task[] goAwayHandlerTasks = new Task[_idSessionAndChannelsDict.Count];
         int i = 0;
-        foreach (SessionWithChannels sessionWithChannels in _idSessionWithChannelsDict.Values)
+        foreach (SessionAndChannels sessionAndChannels in _idSessionAndChannelsDict.Values)
         {
-            goAwayHandlerTasks[i] = sessionWithChannels.Session?.GracefulShutdownHandler.Invoke() ?? Task.CompletedTask;
+            goAwayHandlerTasks[i] = sessionAndChannels.Session?.GracefulShutdownHandler.Invoke() ?? Task.CompletedTask;
             i++;
         }
         await Task.WhenAll(goAwayHandlerTasks).ConfigureAwait(false);
@@ -39,21 +39,14 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     public WebTransportSession CreateSession(QuicStream connectStream, QuicConnection quicConnection, WebTransportSessionCreationOptions? options)
     {
-        SessionWithChannels sessionWithChannels = _idSessionWithChannelsDict.GetOrAdd(connectStream.Id, id =>
-        {
-            var pendingUnidirectionalStreams = Channel.CreateUnbounded<ChannelItem>();
-            var pendingBidirectionalStreams = Channel.CreateUnbounded<ChannelItem>();
-            var newSession = new MsQuicWebTransportSession(connectStream.Id, this, quicConnection, connectStream, pendingUnidirectionalStreams, pendingBidirectionalStreams, options);
-            return new SessionWithChannels
-            {
-                Session = newSession,
-                PendingBidirectionalStreams = pendingBidirectionalStreams,
-                PendingUnidirectionalStreams = pendingUnidirectionalStreams
-            };
-        });
-        sessionWithChannels.Session ??= new MsQuicWebTransportSession(connectStream.Id, this, quicConnection, connectStream, sessionWithChannels.PendingUnidirectionalStreams, sessionWithChannels.PendingBidirectionalStreams, options);
-        sessionWithChannels.Session.Init();
-        return sessionWithChannels.Session;
+        // It's possible that a there are already pending streams for the session we are creating
+        SessionAndChannels sessionAndChannels = _idSessionAndChannelsDict.GetOrAdd(
+            connectStream.Id,
+             _ => new SessionAndChannels()
+        );
+        sessionAndChannels.Session = new MsQuicWebTransportSession(connectStream.Id, this, quicConnection, connectStream, sessionAndChannels.PendingUnidirectionalStreams, sessionAndChannels.PendingBidirectionalStreams, options);
+        sessionAndChannels.Session.Init();
+        return sessionAndChannels.Session;
     }
 
     public override async Task StreamReceivedAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream)
@@ -74,11 +67,14 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             buffer.Commit(bytesRead);
         }
         buffer.Discard(bytesRead);
-        SessionWithChannels sessionWithChannels = _idSessionWithChannelsDict.GetOrAdd(sessionId, _ => new SessionWithChannels());
+
+        // The session may not exist yet. In that case we only create the channels without a session object.
+        // The session object will then attached in the CreateSession method
+        SessionAndChannels sessionAndChannels = _idSessionAndChannelsDict.GetOrAdd(sessionId, _ => new SessionAndChannels());
         Channel<ChannelItem> channelForStreamType = streamType switch
         {
-            QuicStreamType.Unidirectional => sessionWithChannels.PendingUnidirectionalStreams,
-            QuicStreamType.Bidirectional => sessionWithChannels.PendingBidirectionalStreams,
+            QuicStreamType.Unidirectional => sessionAndChannels.PendingUnidirectionalStreams,
+            QuicStreamType.Bidirectional => sessionAndChannels.PendingBidirectionalStreams,
             _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
         };
         bool writeSuccess = channelForStreamType.Writer.TryWrite((buffer, stream));
@@ -95,7 +91,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    private sealed class SessionWithChannels()
+    private sealed class SessionAndChannels()
     {
         public MsQuicWebTransportSession? Session { get; set; }
         public Channel<ChannelItem> PendingUnidirectionalStreams { get; init; } = Channel.CreateUnbounded<ChannelItem>();
