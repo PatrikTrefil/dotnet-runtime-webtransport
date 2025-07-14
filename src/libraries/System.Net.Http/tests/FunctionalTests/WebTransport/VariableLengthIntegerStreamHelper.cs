@@ -4,6 +4,7 @@
 using System.IO;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Net.Test.Common;
 
 namespace System.Net.WebTransport;
 
@@ -50,33 +51,23 @@ internal static class VariableLengthIntegerStreamHelper
             case InitialTwoByteLengthMask:
                 Span<byte> twoByteBuffer = stackalloc byte[2];
                 stream.ReadExactly(twoByteBuffer);
-                if (BinaryPrimitives.TryReadUInt16BigEndian(twoByteBuffer, out ushort serializedShort))
-                {
-                    bytesRead = 2;
-                    return serializedShort - TwoByteLengthMask;
-                }
-                break;
+                ushort serializedShort = BinaryPrimitives.ReadUInt16BigEndian(twoByteBuffer);
+                bytesRead = 2;
+                return serializedShort - TwoByteLengthMask;
             case InitialFourByteLengthMask:
                 Span<byte> fourByteBuffer = stackalloc byte[4];
                 stream.ReadExactly(fourByteBuffer);
-                if (BinaryPrimitives.TryReadUInt32BigEndian(fourByteBuffer, out uint serializedInt))
-                {
-                    bytesRead = 4;
-                    return serializedInt - FourByteLengthMask;
-                }
-                break;
+                uint serializedInt = BinaryPrimitives.ReadUInt32BigEndian(fourByteBuffer);
+                bytesRead = 4;
+                return serializedInt - FourByteLengthMask;
             default: // InitialEightByteLengthMask
                 Debug.Assert((firstByte & LengthMask) == InitialEightByteLengthMask);
                 Span<byte> eightByteBuffer = stackalloc byte[8];
                 stream.ReadExactly(eightByteBuffer);
-                if (BinaryPrimitives.TryReadUInt64BigEndian(eightByteBuffer, out ulong serializedLong))
-                {
-                    bytesRead = 8;
-                    return (long)(serializedLong - EightByteLengthMask);
-                }
-                break;
+                ulong serializedLong = BinaryPrimitives.ReadUInt64BigEndian(eightByteBuffer);
+                bytesRead = 8;
+                return (long)(serializedLong - EightByteLengthMask);
         }
-        throw new Exception("Should be unreachable");
     }
     public static void Write(Stream stream, long value)
     {
