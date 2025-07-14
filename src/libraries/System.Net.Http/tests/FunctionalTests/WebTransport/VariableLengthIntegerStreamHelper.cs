@@ -81,8 +81,7 @@ internal static class VariableLengthIntegerStreamHelper
     public static void Write(Stream stream, long value)
     {
         Span<byte> buffer = stackalloc byte[MaximumEncodedLength];
-        bool isSuccess = Http.VariableLengthIntegerHelper.TryWrite(buffer, value, out int bytesWritten);
-        Debug.Assert(isSuccess, $"Should always succeed because the {nameof(buffer)} has length of {nameof(MaximumEncodedLength)}");
+        int bytesWritten = VariableLengthIntegerHelper.EncodeVariableLengthInteger(value, buffer);
         for (int i = 0; i < bytesWritten; i++)
         {
             stream.WriteByte(buffer[i]);

@@ -73,10 +73,7 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
                 stream.Write(s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger);
                 break;
         }
-        byte[] buffer = new byte[VariableLengthIntegerHelper.MaximumEncodedLength];
-        bool writeSuccess = VariableLengthIntegerHelper.TryWrite(buffer, serverSession.SessionId, out int bytesWritten);
-        Assert.True(writeSuccess);
-        stream.Write(buffer.AsSpan().Slice(0, bytesWritten));
+        VariableLengthIntegerStreamHelper.Write(stream, serverSession.SessionId);
         stream.Flush();
         return stream;
     }

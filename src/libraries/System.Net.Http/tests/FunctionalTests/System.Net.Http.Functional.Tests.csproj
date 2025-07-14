@@ -260,8 +260,6 @@
     <Compile Include="WebTransport\VariableLengthIntegerStreamHelper.cs" />
     <Compile Include="$(CommonPath)\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs"
              Link="ProductionCode\Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
-    <Compile Include="..\..\src\System\Net\WebTransport\VariableLengthIntegerStreamHelper.cs"
-             Link="ProductionCode\System\Net\WebTransport\VariableLengthIntegerStreamHelper.cs" />
   </ItemGroup>
 
   <!-- Windows specific files -->
