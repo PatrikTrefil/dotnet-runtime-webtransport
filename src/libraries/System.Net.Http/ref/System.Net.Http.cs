@@ -1021,18 +1021,27 @@ namespace System.Net.WebTransport
 
         public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
     }
-    public partial class WebTransportException : Exception { }
+    public partial class WebTransportException : Exception
+    {
+        public WebTransportException(string message) : base(message) { }
+        public WebTransportException(string message, Exception innerException) : base(message, innerException) { }
+    }
 
     public sealed partial class WebTransportStreamClosedException : WebTransportException
     {
         public int ApplicationErrorCode { get { throw null; } }
+        public WebTransportStreamClosedException(string message, int applicationErrorCode) : base(message) { }
+        public WebTransportStreamClosedException(string message, int applicationErrorCode, Exception innerException) : base(message, innerException) { }
     }
 
     public sealed partial class WebTransportSessionClosedException : WebTransportException
     {
         public int ApplicationErrorCode { get { throw null; } }
         public string ApplicationErrorMessage { get { throw null; } }
+        public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage) : base(message) { }
+        public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage, Exception innerException) : base(message, innerException) { }
     }
+
     [Flags]
     public enum WebTransportAbortDirection
     {
