@@ -98,6 +98,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     private static readonly Encoding _encoding = Encoding.UTF8;
     private readonly CapsuleConsumer _capsuleConsumer;
+    private readonly CapsuleSender _capsuleSender;
     private readonly Stream _connectStream;
     private bool _isDisposed;
     private long _unidirectionalStreamCountLimitForPeer;
@@ -117,8 +118,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(controlStream);
         ArgumentNullException.ThrowIfNull(extendedConnectManager);
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
+
         Id = id;
         _capsuleConsumer = new CapsuleConsumer(controlStream, this);
+        _capsuleSender = new CapsuleSender(controlStream);
         _connectStream = controlStream;
 
         SubProtocol = options.SubProtocol;
@@ -173,8 +176,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         CloseStatusDescription = _encoding.GetString(statusDescription.Span);
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
-        await closeSessionCapsule.SerializeAsync(_connectStream, cancellationToken).ConfigureAwait(false);
-        await _connectStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, cancellationToken).ConfigureAwait(false);
         await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
 
     }
@@ -296,8 +298,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxUnidirectionalStreamsCapsule capsule = new(limit);
-        capsule.Serialize(_connectStream);
-        await _connectStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
         _unidirectionalStreamCountLimitForPeer = limit;
     }
 
@@ -355,8 +356,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxBidirectionalStreamsCapsule capsule = new(limit);
-        capsule.Serialize(_connectStream);
-        await _connectStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
         _bidirectionalStreamCountLimitForPeer = limit;
     }
 
@@ -417,8 +417,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxDataCapsule capsule = new(limit);
-        capsule.Serialize(_connectStream);
-        await _connectStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
         _maxDataSentLimitForPeer = limit;
     }
 
@@ -453,9 +452,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             throw new WebTransportException("The session is not open");
         }
-        DrainSessionCapsule drainSessionCapsule = new();
-        drainSessionCapsule.Serialize(_connectStream);
-        await _connectStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -599,6 +596,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
                 await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
                 _processIncomingCapsulesCancellationTokenSource.Dispose();
                 await _connectStream.DisposeAsync().ConfigureAwait(false);
+                _capsuleConsumer.Dispose();
             }
         }
     }
