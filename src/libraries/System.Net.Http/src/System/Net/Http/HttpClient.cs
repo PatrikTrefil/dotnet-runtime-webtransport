@@ -572,8 +572,7 @@ namespace System.Net.Http
 
         private static bool ShouldBufferResponse(HttpCompletionOption completionOption, HttpRequestMessage request) =>
             completionOption == HttpCompletionOption.ResponseContentRead &&
-            !string.Equals(request.Method.Method, "HEAD", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(request.Method.Method, "CONNECT", StringComparison.OrdinalIgnoreCase);
+            !string.Equals(request.Method.Method, "HEAD", StringComparison.OrdinalIgnoreCase);
 
         private void HandleFailure(Exception e, bool telemetryStarted, HttpResponseMessage? response, CancellationTokenSource cts, CancellationToken cancellationToken, CancellationTokenSource pendingRequestsCts)
         {

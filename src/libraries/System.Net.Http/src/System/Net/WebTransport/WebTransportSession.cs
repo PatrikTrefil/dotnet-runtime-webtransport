@@ -216,7 +216,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         HttpResponseMessage response;
         try
         {
-            response = await httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
+            Task<HttpResponseMessage> sendTask = httpMessageInvoker is HttpClient client
+                                ? client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                                : httpMessageInvoker.SendAsync(requestMessage, cancellationToken);
+            response = await sendTask.ConfigureAwait(false);
         }
         catch (Exception e)
         {
