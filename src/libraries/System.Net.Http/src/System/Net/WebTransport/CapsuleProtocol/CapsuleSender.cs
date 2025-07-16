@@ -31,7 +31,7 @@ internal sealed class CapsuleSender : IDisposable
         ArgumentNullException.ThrowIfNull(capsule);
 
         _buffer.EnsureAvailableSpace(capsule.TotalLength);
-        capsule.Serialize(_buffer.ActiveSpan);
+        capsule.Serialize(_buffer.AvailableSpan);
         await _capsuleStream.WriteAsync(_buffer.ActiveMemory, cancellationToken).ConfigureAwait(false);
         await _capsuleStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         _buffer.ClearAndReturnBuffer();
