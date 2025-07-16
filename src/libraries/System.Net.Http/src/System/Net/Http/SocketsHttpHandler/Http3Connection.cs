@@ -25,12 +25,12 @@ namespace System.Net.Http
         private QuicConnection? _connection;
         private Task? _connectionClosedTask;
 
-        public ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
+        private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
         internal Dictionary<long, long> NonHttpSettings { get; } = new();
 
         private static readonly TaskCompletionSourceWithCancellation<bool> s_settingsReceivedSingleton = CreateSuccessfullyCompletedTcs();
         private TaskCompletionSourceWithCancellation<bool>? _initialSettingsReceived;
-        internal Task InitialSettingsReceived =>
+        private Task InitialSettingsReceived =>
             _initialSettingsReceived?.Task ??
             Interlocked.CompareExchange(ref _initialSettingsReceived, new(), null)?.Task ??
             _initialSettingsReceived.Task;
@@ -261,6 +261,35 @@ namespace System.Net.Http
 
         public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, long queueStartingTimestamp, Activity? waitForConnectionActivity, CancellationToken cancellationToken)
         {
+            if (request.IsExtendedConnectRequest)
+            {
+                await InitialSettingsReceived.WaitAsync(cancellationToken).ConfigureAwait(false);
+                if (!IsConnectEnabled)
+                {
+                    HttpRequestException exception = new(HttpRequestError.ExtendedConnectNotSupported, SR.net_unsupported_extended_connect);
+                    exception.Data["SETTINGS_ENABLE_CONNECT_PROTOCOL"] = false;
+                    throw exception;
+                }
+
+                request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Func<Action, Http3ExtendedConnectManager>? valueFactory);
+                if (valueFactory == null)
+                {
+                    throw new HttpRequestException(HttpRequestError.MissingExtendedConnectManager, SR.net_missing_extended_connect_manager);
+                }
+                string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
+
+                Action disposeCallback = () => { }; // TODO: implement this callback
+                Http3ExtendedConnectManager extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory.Invoke(disposeCallback));
+                try
+                {
+                    extendedconnectManager.ValidateServerSettings(NonHttpSettings);
+                }
+                catch (Exception e)
+                {
+                    throw new HttpRequestException(HttpRequestError.ServerSettingsValidationFailed, SR.net_server_settings_validation_failed, e);
+                }
+            }
+
             // Allocate an active request
             QuicStream? quicStream = null;
             Http3RequestStream? requestStream = null;
