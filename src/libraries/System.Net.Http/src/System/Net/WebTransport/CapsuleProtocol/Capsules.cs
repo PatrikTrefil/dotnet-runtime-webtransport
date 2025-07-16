@@ -29,7 +29,7 @@ internal abstract class Capsule
     public abstract void ProcessReceived(WebTransportSession session);
 
     /// <summary>
-    ///  Serializes the capsule to the provided <paramref name="buffer"/>ref name="buffer"/>.
+    ///  Serializes the capsule to the provided <paramref name="buffer"/>.
     /// </summary>
     /// <param name="buffer">Buffer to which the capsule will be serialized.</param>
     /// <exception cref="ArgumentException">When the <paramref name="buffer"/> length is less than <see cref="TotalLength"/></exception>
@@ -249,7 +249,7 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
 
         int currentOffset = 0;
 
-        buffer.CopyTo(CapsuleCodeEncodedAsVariableLengthInteger);
+        CapsuleCodeEncodedAsVariableLengthInteger.CopyTo(buffer);
         currentOffset += CapsuleCodeEncodedAsVariableLengthInteger.Length;
 
         bool isValueLengthWriteSuccessful = VariableLengthIntegerHelper.TryWrite(buffer.Slice(currentOffset), ValueLength, out int bytesWrittenValueLength);
