@@ -133,11 +133,11 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     internal void Init()
     {
+        State = WebTransportSessionState.Open;
         using (ExecutionContext.SuppressFlow())
         {
             _ = ProcessIncomingCapsules(_processIncomingCapsulesCancellationTokenSource.Token);
         }
-        State = WebTransportSessionState.Open;
     }
 
     internal async Task ProcessIncomingCapsules(CancellationToken cancellationToken)
