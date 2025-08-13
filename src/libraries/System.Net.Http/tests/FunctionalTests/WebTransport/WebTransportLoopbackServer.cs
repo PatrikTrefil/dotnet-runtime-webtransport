@@ -12,9 +12,9 @@ namespace System.Net.WebTransport.Functional.Tests;
 internal sealed class WebTransportLoopbackServer
 {
     public const string s_protocolPseudoHeaderValue = "webtransport";
-    public static async Task<WebTransportServerSession> EstablishWebTransportServerSessionAsync(Http3LoopbackServer _server)
+    public static async Task<WebTransportServerSession> EstablishWebTransportServerSessionAsync(Http3LoopbackServer server)
     {
-        Http3LoopbackConnection connection = await _server.EstablishConnectionAsync(
+        Http3LoopbackConnection connection = await server.EstablishConnectionAsync(
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
             new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
             );
