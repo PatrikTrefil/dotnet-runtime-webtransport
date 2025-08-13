@@ -111,7 +111,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
-    [MemberData(nameof(DataToSend))]
+    [MemberData(nameof(DataToSendAsParameters))]
     public async void SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -138,7 +138,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
-    [MemberData(nameof(DataToSend))]
+    [MemberData(nameof(DataToSendAsParameters))]
     public async void SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -192,12 +192,12 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    private static IEnumerable<byte[]> _dataToSendRaw = [
+    private static readonly IEnumerable<byte[]> _dataToSendRaw = [
         [1],
         [1, 2, 3]
     ];
-    private static IEnumerable<object[]> _dataToSendAsParameters = _dataToSendRaw.Select(item => new object[] { item });
-    public static IEnumerable<object[]> DataToSend => _dataToSendAsParameters;
+    private static readonly IEnumerable<object[]> _dataToSendAsParameters = _dataToSendRaw.Select(item => new object[] { item });
+    public static IEnumerable<object[]> DataToSendAsParameters => _dataToSendAsParameters;
 
     public static IEnumerable<object[]> DataToSendWithStreamType()
     {
