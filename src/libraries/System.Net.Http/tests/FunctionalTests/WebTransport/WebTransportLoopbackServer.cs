@@ -50,7 +50,7 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
         byte[] receivedStreamTypeOrSignalValue = new byte[expectedStreamTypeOrSignalValueValue.Length];
         clientInitatedStream.Read(receivedStreamTypeOrSignalValue);
         Assert.Equal(expectedStreamTypeOrSignalValueValue, receivedStreamTypeOrSignalValue);
-        long sessionId = VariableLengthIntegerStreamHelper.Read(clientInitatedStream);
+        var (sessionId, _) = await VariableLengthIntegerStreamHelper.ReadAsync(clientInitatedStream);
         Assert.Equal(serverSession.SessionId, sessionId);
         return clientInitatedStream;
     }

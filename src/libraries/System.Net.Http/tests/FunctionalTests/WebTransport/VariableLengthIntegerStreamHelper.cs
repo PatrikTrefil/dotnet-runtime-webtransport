@@ -5,6 +5,7 @@ using System.IO;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net.Test.Common;
+using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
@@ -21,12 +22,6 @@ internal static class VariableLengthIntegerStreamHelper
     private const uint TwoByteLengthMask = 0x4000;
     private const uint FourByteLengthMask = 0x80000000;
     private const ulong EightByteLengthMask = 0xC000000000000000;
-    /// <summary>
-    /// Reads exactly one variable length integer from the <paramref name="stream"/>.
-    /// </summary>
-    /// <returns>the parsed integer</returns>
-    /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
-    public static long Read(Stream stream) => Read(stream, out int _);
 
     /// <summary>
     /// Reads exactly one variable length integer from the <paramref name="stream"/>.
@@ -35,47 +30,36 @@ internal static class VariableLengthIntegerStreamHelper
     /// <param name="stream">Stream to read from</param>
     /// <returns>the parsed integer</returns>
     /// <exception cref="ArgumentException">When the <paramref name="stream"/> is empty</exception>
-    public static long Read(Stream stream, out int bytesRead)
+    public async static Task<(long Value, int BytesRead)> ReadAsync(Stream stream)
     {
-        int firstByte = stream.ReadByte();
-        if (firstByte == -1)
-        {
-            throw new ArgumentException("Stream is empty");
-        }
+        byte[] buffer = new byte[MaximumEncodedLength];
 
+        await stream.ReadExactlyAsync(buffer.AsMemory(0, 1)).ConfigureAwait(false);
+
+        int firstByte = buffer[0];
         switch (firstByte & LengthMask)
         {
             case InitialOneByteLengthMask:
-                bytesRead = 1;
-                return firstByte;
+                return (firstByte, 1);
             case InitialTwoByteLengthMask:
-                Span<byte> twoByteBuffer = stackalloc byte[2];
-                stream.ReadExactly(twoByteBuffer);
-                ushort serializedShort = BinaryPrimitives.ReadUInt16BigEndian(twoByteBuffer);
-                bytesRead = 2;
-                return serializedShort - TwoByteLengthMask;
+                await stream.ReadExactlyAsync(buffer.AsMemory(1, 1)).ConfigureAwait(false);
+                ushort serializedShort = BinaryPrimitives.ReadUInt16BigEndian(buffer.AsSpan(0, 2));
+                return (serializedShort - TwoByteLengthMask, 2);
             case InitialFourByteLengthMask:
-                Span<byte> fourByteBuffer = stackalloc byte[4];
-                stream.ReadExactly(fourByteBuffer);
-                uint serializedInt = BinaryPrimitives.ReadUInt32BigEndian(fourByteBuffer);
-                bytesRead = 4;
-                return serializedInt - FourByteLengthMask;
+                await stream.ReadExactlyAsync(buffer.AsMemory(1, 3)).ConfigureAwait(false);
+                uint serializedInt = BinaryPrimitives.ReadUInt32BigEndian(buffer.AsSpan(0, 4));
+                return (serializedInt - FourByteLengthMask, 4);
             default: // InitialEightByteLengthMask
                 Debug.Assert((firstByte & LengthMask) == InitialEightByteLengthMask);
-                Span<byte> eightByteBuffer = stackalloc byte[8];
-                stream.ReadExactly(eightByteBuffer);
-                ulong serializedLong = BinaryPrimitives.ReadUInt64BigEndian(eightByteBuffer);
-                bytesRead = 8;
-                return (long)(serializedLong - EightByteLengthMask);
+                await stream.ReadExactlyAsync(buffer.AsMemory(1, 7)).ConfigureAwait(false);
+                ulong serializedLong = BinaryPrimitives.ReadUInt64BigEndian(buffer);
+                return ((long)(serializedLong - EightByteLengthMask), 8);
         }
     }
     public static void Write(Stream stream, long value)
     {
         Span<byte> buffer = stackalloc byte[MaximumEncodedLength];
         int bytesWritten = VariableLengthIntegerHelper.EncodeVariableLengthInteger(value, buffer);
-        for (int i = 0; i < bytesWritten; i++)
-        {
-            stream.WriteByte(buffer[i]);
-        }
+        stream.Write(buffer.Slice(0, bytesWritten));
     }
 }
