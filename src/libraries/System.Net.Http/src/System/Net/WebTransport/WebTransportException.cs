@@ -9,6 +9,11 @@ public class WebTransportException : Exception
     public WebTransportException(string message, Exception innerException) : base(message, innerException) { }
 }
 
+internal sealed class WebTransportControlStreamClosedException : Exception
+{
+    public WebTransportControlStreamClosedException() : base() { }
+}
+
 public sealed class WebTransportStreamClosedException : WebTransportException
 {
     public int ApplicationErrorCode { get; }

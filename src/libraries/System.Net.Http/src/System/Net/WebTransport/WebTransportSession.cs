@@ -104,7 +104,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     private long _unidirectionalStreamCountLimitForPeer;
     private long _bidirectionalStreamCountLimitForPeer;
     private long _maxDataSentLimitForPeer;
-    private readonly CancellationTokenSource _processIncomingCapsulesCancellationTokenSource = new();
     public Func<Task> GracefulShutdownHandler { get; }
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in range the range [0, 2^62).</exception>
@@ -137,22 +136,27 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         State = WebTransportSessionState.Open;
         using (ExecutionContext.SuppressFlow())
         {
-            _ = ProcessIncomingCapsules(_processIncomingCapsulesCancellationTokenSource.Token);
+            _ = ProcessIncomingCapsules();
         }
     }
 
-    internal async Task ProcessIncomingCapsules(CancellationToken cancellationToken)
+    internal async Task ProcessIncomingCapsules()
     {
         try
         {
             while (true)
             {
-                await _capsuleConsumer.ProcessNextCapsule(cancellationToken).ConfigureAwait(false);
+                await _capsuleConsumer.ProcessNextCapsule().ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (WebTransportControlStreamClosedException)
         {
-            // Cancellation is only triggered during session close, so no action needed.
+            State = WebTransportSessionState.Closed;
+            // Clean termination of the CONNECT stream should be equivalent to status code 0 and description equal to an emtpy string
+            // https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-6-9
+            CloseStatusCode = 0;
+            CloseStatusDescription = "";
+            // TODO: close open streams
         }
         catch (WebTransportException)
         {
@@ -161,7 +165,17 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         catch (QuicException)
         {
-            State = WebTransportSessionState.Closed;
+            if (State == WebTransportSessionState.Closed)
+            {
+                State = WebTransportSessionState.Closed;
+                // Clean termination of the CONNECT stream should be equivalent to status code 0 and description equal to an emtpy string
+                // https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-6-9
+                CloseStatusCode = 0;
+                CloseStatusDescription = "";
+            } else
+            {
+                State = WebTransportSessionState.Closed;
+            }
             // TODO: close open streams here, in close by sending capsule and in close connect stream
         }
         catch (Exception e)
@@ -178,13 +192,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
         await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, completeWrites: true, cancellationToken).ConfigureAwait(false);
-        await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
-
     }
     private async ValueTask CloseByClosingConnectStreamAsync()
     {
         State = WebTransportSessionState.Closed;
-        await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
         await _connectStream.DisposeAsync().ConfigureAwait(false);
     }
     /// <summary>
@@ -531,6 +542,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         CloseStatusCode = closeStatus;
         CloseStatusDescription = statusDescription;
         State = WebTransportSessionState.Closed;
+        // TODO: what else should we do according to RFC?
     }
 
     /// <summary>
@@ -587,8 +599,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
             if (disposing)
             {
-                await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
-                _processIncomingCapsulesCancellationTokenSource.Dispose();
                 await _connectStream.DisposeAsync().ConfigureAwait(false);
                 _capsuleConsumer.Dispose();
             }
@@ -623,12 +633,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager,
         QuicConnection connection,
         QuicStream controlStream,
+        byte[] controlStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
         Channel<ChannelItem> pendingBidirectionalStreams,
-        WebTransportSessionCreationOptions? options) : base(id, controlStream, wtExtendedConnectManager, options)
+        WebTransportSessionCreationOptions? options) : base(id, controlStream, controlStreamBuffer, wtExtendedConnectManager, options)
     {
         _connection = connection;
-        State = WebTransportSessionState.Open;
+        State = WebTransportSessionState.None;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
 
