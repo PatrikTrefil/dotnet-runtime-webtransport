@@ -99,7 +99,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     private static readonly Encoding _encoding = Encoding.UTF8;
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
-    private readonly Stream _connectStream;
+    private readonly QuicStream _connectStream;
     private bool _isDisposed;
     private long _unidirectionalStreamCountLimitForPeer;
     private long _bidirectionalStreamCountLimitForPeer;
@@ -108,19 +108,20 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     public Func<Task> GracefulShutdownHandler { get; }
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in range the range [0, 2^62).</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="controlStream"/> or <paramref name="extendedConnectManager"/> or <paramref name="options"/> is null</exception>
-    internal WebTransportSession(long id, Stream controlStream, MsQuicWebTransportExtendedConnectManager extendedConnectManager, WebTransportSessionCreationOptions? options = default)
+    /// <exception cref="ArgumentNullException">When <paramref name="controlStream"/> or <paramref name="extendedConnectManager"/> or <paramref name="controlStreamBuffer"/> is null</exception>
+    internal WebTransportSession(long id, QuicStream controlStream, byte[] controlStreamBuffer, MsQuicWebTransportExtendedConnectManager extendedConnectManager, WebTransportSessionCreationOptions? options = default)
     {
         if (options == null)
         {
             options = new WebTransportSessionCreationOptions();
         }
         ArgumentNullException.ThrowIfNull(controlStream);
+        ArgumentNullException.ThrowIfNull(controlStreamBuffer);
         ArgumentNullException.ThrowIfNull(extendedConnectManager);
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
 
         Id = id;
-        _capsuleConsumer = new CapsuleConsumer(controlStream, this);
+        _capsuleConsumer = new CapsuleConsumer(controlStream, controlStreamBuffer, this);
         _capsuleSender = new CapsuleSender(controlStream);
         _connectStream = controlStream;
 
@@ -228,7 +229,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
 
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
-        return wtExtendedConnectManager.CreateSession(extendedConnectContent.ConnectStream, extendedConnectContent.QuicConnection, options);
+        return wtExtendedConnectManager.CreateSession(extendedConnectContent.ConnectStream, extendedConnectContent.ConnectStreamBuffer, extendedConnectContent.QuicConnection, options);
     }
 
     /// <summary>

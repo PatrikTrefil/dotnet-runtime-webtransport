@@ -378,6 +378,7 @@ namespace System.Net.Http
                     Debug.Assert(extendedConnectManager != null, "The extended connect manager should not be null");
                     extendedConnectContent.ExtendedConnectManager = extendedConnectManager!;
                     Debug.Assert(extendedConnectContent.ConnectStream != null, "The connect stream should have already been set");
+                    Debug.Assert(extendedConnectContent.ConnectStreamBuffer != null, "The connect stream buffer should have already been set");
                 }
 
                 return response;

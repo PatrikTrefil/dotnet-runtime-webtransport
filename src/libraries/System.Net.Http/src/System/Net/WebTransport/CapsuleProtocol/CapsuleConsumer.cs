@@ -4,7 +4,6 @@
 using System.Net.Http;
 using System.IO;
 using System.Threading.Tasks;
-using System.Threading;
 
 namespace System.Net.WebTransport;
 
@@ -16,45 +15,56 @@ internal sealed class CapsuleConsumer : IDisposable
     private bool _isDisposed;
     private readonly Stream _capsuleStream;
     private readonly WebTransportSession _session;
-    private readonly ArrayBuffer _buffer = new(initialSize: VariableLengthIntegerHelper.MaximumEncodedLength, usePool: true);
-    public CapsuleConsumer(Stream capsuleStream, WebTransportSession session)
+    // Don't make the _buffer readonly - mutable struct
+    private ArrayBuffer _buffer;
+    public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  WebTransportSession session)
     {
         ArgumentNullException.ThrowIfNull(capsuleStream);
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(capsuleStreamBuffer);
 
         _capsuleStream = capsuleStream;
         _session = session;
+        _buffer = new(initialSize: capsuleStreamBuffer.Length, usePool: true);
+        capsuleStreamBuffer.CopyTo(_buffer.AvailableSpan);
+        _buffer.Commit(capsuleStreamBuffer.Length);
     }
 
-    private async ValueTask<long> ReadVariableLengthIntegerAsync(CancellationToken cancellationToken = default)
+    private async Task<long> ReadVariableLengthInteger()
     {
-        int bytesRead;
-        long value;
-        while (!VariableLengthIntegerHelper.TryRead(_buffer.ActiveSpan, out value, out bytesRead))
+        int bytesParsed;
+        long capsuleType;
+        while (!VariableLengthIntegerHelper.TryRead(_buffer.ActiveSpan, out capsuleType, out bytesParsed))
         {
             _buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
-            bytesRead = await _capsuleStream.ReadAsync(_buffer.AvailableMemory, cancellationToken).ConfigureAwait(false);
+            int bytesRead = await _capsuleStream.ReadAsync(_buffer.AvailableMemory).ConfigureAwait(false);
 
             if (bytesRead == 0)
             {
-                throw new WebTransportSessionClosedException("Session has been closed by peer", 0, "");
+                throw new WebTransportControlStreamClosedException();
             }
+
             _buffer.Commit(bytesRead);
         }
 
-        _buffer.Discard(bytesRead);
-
-        return value;
+        _buffer.Discard(bytesParsed);
+        return capsuleType;
     }
-    /// <summary>Processes the next capsule in the provided capsule stream.
-    /// If an unknown capsule type is received, the capsule is dropped and the call ends.</summary>
+
+    /// <summary>
+    /// Processes the next capsule in the provided capsule stream.
+    /// If an unknown capsule type is received, the capsule is dropped and the call ends.
+    /// </summary>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed object.</exception>
-    public async Task ProcessNextCapsule(CancellationToken cancellationToken = default)
+    /// <exception cref="EndOfStreamException">When the stream is cleanly terminated.</exception>
+    public async Task ProcessNextCapsule()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        long capsuleType = await ReadVariableLengthIntegerAsync(cancellationToken).ConfigureAwait(false);
-        long capsuleLength = await ReadVariableLengthIntegerAsync(cancellationToken).ConfigureAwait(false);
+        long capsuleType = await ReadVariableLengthInteger().ConfigureAwait(false);
+
+        long capsuleLength = await ReadVariableLengthInteger().ConfigureAwait(false);
+
         int capsuleLengthInt;
         try
         {
@@ -65,8 +75,13 @@ internal sealed class CapsuleConsumer : IDisposable
             throw new WebTransportException("Unknown capsule received"); // All known capsule lengths are less than int.MaxValue
         }
 
-        _buffer.EnsureAvailableSpace(capsuleLengthInt);
-        await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory, cancellationToken).ConfigureAwait(false);
+        if (capsuleLengthInt > _buffer.ActiveLength)
+        {
+            int readAtLeastBytes = capsuleLengthInt - _buffer.ActiveLength;
+            _buffer.EnsureAvailableSpace(readAtLeastBytes);
+            int bytesReadCapsuleValue = await _capsuleStream.ReadAtLeastAsync(_buffer.AvailableMemory, readAtLeastBytes).ConfigureAwait(false);
+            _buffer.Commit(bytesReadCapsuleValue);
+        }
 
         Capsule? capsule = capsuleType switch
         {
@@ -79,7 +94,7 @@ internal sealed class CapsuleConsumer : IDisposable
         };
         // Unknown capsules are silently dropped https://datatracker.ietf.org/doc/html/rfc9297#section-3.2-7
 
-        _buffer.ClearAndReturnBuffer();
+        _buffer.Discard(capsuleLengthInt);
 
         capsule?.ProcessReceived(_session);
     }

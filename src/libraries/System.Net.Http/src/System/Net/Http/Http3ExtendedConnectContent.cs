@@ -14,6 +14,18 @@ namespace System.Net.Http;
 [SupportedOSPlatform("windows")]
 internal sealed class Http3ExtendedConnectContent : HttpContent
 {
+    private byte[]? _connectStreamBuffer;
+    public byte[] ConnectStreamBuffer
+    {
+        get => _connectStreamBuffer ?? throw new InvalidOperationException("Connect stream buffer has not been set"); internal set
+        {
+            Debug.Assert(value != null, $"{nameof(ConnectStreamBuffer)} cannot be null");
+            Debug.Assert(value != null, $"{nameof(ConnectStreamBuffer)} cannot be null");
+            Debug.Assert(_connectStreamBuffer == null, $"{nameof(ConnectStream)} can only be set once");
+
+            _connectStreamBuffer = value;
+        }
+    }
     private QuicStream? _connectStream;
     public QuicStream ConnectStream
     {
