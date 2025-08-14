@@ -277,8 +277,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value must be in the range [0, 2^62).
     /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitForPeer => _unidirectionalStreamCountLimitForPeer;
 
@@ -312,8 +310,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value must be in the range [0, 2^62).
     /// The value may be changed during the lifetime of the session.
     /// </summary>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitProvidedByPeer
     {
@@ -336,8 +332,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value must be in the range [0, 2^62).
     /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="ObjectDisposedException">When calling getter on a disposed session.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitForPeer => _bidirectionalStreamCountLimitForPeer;
 
@@ -371,8 +365,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long MaxDataSentLimitProvidedByPeer
     {
