@@ -87,14 +87,17 @@ namespace System.Net.Http
             if (!_disposed)
             {
                 _disposed = true;
-                AbortStream();
-                if (_stream.WritesClosed.IsCompleted)
+                if (!_request.IsExtendedConnectRequest)
                 {
-                    _connection.LogExceptions(_stream.DisposeAsync().AsTask());
-                }
-                else
-                {
-                    _stream.Dispose();
+                    AbortStream();
+                    if (_stream.WritesClosed.IsCompleted)
+                    {
+                        _connection.LogExceptions(_stream.DisposeAsync().AsTask());
+                    }
+                    else
+                    {
+                        _stream.Dispose();
+                    }
                 }
                 DisposeSyncHelper();
             }
@@ -113,15 +116,19 @@ namespace System.Net.Http
             if (!_disposed)
             {
                 _disposed = true;
-                AbortStream();
-                if (_stream.WritesClosed.IsCompleted)
+                if (!_request.IsExtendedConnectRequest)
                 {
-                    _connection.LogExceptions(_stream.DisposeAsync().AsTask());
+                    AbortStream();
+                    if (_stream.WritesClosed.IsCompleted)
+                    {
+                        _connection.LogExceptions(_stream.DisposeAsync().AsTask());
+                    }
+                    else
+                    {
+                        await _stream.DisposeAsync().ConfigureAwait(false);
+                    }
                 }
-                else
-                {
-                    await _stream.DisposeAsync().ConfigureAwait(false);
-                }
+
                 DisposeSyncHelper();
             }
         }
@@ -169,7 +176,7 @@ namespace System.Net.Http
 
                     // End the stream writing if there's no content to send, do it as part of the write so that the FIN flag isn't send in an empty QUIC frame.
                     // Note that there's no need to call Shutdown separately since the FIN flag in the last write is the same thing.
-                    await FlushSendBufferAsync(endStream: _request.Content == null, _requestBodyCancellationSource.Token).ConfigureAwait(false);
+                    await FlushSendBufferAsync(endStream: _request.Content == null && !_request.IsExtendedConnectRequest, _requestBodyCancellationSource.Token).ConfigureAwait(false);
                 }
 
                 Task sendRequestTask = _request.Content != null
@@ -216,7 +223,8 @@ namespace System.Net.Http
                 // If we've sent a body, wait for the writes to be closed (most likely already done).
                 // If sendRequestTask hasn't completed yet, we're doing duplex content transfers and can't wait for writes to be closed yet.
                 if (sendRequestTask.IsCompletedSuccessfully &&
-                    _stream.WritesClosed is { IsCompletedSuccessfully: false } writesClosed)
+                    _stream.WritesClosed is { IsCompletedSuccessfully: false } writesClosed &&
+                    !_request.IsExtendedConnectRequest)
                 {
                     try
                     {
@@ -238,9 +246,10 @@ namespace System.Net.Http
 
                 if (_request.IsExtendedConnectRequest && _response.IsSuccessStatusCode && _response.Content is Http3ExtendedConnectContent extendedConnectContent)
                 {
-                    // TODO: figure out how to manage lifetime of these objects
                     extendedConnectContent.ConnectStream = _stream;
-                    disposeSelf = false;
+                    extendedConnectContent.ConnectStreamBuffer = _recvBuffer.ActiveSpan.ToArray();
+                    _recvBuffer.ClearAndReturnBuffer();
+                    disposeSelf = true; // we won't need the Http3RequestStream, just the QUIC stream after this request is finished (the Dispose method does not dispose the QUIC stream when _request.IsExtendedConnect is true)
                 }
                 else
                 {
