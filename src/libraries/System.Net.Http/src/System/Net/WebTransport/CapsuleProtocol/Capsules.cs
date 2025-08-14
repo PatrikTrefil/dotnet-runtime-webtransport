@@ -202,7 +202,7 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
         CapsuleCodeEncodedAsVariableLengthInteger.CopyTo(buffer);
         currentOffset += CapsuleCodeEncodedAsVariableLengthInteger.Length;
 
-        bool isValueLengthWriteSuccessful = VariableLengthIntegerHelper.TryWrite(buffer, ValueLength, out int bytesWrittenValueLength);
+        bool isValueLengthWriteSuccessful = VariableLengthIntegerHelper.TryWrite(buffer.Slice(currentOffset), ValueLength, out int bytesWrittenValueLength);
         Debug.Assert(isValueLengthWriteSuccessful);
         currentOffset += bytesWrittenValueLength;
 
