@@ -94,7 +94,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType, serverSession);
             byte[] receivedData = new byte[data.Length];
-            clientInitiatedStream.ReadExactly(receivedData);
+            await clientInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
         });
 
@@ -129,7 +129,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
-            stream.ReadExactly(receivedData);
+            await stream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
             await serverTask; // prevent stream reset before the data is read by the server
         });
@@ -184,7 +184,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
-            serverInitiatedStream.ReadExactly(receivedData);
+            await serverInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
             await serverTask; // prevent stream reset before the data is read by the server
         });
@@ -266,6 +266,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
+    // TODO: write positive tests case for session config
+    // TODO: move these to unit tests
     [ConditionalTheory(nameof(IsWebTransportSupported))]
     [InlineData(-1)]
     [InlineData(long.MaxValue)]
@@ -275,5 +277,4 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialMaxBidirectionalStreamCount = invalidVarInt });
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialMaxData = invalidVarInt });
     }
-    // TODO: write more tests
 }
