@@ -176,7 +176,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         CloseStatusDescription = _encoding.GetString(statusDescription.Span);
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
-        await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, completeWrites: true, cancellationToken).ConfigureAwait(false);
         await _processIncomingCapsulesCancellationTokenSource.CancelAsync().ConfigureAwait(false);
 
     }
@@ -301,7 +301,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxUnidirectionalStreamsCapsule capsule = new(limit);
-        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
         _unidirectionalStreamCountLimitForPeer = limit;
     }
 
@@ -359,7 +359,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxBidirectionalStreamsCapsule capsule = new(limit);
-        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
         _bidirectionalStreamCountLimitForPeer = limit;
     }
 
@@ -420,7 +420,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxDataCapsule capsule = new(limit);
-        await _capsuleSender.SendCapsuleAsync(capsule, cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
         _maxDataSentLimitForPeer = limit;
     }
 
@@ -455,7 +455,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             throw new WebTransportException("The session is not open");
         }
-        await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, cancellationToken).ConfigureAwait(false);
+        await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, completeWrites: false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
