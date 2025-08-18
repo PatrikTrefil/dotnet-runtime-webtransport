@@ -950,7 +950,8 @@ namespace System.Net.WebTransport
     {
         protected internal WebTransportStream() { }
         public abstract long StreamId { get; }
-
+        public abstract System.Threading.Tasks.Task ReadsClosed { get; }
+        public abstract System.Threading.Tasks.Task WritesClosed { get; }
         public abstract void Abort(WebTransportAbortDirection abortDirection, int errorCode);
     }
     public enum WebTransportSessionState
@@ -990,16 +991,16 @@ namespace System.Net.WebTransport
 
         public long UnidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
         public long UnidirectionalStreamCountLimitForPeer { get { throw null; } }
-        public System.Threading.Tasks.Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
 
         public long BidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
         public long BidirectionalStreamCountLimitForPeer { get { throw null; } set { } }
-        public System.Threading.Tasks.Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
 
 
         public long MaxDataSentLimitProvidedByPeer { get { throw null; } }
         public long MaxDataSentLimitForPeer { get { throw null; } }
-        public System.Threading.Tasks.Task SetMaxDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.Task SetMaxDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
 
         public long? CloseStatusCode { get { throw null; } }
 

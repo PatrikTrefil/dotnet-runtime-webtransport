@@ -30,6 +30,7 @@ internal sealed class CapsuleConsumer : IDisposable
         _buffer.Commit(capsuleStreamBuffer.Length);
     }
 
+    /// <exception cref="EndOfStreamException">When the end of stream has been reached. This can only happen if the stream was closed gracefully.</exception>
     private async Task<long> ReadVariableLengthInteger()
     {
         int bytesParsed;
@@ -41,7 +42,7 @@ internal sealed class CapsuleConsumer : IDisposable
 
             if (bytesRead == 0)
             {
-                throw new WebTransportControlStreamClosedException();
+                throw new EndOfStreamException();
             }
 
             _buffer.Commit(bytesRead);
@@ -56,7 +57,7 @@ internal sealed class CapsuleConsumer : IDisposable
     /// If an unknown capsule type is received, the capsule is dropped and the call ends.
     /// </summary>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed object.</exception>
-    /// <exception cref="EndOfStreamException">When the stream is cleanly terminated.</exception>
+    /// <exception cref="EndOfStreamException">When the capsule stream is cleanly terminated.</exception>
     public async Task ProcessNextCapsule()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);

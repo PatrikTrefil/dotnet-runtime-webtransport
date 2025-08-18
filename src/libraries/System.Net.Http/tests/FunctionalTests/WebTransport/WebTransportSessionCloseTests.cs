@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -63,13 +64,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [MemberData(nameof(ErrorMessagesAsParameters))]
     public async Task ClientClosesSessionAfterReceivingCloseSessionCapsule(byte[] expectedApplicationErrorMessage)
     {
-        using var listener = new TestUtilities.TestEventListener(
-    Console.Out,
-    new[]
-        {
-        "Private.InternalDiagnostics.System.Net.Http",
-        }
-    );
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         uint expectedApplicationErrorCode = 1;
 
@@ -101,7 +95,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
-    public async Task ServerClosesControlStream()
+    public async Task ClosesClientSessionAfterServerClosesControlStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -125,6 +119,104 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ServerClosesControlStreamResultsInAllOtherStreamsBeingClosed()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            serverSession.ControlStream.CompleteWrites();
+        });
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            await Task.WhenAll(serverTask);
+            // TODO: maybe wait for a bit to ensure the client has had time to react?
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile
+            Assert.Equal("", session.CloseStatusDescription);
+            Assert.Equal(0, session.CloseStatusCode);
+            // Assert that the streams are closed
+            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        byte[] expectedApplicationErrorMessage = "test error message"u8.ToArray();
+        uint expectedApplicationErrorCode = 1;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            // TODO: do I just wait for x seconds here to make sure it has been received?
+            await Task.Delay(10000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile, otherwise it sometimes fails
+            Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
+            Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
+            // Assert that the streams are closed
+            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, CloseSessionCapsuleCode);
+            Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
+            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
+            BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
+            serverSession.ControlStream.Write(applicationErrorCodeBuffer);
+            serverSession.ControlStream.Write(expectedApplicationErrorMessage);
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     private static readonly byte[][] _errorMessages = [
         ""u8.ToArray(),
         "test errror message"u8.ToArray(),

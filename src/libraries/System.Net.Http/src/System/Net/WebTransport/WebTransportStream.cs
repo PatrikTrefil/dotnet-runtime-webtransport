@@ -31,6 +31,17 @@ public abstract class WebTransportStream : Stream, IAsyncDisposable
     /// <param name="errorCode">The error code with which to abort the stream.</param>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     public abstract void Abort(WebTransportAbortDirection abortDirection, int errorCode);
+
+    /// <summary>
+    /// Gets a <see cref="Task"/> that will complete once the reading side has been closed (gracefully or abortively).
+    /// </summary>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.4.1"/>
+    public abstract Task ReadsClosed { get; }
+    /// <summary>
+    /// Gets a <see cref="Task"/> that will complete once the writing side has been closed (gracefully or abortively).
+    /// </summary>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
+    public abstract Task WritesClosed { get; }
 }
 
 // TODO: add session data limit tracking
@@ -89,6 +100,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         set => throw new NotSupportedException();
     }
 
+    public override Task ReadsClosed => _quicStream.ReadsClosed;
+
+    public override Task WritesClosed => _quicStream.WritesClosed;
+
     private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection)
     {
         return abortDirection switch
@@ -99,6 +114,15 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             _ => throw new ArgumentOutOfRangeException(nameof(abortDirection), abortDirection, "Invalid abort direction.")
         };
     }
+
+    /// <summary>
+    /// Abort the underlying QUIC stream. Used to abort the stream with error codes outside of the WebTransport error code range.
+    /// </summary>
+    internal void AbortQuicStream(QuicAbortDirection abortDirection, long httpErrorCode)
+    {
+        _quicStream.Abort(abortDirection, httpErrorCode);
+    }
+
     public override void Abort(WebTransportAbortDirection abortDirection, int errorCode)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
