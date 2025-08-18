@@ -45,7 +45,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             Assert.Equal(CloseSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
-            Assert.Equal(capsuleValueLength, errorCodeBuffer.Length + messageBuffer.Length);
+            Assert.Equal(sizeof(uint) + messageBuffer.Length, capsuleValueLength);
             Assert.Equal(expectedApplicationErrorMessage, messageBuffer);
         });
 
@@ -75,7 +75,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             // TODO: do I just wait for x seconds here to make sure it has been received?
             await Task.Delay(2000);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile, otherwise it sometimes fails
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
         });
@@ -112,7 +112,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await Task.WhenAll(serverTask);
             // TODO: maybe wait for a bit to ensure the client has had time to react?
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
         });
@@ -146,7 +146,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await Task.WhenAll(serverTask);
             // TODO: maybe wait for a bit to ensure the client has had time to react?
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
             // Assert that the streams are closed
@@ -182,7 +182,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             // TODO: do I just wait for x seconds here to make sure it has been received?
             await Task.Delay(10000);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State); // TODO: this should be volatile, otherwise it sometimes fails
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
             // Assert that the streams are closed
