@@ -37,10 +37,10 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
 
     public ValueTask DisposeAsync() => Connection.DisposeAsync();
 
-    public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType streamType, WebTransportServerSession serverSession)
+    public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType streamType)
     {
 
-        QuicStream clientInitatedStream = await serverSession.Connection.AcceptQuicStreamAsync();
+        QuicStream clientInitatedStream = await Connection.AcceptQuicStreamAsync();
         byte[] expectedStreamTypeOrSignalValueValue = streamType switch
         {
             WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
@@ -51,11 +51,11 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
         clientInitatedStream.Read(receivedStreamTypeOrSignalValue);
         Assert.Equal(expectedStreamTypeOrSignalValueValue, receivedStreamTypeOrSignalValue);
         var (sessionId, _) = await VariableLengthIntegerStreamHelper.ReadAsync(clientInitatedStream);
-        Assert.Equal(serverSession.SessionId, sessionId);
+        Assert.Equal(SessionId, sessionId);
         return clientInitatedStream;
     }
 
-    public async Task<QuicStream> OpenStreamFromServerAsync(WebTransportStreamType streamType, WebTransportServerSession serverSession)
+    public async Task<QuicStream> OpenStreamFromServerAsync(WebTransportStreamType streamType)
     {
         QuicStreamType quicStreamType = streamType switch
         {
@@ -63,7 +63,7 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
             WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
             _ => throw new ArgumentOutOfRangeException(nameof(streamType), "Invalid stream type")
         };
-        QuicStream stream = await serverSession.Connection.OpenQuicStreamAsync(quicStreamType);
+        QuicStream stream = await Connection.OpenQuicStreamAsync(quicStreamType);
         switch (streamType)
         {
             case WebTransportStreamType.Unidirectional:
@@ -73,7 +73,7 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
                 stream.Write(s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger);
                 break;
         }
-        VariableLengthIntegerStreamHelper.Write(stream, serverSession.SessionId);
+        VariableLengthIntegerStreamHelper.Write(stream, SessionId);
         stream.Flush();
         return stream;
     }

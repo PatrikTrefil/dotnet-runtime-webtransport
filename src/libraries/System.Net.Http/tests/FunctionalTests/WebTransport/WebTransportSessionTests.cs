@@ -46,7 +46,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
         });
 
         Task clientTask = Task.Run(async () =>
@@ -69,7 +69,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
         });
 
         Task clientTask = Task.Run(async () =>
@@ -92,7 +92,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await clientInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
@@ -119,7 +119,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
             stream.Write(data);
         });
 
@@ -147,7 +147,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
@@ -174,7 +174,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType, serverSession);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             serverInitiatedStream.Write(data);
         });
 
