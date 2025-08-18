@@ -960,7 +960,6 @@ namespace System.Net.WebTransport
         Open,
         Closed,
     }
-
     public enum WebTransportStreamType
     {
         Unidirectional,
@@ -983,43 +982,27 @@ namespace System.Net.WebTransport
         public static bool IsSupported { get { throw null; } }
         public Func<System.Threading.Tasks.Task> GoAwayHandler { get { throw null; } }
         public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
-
         public long Id { get { throw null; } }
         public string? SubProtocol { get { throw null; } }
-
         public WebTransportSessionState State { get { throw null; } }
-
         public long UnidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
         public long UnidirectionalStreamCountLimitForPeer { get { throw null; } }
         public abstract System.Threading.Tasks.Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-
         public long BidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
         public long BidirectionalStreamCountLimitForPeer { get { throw null; } set { } }
         public abstract System.Threading.Tasks.Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-
-
         public long MaxDataSentLimitProvidedByPeer { get { throw null; } }
         public long MaxDataSentLimitForPeer { get { throw null; } }
         public abstract System.Threading.Tasks.Task SetMaxDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-
         public long? CloseStatusCode { get { throw null; } }
-
-
         public string? CloseStatusDescription { get { throw null; } }
-
         public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.Task CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.Task CloseAsync(long closeStatus, byte[] statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
-
         public abstract System.Threading.Tasks.Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
-
         public abstract System.Threading.Tasks.Task SendDatagramAsync(ReadOnlyMemory<byte> data, System.Threading.CancellationToken cancellationToken = default);
-
-        public abstract System.Threading.Tasks.Task<int> ReceiveDatagramAsync(
-            Memory<byte> buffer,
-            System.Threading.CancellationToken cancellationToken = default);
-
+        public abstract System.Threading.Tasks.Task<int> ReceiveDatagramAsync( Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default);
         public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
     }
     public partial class WebTransportException : Exception
@@ -1027,14 +1010,12 @@ namespace System.Net.WebTransport
         public WebTransportException(string message) : base(message) { }
         public WebTransportException(string message, Exception innerException) : base(message, innerException) { }
     }
-
     public sealed partial class WebTransportStreamClosedException : WebTransportException
     {
         public int ApplicationErrorCode { get { throw null; } }
         public WebTransportStreamClosedException(string message, int applicationErrorCode) : base(message) { }
         public WebTransportStreamClosedException(string message, int applicationErrorCode, Exception innerException) : base(message, innerException) { }
     }
-
     public sealed partial class WebTransportSessionClosedException : WebTransportException
     {
         public int ApplicationErrorCode { get { throw null; } }
@@ -1042,7 +1023,6 @@ namespace System.Net.WebTransport
         public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage) : base(message) { }
         public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage, Exception innerException) : base(message, innerException) { }
     }
-
     [Flags]
     public enum WebTransportAbortDirection
     {
