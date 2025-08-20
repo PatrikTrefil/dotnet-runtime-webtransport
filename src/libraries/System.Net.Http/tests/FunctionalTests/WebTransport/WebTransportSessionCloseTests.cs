@@ -32,16 +32,16 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
             Memory<byte> errorCodeBuffer = new byte[4];
-            await serverSession.ControlStream.ReadExactlyAsync(errorCodeBuffer); // TODO: use async reads everywhere
+            await serverSession.ConnectStream.ReadExactlyAsync(errorCodeBuffer); // TODO: use async reads everywhere
             uint receivedApplicationErrorCode = BinaryPrimitives.ReadUInt32BigEndian(errorCodeBuffer.Span);
 
             Memory<byte> messageBuffer = new byte[expectedApplicationErrorMessage.Length];
-            await serverSession.ControlStream.ReadExactlyAsync(messageBuffer);
+            await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
 
             Assert.Equal(CloseSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
@@ -82,12 +82,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, CloseSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CloseSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
-            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
-            serverSession.ControlStream.Write(applicationErrorCodeBuffer);
-            serverSession.ControlStream.Write(expectedApplicationErrorMessage);
+            serverSession.ConnectStream.Write(applicationErrorCodeBuffer);
+            serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
             await Task.WhenAll(clientTask);
         });
 
@@ -95,14 +95,14 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
-    public async Task ClosesClientSessionAfterServerClosesControlStream()
+    public async Task ClosesClientSessionAfterServerClosesConnectStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            serverSession.ControlStream.CompleteWrites();
+            serverSession.ConnectStream.CompleteWrites();
         });
         Task clientTask = Task.Run(async () =>
         {
@@ -121,7 +121,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
-    public async Task ServerClosesControlStreamResultsInAllOtherStreamsBeingClosed()
+    public async Task ServerGracefullyClosesConnectStreamResultsInAllOtherStreamsBeingClosed()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -132,7 +132,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
             using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            serverSession.ControlStream.CompleteWrites();
+            serverSession.ConnectStream.CompleteWrites();
         });
         Task clientTask = Task.Run(async () =>
         {
@@ -204,12 +204,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, CloseSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CloseSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
-            VariableLengthIntegerStreamHelper.Write(serverSession.ControlStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
-            serverSession.ControlStream.Write(applicationErrorCodeBuffer);
-            serverSession.ControlStream.Write(expectedApplicationErrorMessage);
+            serverSession.ConnectStream.Write(applicationErrorCodeBuffer);
+            serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
 
             await Task.WhenAll(clientTask);
         });

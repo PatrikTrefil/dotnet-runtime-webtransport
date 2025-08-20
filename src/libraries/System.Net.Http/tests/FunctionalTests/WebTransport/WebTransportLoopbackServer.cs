@@ -23,7 +23,7 @@ internal sealed class WebTransportLoopbackServer
         bool isValidOpeningHandshake = httpRequestData.Method == HttpMethod.Connect.ToString() && httpRequestData.GetSingleHeaderValue(":protocol") == s_protocolPseudoHeaderValue;
         Assert.True(isValidOpeningHandshake, "Invalid handshake from client received");
         await connection.SendResponseAsync(content: null, isFinal: false);
-        return new WebTransportServerSession { Connection = connection, ControlStream = controlStream };
+        return new WebTransportServerSession { Connection = connection, ConnectStream = controlStream };
     }
 }
 internal sealed class WebTransportServerSession : IAsyncDisposable
@@ -31,9 +31,9 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
     private static byte[] s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
 
     private static byte[] s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
-    public long SessionId => ControlStream.Id;
+    public long SessionId => ConnectStream.Id;
     public Http3LoopbackConnection Connection { get; init; }
-    public QuicStream ControlStream { get; init; }
+    public QuicStream ConnectStream { get; init; }
 
     public ValueTask DisposeAsync() => Connection.DisposeAsync();
 

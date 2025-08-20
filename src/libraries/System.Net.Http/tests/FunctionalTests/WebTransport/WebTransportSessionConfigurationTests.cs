@@ -28,11 +28,11 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (receivedMaxUnidirectionalStreams, bytesReadMaxUnidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (receivedMaxUnidirectionalStreams, bytesReadMaxUnidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
             Assert.Equal(MaxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedMaxUnidirectionalStreams);
@@ -60,11 +60,11 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (receivedMaxBidirectionalStreams, bytesReadMaxBidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (receivedMaxBidirectionalStreams, bytesReadMaxBidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
             Assert.Equal(MaxBidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedMaxBidirectionalStreams);
@@ -92,11 +92,11 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            var (receivedMaxDataSentLimit, bytesReadMaxDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ControlStream);
+            var (receivedMaxDataSentLimit, bytesReadMaxDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
             Assert.Equal(MaxDataCapsuleCode, capsuleCode);
             Assert.Equal(expectedMaxDataSentLimit, receivedMaxDataSentLimit);
