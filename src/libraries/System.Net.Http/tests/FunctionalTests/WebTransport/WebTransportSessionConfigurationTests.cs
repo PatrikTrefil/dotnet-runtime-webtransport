@@ -293,4 +293,100 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ReceiveUnidirectionalStreamLimitCapsuleUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        int expectedLimit = 123;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await Task.Delay(2000);
+            Assert.Equal(expectedLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            // Write Unidirectional Stream Limit Capsule
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxUnidirectionalStreamLimitCapsuleCode);
+            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
+            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+
+            await serverSession.ConnectStream.FlushAsync();
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ReceiveBidirectionalStreamLimitCapsuleUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        int expectedLimit = 456;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await Task.Delay(2000);
+            Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            // Write Bidirectional Stream Limit Capsule
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxBidirectionalStreamLimitCapsuleCode);
+            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
+            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+
+            await serverSession.ConnectStream.FlushAsync();
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ReceiveMaxDataCapsuleUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        int expectedLimit = 7890;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await Task.Delay(2000);
+            Assert.Equal(expectedLimit, session.MaxDataSentLimitProvidedByPeer);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            // Write Max Data Capsule
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxDataCapsuleCode);
+            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
+            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+
+            await serverSession.ConnectStream.FlushAsync();
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
 }
