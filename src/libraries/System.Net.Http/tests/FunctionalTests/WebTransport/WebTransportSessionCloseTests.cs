@@ -180,7 +180,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
             // TODO: do I just wait for x seconds here to make sure it has been received?
-            await Task.Delay(10000);
+            await Task.Delay(2000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
