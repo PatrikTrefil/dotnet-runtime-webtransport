@@ -20,6 +20,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }
     private const int TestTimeout = 200_000_00;
     private const long CloseSessionCapsuleCode = 0x2843;
+    private const long DrainSessionCapsuleCode = 0x78ae;
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
     [MemberData(nameof(ErrorMessagesAsParameters))]
@@ -216,6 +217,63 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task SessionRequestCloseAsyncSendsCorrectCapsule()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+
+            Assert.Equal(DrainSessionCapsuleCode, capsuleCode);
+            Assert.Equal(0, capsuleValueLength);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await session.RequestCloseAsync();
+            await Task.WhenAll(serverTask); // prevent client from closing connect stream
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact]
+    public async Task ClientClosesSessionAfterReceivingDrainSessionCapsuleWhenDefaultHandlerIsUsed()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // TODO: do I just wait for x seconds here to make sure it has been received?
+            await Task.Delay(2000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Null(session.CloseStatusDescription);
+            Assert.Null(session.CloseStatusCode);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+    // TODO: check that all operations fail on a closed session
 
     private static readonly byte[][] _errorMessages = [
         ""u8.ToArray(),
