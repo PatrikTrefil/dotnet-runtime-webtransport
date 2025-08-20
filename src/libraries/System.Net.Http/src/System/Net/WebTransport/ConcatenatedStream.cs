@@ -63,7 +63,11 @@ internal sealed class ConcatenatedStream : Stream
         }
 
         int bytesToReadFromStream = count - bytesToReadFromMemory;
-        int bytesReadFromStream = _stream.Read(buffer, offset + bytesToReadFromMemory, bytesToReadFromStream);
+        int bytesReadFromStream = 0;
+        if (bytesToReadFromStream > 0) // necessary because of https://github.com/dotnet/runtime/issues/118888
+        {
+            bytesReadFromStream = _stream.Read(buffer, offset + bytesToReadFromMemory, bytesToReadFromStream);
+        }
 
         return bytesToReadFromMemory + bytesReadFromStream;
     }
