@@ -95,7 +95,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     private bool _isDisposed;
     /// <summary>
     /// Lock this object when working with <see cref="State"/>, <see cref="CloseStatusCode"/>,
-    /// and <see cref="WebTransportSession.CloseStatusDescription"/>.
+    /// and <see cref="CloseStatusDescription"/>.
     /// </summary>
     [CLSCompliant(false)]
     protected internal readonly object _stateLock = new();
