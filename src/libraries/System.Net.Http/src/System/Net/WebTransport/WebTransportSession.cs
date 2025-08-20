@@ -583,11 +583,24 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             // TODO: log the exception
             // TODO: give the exception message to the user - maybe introduce an ErrorMessage property?
             await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
+            if (_openStreams is not null)
+            {
+                foreach (MsQuicWebTransportStream item in _openStreams)
+                {
+                    item.AbortQuicStream(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+                }
+            }
         }
         catch (Exception)
         {
-            // TODO: log the exception
             await CloseByClosingConnectStreamAsync().ConfigureAwait(false); // Probably already closed
+            if (_openStreams is not null)
+            {
+                foreach (MsQuicWebTransportStream item in _openStreams)
+                {
+                    item.AbortQuicStream(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+                }
+            }
         }
     }
 
