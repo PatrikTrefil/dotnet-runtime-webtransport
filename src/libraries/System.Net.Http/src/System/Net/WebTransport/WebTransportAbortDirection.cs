@@ -7,11 +7,11 @@ namespace System.Net.WebTransport;
 /// Specifies the direction of the <see cref="WebTransportStream"/> which is to be aborted.
 /// This enumeration supports a bitwise combination of its member values.
 /// </summary>
-/// <seealso cref="WebTransportStream.Abort(System.Net.WebTransport.WebTransportAbortDirection, int)"/>
+/// <seealso cref="WebTransportStream.Abort(WebTransportAbortDirection, int)"/>
 [Flags]
 public enum WebTransportAbortDirection
 {
     Read = 1,
     Write = 2,
-    Both = 3
+    Both = Read | Write
 }
