@@ -164,6 +164,52 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(QuicAbortDirection.Write)]
+    [InlineData(QuicAbortDirection.Read)]
+    [InlineData(QuicAbortDirection.Both)]
+    public async Task ServerAbortivelyClosesConnectStreamResultsInAllOtherStreamsBeingClosed(QuicAbortDirection abortDirection)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            serverSession.ConnectStream.Abort(abortDirection, 0);
+        });
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            await Task.WhenAll(serverTask);
+            // TODO: maybe wait for a bit to ensure the client has had time to react?
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Null(session.CloseStatusDescription);
+            Assert.Null(session.CloseStatusCode);
+            // Assert that the streams are closed
+            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
+
+            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
+            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule()
     {
