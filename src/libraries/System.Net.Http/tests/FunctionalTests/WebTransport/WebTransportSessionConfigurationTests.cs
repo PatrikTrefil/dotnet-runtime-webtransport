@@ -113,5 +113,77 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task SetUnidirectionalStreamCountLimitUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            int expectedUnidirectionalStreamCountLimit = 1024;
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await session.SetUnidirectionalStreamCountLimitForPeerAsync(expectedUnidirectionalStreamCountLimit);
+
+            Assert.Equal(expectedUnidirectionalStreamCountLimit, session.UnidirectionalStreamCountLimitForPeer);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await Task.WhenAll(clientTask);
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task SetBidirectionalStreamCountLimitUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            int expectedBidirectionalStreamCountLimit = 1024;
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await session.SetBidirectionalStreamCountLimitForPeerAsync(expectedBidirectionalStreamCountLimit);
+
+            Assert.Equal(expectedBidirectionalStreamCountLimit, session.BidirectionalStreamCountLimitForPeer);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await Task.WhenAll(clientTask);
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task SetMaxDataSentLimitUpdatesSessionProperty()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            int expectedMaxDataSentLimit = 1024;
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await session.SetMaxDataSentLimitForPeerAsync(expectedMaxDataSentLimit);
+
+            Assert.Equal(expectedMaxDataSentLimit, session.MaxDataSentLimitForPeer);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await Task.WhenAll(clientTask);
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
     // TODO: send multiple capsules
 }
