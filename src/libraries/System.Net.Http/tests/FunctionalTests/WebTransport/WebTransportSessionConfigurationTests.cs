@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
 using System.Threading;
+using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -17,6 +18,33 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     private const long MaxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
     private const long MaxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
     private const long MaxDataCapsuleCode = 0x190B4D3D;
+
+    private void WriteMaxDataCapsule(Stream stream, long maxDataSentLimit)
+    {
+        VariableLengthIntegerStreamHelper.Write(stream, MaxDataCapsuleCode);
+        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(maxDataSentLimit, valueBuffer);
+        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
+        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+    }
+
+    private void WriteBidirectionalStreamLimitCapsule(Stream stream, long bidirectionalStreamLimit)
+    {
+        VariableLengthIntegerStreamHelper.Write(stream, MaxBidirectionalStreamLimitCapsuleCode);
+        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(bidirectionalStreamLimit, valueBuffer);
+        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
+        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+    }
+
+    private void WriteUnidirectionalStreamLimitCapsule(Stream stream, long unidirectionalStreamLimit)
+    {
+        VariableLengthIntegerStreamHelper.Write(stream, MaxUnidirectionalStreamLimitCapsuleCode);
+        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
+        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(unidirectionalStreamLimit, valueBuffer);
+        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
+        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+    }
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task SetUnidirectionalStreamCountLimitSendsCorrectCapsule()
@@ -265,31 +293,13 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            // Helper to write a capsule
-            void WriteCapsule(long capsuleCode, long value)
-            {
-                // Write capsule code
-                VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleCode);
-
-                // Encode value as variable-length integer
-                Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-                int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(value, valueBuffer);
-
-                // Write the length of the value encoding as a variable-length integer
-                VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
-
-                // Write the encoded value bytes
-                serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
-            }
-
-            WriteCapsule(MaxUnidirectionalStreamLimitCapsuleCode, expectedUnidirectionalStreamCountLimit);
-            WriteCapsule(MaxBidirectionalStreamLimitCapsuleCode, expectedBidirectionalStreamCountLimit);
-            WriteCapsule(MaxDataCapsuleCode, expectedMaxDataSentLimit);
+            WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
+            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
+            WriteMaxDataCapsule(serverSession.ConnectStream, expectedMaxDataSentLimit);
 
             await serverSession.ConnectStream.FlushAsync();
             await Task.WhenAll(clientTask);
         });
-
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
@@ -312,12 +322,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            // Write Unidirectional Stream Limit Capsule
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxUnidirectionalStreamLimitCapsuleCode);
-            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
-            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+            WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
             await Task.WhenAll(clientTask);
@@ -339,17 +344,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             await Task.Delay(2000);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
         });
-
+// TODO: can user open stream, not send anything and then only read?
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            // Write Bidirectional Stream Limit Capsule
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxBidirectionalStreamLimitCapsuleCode);
-            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
-            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
             await Task.WhenAll(clientTask);
@@ -376,12 +376,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            // Write Max Data Capsule
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxDataCapsuleCode);
-            Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-            int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(expectedLimit, valueBuffer);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, valueSizeInBytes);
-            serverSession.ConnectStream.Write(valueBuffer.Slice(0, valueSizeInBytes));
+            WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
             await Task.WhenAll(clientTask);
