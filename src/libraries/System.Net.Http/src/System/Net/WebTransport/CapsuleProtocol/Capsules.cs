@@ -66,11 +66,6 @@ internal sealed class CloseSessionCapsule : Capsule
     }
     public static CloseSessionCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
-        if (buffer.Length < s_applicationErrorCodeSize)
-        {
-            throw new WebTransportException("Invalid connect stream data received");
-        }
-
         long applicationErrorMessageLength = buffer.Length - s_applicationErrorMessageOffset;
 
         if (applicationErrorMessageLength > s_applicationErrorMessageLengthInBytesLimit)
@@ -181,9 +176,9 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
     /// <exception cref="WebTransportException">When the received length does not match the payload length</exception>
     public static MaxBidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
-        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxBidirectionalStreams, out int bytesRead);
+        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxBidirectionalStreams, out int maxBidirectionalStreamsBytesRead);
 
-        if (!isReadSuccessful || buffer.Length != bytesRead)
+        if (!isReadSuccessful || buffer.Length != maxBidirectionalStreamsBytesRead)
         {
             throw new WebTransportException("Received invalid capsule data");
         }
