@@ -562,7 +562,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    internal async Task ProcessIncomingCapsules()
+    private async Task ProcessIncomingCapsules()
     {
         try
         {
