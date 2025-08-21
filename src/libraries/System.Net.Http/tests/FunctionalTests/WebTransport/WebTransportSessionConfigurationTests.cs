@@ -384,4 +384,37 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(5)]
+    [InlineData(10_001)] // This should trigger special handling of long unknown capsules
+    public async Task ReceiveUnknownCapsuleOnConnectStream(long capsuleValueSize)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        int expectedLimit = 42;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            // Assert the valid capsule after the unknown one is received
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, 3000);
+            Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, unknownCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleValueSize);
+            serverSession.ConnectStream.Write(new byte[capsuleValueSize]);
+            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
+            await serverSession.ConnectStream.FlushAsync();
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
 }
