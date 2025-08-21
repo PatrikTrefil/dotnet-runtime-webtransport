@@ -997,8 +997,9 @@ namespace System.Net.WebTransport
         public long? CloseStatusCode { get { throw null; } }
         public string? CloseStatusDescription { get { throw null; } }
         public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.Task CloseAsync();
         public System.Threading.Tasks.Task CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public System.Threading.Tasks.Task CloseAsync(long closeStatus, byte[] statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.Task CloseAsync(long closeStatus, byte[] statusDescription, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task SendDatagramAsync(ReadOnlyMemory<byte> data, System.Threading.CancellationToken cancellationToken = default);

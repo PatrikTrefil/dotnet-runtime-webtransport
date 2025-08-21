@@ -30,11 +30,11 @@ public sealed record class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The default handler calls <see cref="WebTransportSession.CloseAsync(long, string, CancellationToken)"/> with status code 0 and an empty message.
+    /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
-    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => session.CloseAsync(0, "");
+    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => session.CloseAsync();
     public string? SubProtocol { get; init; }
     /// <summary>
     /// Default value is zero.
