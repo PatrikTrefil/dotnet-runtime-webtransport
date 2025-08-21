@@ -22,6 +22,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     private const long CloseSessionCapsuleCode = 0x2843;
     private const long DrainSessionCapsuleCode = 0x78ae;
 
+    private void AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
+    {
+        SpinWait.SpinUntil(() => stream.WritesClosed.IsCompleted, 3000);
+        Assert.True(stream.WritesClosed.IsCompleted);
+
+        SpinWait.SpinUntil(() => stream.ReadsClosed.IsCompleted, 3000);
+        Assert.True(stream.ReadsClosed.IsCompleted);
+    }
+
     [ConditionalTheory(nameof(IsWebTransportSupported))]
     [MemberData(nameof(ErrorMessagesAsParameters))]
     public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage)
@@ -73,13 +82,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            // TODO: do I just wait for x seconds here to make sure it has been received?
-            await Task.Delay(2000);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
         });
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
@@ -100,22 +109,23 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            serverSession.ConnectStream.CompleteWrites();
-        });
         Task clientTask = Task.Run(async () =>
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            await Task.WhenAll(serverTask);
-            // TODO: maybe wait for a bit to ensure the client has had time to react?
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            serverSession.ConnectStream.CompleteWrites();
+            await Task.WhenAll(clientTask); // prevent server from closing the session
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -126,15 +136,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            serverSession.ConnectStream.CompleteWrites();
-        });
         Task clientTask = Task.Run(async () =>
         {
             using HttpClient client = CreateHttpClient();
@@ -144,22 +145,32 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            await Task.WhenAll(serverTask);
-            // TODO: maybe wait for a bit to ensure the client has had time to react?
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
-            // Assert that the streams are closed
-            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
 
-            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
-
-            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            serverSession.ConnectStream.CompleteWrites();
+
+            await Task.WhenAll(clientTask); // prevent server from closing the session
+        });
+
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
@@ -172,15 +183,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            serverSession.ConnectStream.Abort(abortDirection, 0);
-        });
         Task clientTask = Task.Run(async () =>
         {
             using HttpClient client = CreateHttpClient();
@@ -190,21 +192,30 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            await Task.WhenAll(serverTask);
-            // TODO: maybe wait for a bit to ensure the client has had time to react?
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
-            // Assert that the streams are closed
-            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
 
-            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
+            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+        });
 
-            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            serverSession.ConnectStream.Abort(abortDirection, 0);
+
+            await Task.WhenAll(clientTask);
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -226,22 +237,18 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            // TODO: do I just wait for x seconds here to make sure it has been received?
-            await Task.Delay(2000);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
-            // Assert that the streams are closed
-            Assert.True(outboundUnidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundUnidirectionalStream.ReadsClosed.IsCompleted);
 
-            Assert.True(outboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(outboundBidirectionalStream.ReadsClosed.IsCompleted);
-
-            Assert.True(inboundBidirectionalStream.WritesClosed.IsCompleted);
-            Assert.True(inboundBidirectionalStream.ReadsClosed.IsCompleted);
+            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
@@ -285,7 +292,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
             await session.RequestCloseAsync();
+
             await Task.WhenAll(serverTask); // prevent client from closing connect stream
         });
 
@@ -293,7 +302,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact]
-    public async Task ClientClosesSessionAfterReceivingDrainSessionCapsuleWhenDefaultHandlerIsUsed()
+    public async Task ClientClosesSessionAndAllStreamsAfterReceivingDrainSessionCapsuleWhenDefaultHandlerIsUsed()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -302,18 +311,34 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            // TODO: do I just wait for x seconds here to make sure it has been received?
-            await Task.Delay(2000);
+            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
+
+            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+
             await Task.WhenAll(clientTask);
         });
 
