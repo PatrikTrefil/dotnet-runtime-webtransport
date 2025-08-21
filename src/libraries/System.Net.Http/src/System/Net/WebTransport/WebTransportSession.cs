@@ -556,6 +556,17 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             State = WebTransportSessionState.Open;
         }
+
+        // Reaction to peer aborting their reading of the CONNECT stream.
+        _connectStream.WritesClosed.ContinueWith((_) =>
+            {
+                // close the other side of the CONNECT stream
+                _connectStream.Abort(QuicAbortDirection.Read, s_webtransportSessionGoneErrorCode);
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted, // react only to peer aborting
+            TaskScheduler.Current); // TODO: is current the right scheduler?
+
         using (ExecutionContext.SuppressFlow())
         {
             _ = ProcessIncomingCapsules();
