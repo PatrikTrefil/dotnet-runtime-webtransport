@@ -604,7 +604,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception)
         {
-            await CloseByClosingConnectStreamAsync().ConfigureAwait(false); // Probably already closed
+            await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
