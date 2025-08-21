@@ -17,6 +17,8 @@ internal sealed class CapsuleConsumer : IDisposable
     private readonly WebTransportSession _session;
     // Don't make the _buffer readonly - mutable struct
     private ArrayBuffer _buffer;
+    private const int s_maxCapsuleSize = 10_000; // Maximum possible capsule size of known capsule types in bytes
+
     public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  WebTransportSession session)
     {
         ArgumentNullException.ThrowIfNull(capsuleStream);
@@ -62,19 +64,23 @@ internal sealed class CapsuleConsumer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        Capsule? capsule = await DeserializeCapsule().ConfigureAwait(false);
+
+        capsule?.ProcessReceived(_session);
+    }
+
+    private async Task<Capsule?> DeserializeCapsule()
+    {
         long capsuleType = await ReadVariableLengthInteger().ConfigureAwait(false);
 
         long capsuleLength = await ReadVariableLengthInteger().ConfigureAwait(false);
 
-        int capsuleLengthInt;
-        try
+        if (capsuleLength > s_maxCapsuleSize)
         {
-            capsuleLengthInt = checked((int)capsuleLength);
+            await SkipExactlyAsync(capsuleLength).ConfigureAwait(false); // No capsule of this size are known, so we silently drop it https://datatracker.ietf.org/doc/html/rfc9297#section-3.2-7
+            return null;
         }
-        catch (OverflowException)
-        {
-            throw new WebTransportException("Unknown capsule received"); // All known capsule lengths are less than int.MaxValue
-        }
+        int capsuleLengthInt = (int)capsuleLength;
 
         if (capsuleLengthInt > _buffer.ActiveLength)
         {
@@ -84,20 +90,44 @@ internal sealed class CapsuleConsumer : IDisposable
             _buffer.Commit(bytesReadCapsuleValue);
         }
 
-        Capsule? capsule = capsuleType switch
-        {
-            CloseSessionCapsule.CapsuleCode => CloseSessionCapsule.Deserialize(_buffer.ActiveMemory),
-            DrainSessionCapsule.CapsuleCode => DrainSessionCapsule.Deserialize(_buffer.ActiveMemory),
-            MaxBidirectionalStreamsCapsule.CapsuleCode => MaxBidirectionalStreamsCapsule.Deserialize(_buffer.ActiveMemory),
-            MaxUnidirectionalStreamsCapsule.CapsuleCode => MaxUnidirectionalStreamsCapsule.Deserialize(_buffer.ActiveMemory),
-            MaxDataCapsule.CapsuleCode => MaxDataCapsule.Deserialize(_buffer.ActiveMemory),
-            _ => null,
-        };
-        // Unknown capsules are silently dropped https://datatracker.ietf.org/doc/html/rfc9297#section-3.2-7
+        Capsule? capsule = DeserializeCapsuleValue(capsuleType, _buffer.ActiveMemory.Slice(0, capsuleLengthInt));
 
         _buffer.Discard(capsuleLengthInt);
 
-        capsule?.ProcessReceived(_session);
+        return capsule;
+    }
+
+    /// <summary>
+    /// Deserializes a capsule from the provided capsule type and buffer.
+    /// </summary>
+    /// <param name="capsuleType">Code of the capsule type</param>
+    /// <param name="capsuleBuffer">Buffer that contains the data deserialize. There must be no extra data.</param>
+    /// <returns></returns>
+    private static Capsule? DeserializeCapsuleValue(long capsuleType, ReadOnlyMemory<byte> capsuleBuffer)
+    {
+        return capsuleType switch
+        {
+            CloseSessionCapsule.CapsuleCode => CloseSessionCapsule.Deserialize(capsuleBuffer),
+            DrainSessionCapsule.CapsuleCode => DrainSessionCapsule.Deserialize(capsuleBuffer),
+            MaxBidirectionalStreamsCapsule.CapsuleCode => MaxBidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
+            MaxUnidirectionalStreamsCapsule.CapsuleCode => MaxUnidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
+            MaxDataCapsule.CapsuleCode => MaxDataCapsule.Deserialize(capsuleBuffer),
+            _ => null, // Unknown capsules are silently dropped https://datatracker.ietf.org/doc/html/rfc9297#section-3.2-7
+        };
+    }
+
+    public async Task SkipExactlyAsync(long minimumBytes)
+    {
+        long totalBytesRead = 0;
+        int bytesToReadInOneIteration = 2048;
+        while (minimumBytes - totalBytesRead >= bytesToReadInOneIteration)
+        {
+            _buffer.EnsureAvailableSpace(bytesToReadInOneIteration);
+            await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory).ConfigureAwait(false);
+            totalBytesRead += bytesToReadInOneIteration;
+        }
+        int remainingBytes = (int)(minimumBytes - totalBytesRead);
+        await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory.Slice(0, remainingBytes)).ConfigureAwait(false);
     }
 
     public void Dispose()
