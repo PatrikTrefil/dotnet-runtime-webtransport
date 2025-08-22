@@ -19,11 +19,20 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
     public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }
     private const int TestTimeout = 200_000_00;
-    private const long CloseSessionCapsuleCode = 0x2843;
-    private const long DrainSessionCapsuleCode = 0x78ae;
 
-    private const int maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
-    private const int minValidSizeOfCloseSessionCapsuleValue = 32;
+    private const long s_closeSessionCapsuleCode = 0x2843;
+    private const long s_drainSessionCapsuleCode = 0x78ae;
+
+    private const int s_maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
+    private const int s_minValidSizeOfCloseSessionCapsuleValue = 32;
+
+    private static readonly byte[][] s_errorMessages = [
+        ""u8.ToArray(),
+        "test errror message"u8.ToArray(),
+
+    ];
+
+    public static readonly IEnumerable<object[]> s_errorMessagesAsParameters = s_errorMessages.Select(item => new object[] { item });
 
     private void AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
@@ -35,7 +44,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
-    [MemberData(nameof(ErrorMessagesAsParameters))]
+    [MemberData(nameof(s_errorMessagesAsParameters))]
     public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -56,7 +65,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Memory<byte> messageBuffer = new byte[expectedApplicationErrorMessage.Length];
             await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
 
-            Assert.Equal(CloseSessionCapsuleCode, capsuleCode);
+            Assert.Equal(s_closeSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
             Assert.Equal(sizeof(uint) + messageBuffer.Length, capsuleValueLength);
             Assert.Equal(expectedApplicationErrorMessage, messageBuffer);
@@ -74,7 +83,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
-    [MemberData(nameof(ErrorMessagesAsParameters))]
+    [MemberData(nameof(s_errorMessagesAsParameters))]
     public async Task ClientClosesSessionAfterReceivingCloseSessionCapsule(byte[] expectedApplicationErrorMessage)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -95,7 +104,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CloseSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
@@ -261,7 +270,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CloseSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
@@ -287,7 +296,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(DrainSessionCapsuleCode, capsuleCode);
+            Assert.Equal(s_drainSessionCapsuleCode, capsuleCode);
             Assert.Equal(0, capsuleValueLength);
         });
 
@@ -339,7 +348,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
 
             await Task.WhenAll(clientTask);
@@ -368,7 +377,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             int invalidLength = 1;
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
@@ -381,8 +390,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
-    [InlineData(minValidSizeOfCloseSessionCapsuleValue - 1)]
-    [InlineData(maxValidSizeOfCloseSessionCapsuleValue + 1)]
+    [InlineData(s_minValidSizeOfCloseSessionCapsuleValue - 1)]
+    [InlineData(s_maxValidSizeOfCloseSessionCapsuleValue + 1)]
     public async Task ReceiveCloseSessionCapsuleWithInvalidValueClosesSession(int invalidLength)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -402,7 +411,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
             await serverSession.ConnectStream.FlushAsync();
@@ -412,12 +421,4 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
-
-    private static readonly byte[][] _errorMessages = [
-        ""u8.ToArray(),
-        "test errror message"u8.ToArray(),
-
-    ];
-    private static readonly IEnumerable<object[]> _errorMessagesAsParameters = _errorMessages.Select(item => new object[] { item });
-    public static IEnumerable<object[]> ErrorMessagesAsParameters => _errorMessagesAsParameters;
 }
