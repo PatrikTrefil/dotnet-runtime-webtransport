@@ -345,7 +345,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             await Task.Delay(2000);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
         });
-// TODO: can user open stream, not send anything and then only read?
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
