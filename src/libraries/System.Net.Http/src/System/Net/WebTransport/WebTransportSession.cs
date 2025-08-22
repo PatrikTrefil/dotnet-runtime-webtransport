@@ -150,6 +150,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         protected set;
     }
 
+    // TODO: add locks for configuration properties
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#streamcapacitycallback
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundunidirectionalstreams
     /// <summary>
@@ -366,6 +367,11 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     public abstract Task RequestCloseAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gracefully close the session without providing any additional information to the peer.
+    /// </summary>
+    public abstract Task CloseAsync();
 
     /// <summary>
     /// Gracefully close the session.
@@ -729,6 +735,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
             _ => throw new ArgumentOutOfRangeException(nameof(streamType))
         };
+    }
+
+    public override async Task CloseAsync()
+    {
+        await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
     }
 
     public override async Task CloseAsync(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)
