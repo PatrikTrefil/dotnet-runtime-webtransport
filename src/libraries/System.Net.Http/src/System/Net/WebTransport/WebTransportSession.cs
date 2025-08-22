@@ -739,6 +739,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     public override async Task CloseAsync()
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+        if (State != WebTransportSessionState.Open)
+        {
+            throw new WebTransportException("The session is not open");
+        }
         await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
     }
 
