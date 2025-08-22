@@ -258,8 +258,6 @@
     <Compile Include="WebTransport\WebTransportPlatformDetectionTests.cs" />
     <Compile Include="WebTransport\WebTransportLoopbackServer.cs" />
     <Compile Include="WebTransport\VariableLengthIntegerStreamHelper.cs" />
-    <Compile Include="$(CommonPath)\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs"
-             Link="ProductionCode\Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
   </ItemGroup>
 
   <!-- Windows specific files -->

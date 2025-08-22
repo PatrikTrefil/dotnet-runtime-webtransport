@@ -24,7 +24,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     {
         VariableLengthIntegerStreamHelper.Write(stream, MaxDataCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(maxDataSentLimit, valueBuffer);
+        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(maxDataSentLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
         stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
     }
@@ -33,7 +33,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     {
         VariableLengthIntegerStreamHelper.Write(stream, MaxBidirectionalStreamLimitCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(bidirectionalStreamLimit, valueBuffer);
+        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(bidirectionalStreamLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
         stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
     }
@@ -42,7 +42,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     {
         VariableLengthIntegerStreamHelper.Write(stream, MaxUnidirectionalStreamLimitCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = Test.Common.VariableLengthIntegerHelper.EncodeVariableLengthInteger(unidirectionalStreamLimit, valueBuffer);
+        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(unidirectionalStreamLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
         stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
     }
