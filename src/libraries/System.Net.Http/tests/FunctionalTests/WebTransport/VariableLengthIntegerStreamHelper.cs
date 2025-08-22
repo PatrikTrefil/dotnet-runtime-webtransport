@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Net.Test.Common;
 using System.Threading.Tasks;
 
-namespace System.Net.WebTransport;
+namespace System.Net.WebTransport.Functional.Tests;
 
 internal static class VariableLengthIntegerStreamHelper
 {
