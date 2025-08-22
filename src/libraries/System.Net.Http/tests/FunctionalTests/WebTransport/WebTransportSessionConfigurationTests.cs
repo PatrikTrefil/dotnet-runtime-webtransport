@@ -18,6 +18,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     private const long MaxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
     private const long MaxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
     private const long MaxDataCapsuleCode = 0x190B4D3D;
+    private const long unknownCapsuleCode = 0x12345678;
 
     private void WriteMaxDataCapsule(Stream stream, long maxDataSentLimit)
     {
