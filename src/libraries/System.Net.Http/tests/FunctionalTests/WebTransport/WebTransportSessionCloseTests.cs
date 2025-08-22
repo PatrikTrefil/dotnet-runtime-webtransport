@@ -421,4 +421,41 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task AllOperationsThrowWebTransportExceptionOnClosedSession()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            await session.CloseAsync();
+
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            // All operations should throw WebTransportException
+            await Assert.ThrowsAsync<WebTransportException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.SetMaxDataSentLimitForPeerAsync(1));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.RequestCloseAsync());
+            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync(1, ""));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync());
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
 }
