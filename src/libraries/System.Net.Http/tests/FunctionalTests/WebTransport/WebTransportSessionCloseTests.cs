@@ -22,6 +22,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     private const long CloseSessionCapsuleCode = 0x2843;
     private const long DrainSessionCapsuleCode = 0x78ae;
 
+    private const int maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
+    private const int minValidSizeOfCloseSessionCapsuleValue = 32;
+
     private void AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
         SpinWait.SpinUntil(() => stream.WritesClosed.IsCompleted, 3000);
@@ -344,7 +347,71 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
-    // TODO: check that all operations fail on a closed session
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async Task ReceiveDrainCapsuleWithInvalidValueClosesSession()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // Wait for session to be closed due to invalid capsule
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            int invalidLength = 1;
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
+            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            await serverSession.ConnectStream.FlushAsync();
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(minValidSizeOfCloseSessionCapsuleValue - 1)]
+    [InlineData(maxValidSizeOfCloseSessionCapsuleValue + 1)]
+    public async Task ReceiveCloseSessionCapsuleWithInvalidValueClosesSession(int invalidLength)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // Wait for session to be closed due to invalid capsule
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, DrainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
+            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            await serverSession.ConnectStream.FlushAsync();
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
 
     private static readonly byte[][] _errorMessages = [
         ""u8.ToArray(),

@@ -20,6 +20,15 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     private const long MaxDataCapsuleCode = 0x190B4D3D;
     private const long unknownCapsuleCode = 0x12345678;
 
+    private const int minValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int maxValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
+    private const int minValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int maxValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
+    private const int minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
     private void WriteMaxDataCapsule(Stream stream, long maxDataSentLimit)
     {
         VariableLengthIntegerStreamHelper.Write(stream, MaxDataCapsuleCode);
@@ -413,6 +422,106 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             serverSession.ConnectStream.Write(new byte[capsuleValueSize]);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
             await serverSession.ConnectStream.FlushAsync();
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(minValidSizeOfMaxDataCapsuleValue - 1)]
+    [InlineData(maxValidSizeOfMaxDataCapsuleValue + 1)]
+    public async Task ReceiveMaxDataCapsuleWithInvalidValueClosesSession(int invalidLength)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // Wait for session to be closed due to invalid capsule
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxDataCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
+            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            await serverSession.ConnectStream.FlushAsync();
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(minValidSizeOfMaxUnidirectionalCapsuleValue - 1)]
+    [InlineData(maxValidSizeOfMaxUnidirectionalCapsuleValue + 1)]
+    public async Task ReceiveMaxUnidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // Wait for session to be closed due to invalid capsule
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 10000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxUnidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
+            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            await serverSession.ConnectStream.FlushAsync();
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [InlineData(minValidSizeOfMaxBidirectionalCapsuleValue - 1)]
+    [InlineData(maxValidSizeOfMaxBidirectionalCapsuleValue + 1)]
+    public async Task ReceiveMaxBidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            // Wait for session to be closed due to invalid capsule
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxBidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
+            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            await serverSession.ConnectStream.FlushAsync();
+
             await Task.WhenAll(clientTask);
         });
 

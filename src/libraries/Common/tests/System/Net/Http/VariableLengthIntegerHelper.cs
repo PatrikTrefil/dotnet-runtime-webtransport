@@ -8,6 +8,9 @@ namespace System.Net.Test.Common;
 
 internal static class VariableLengthIntegerHelper
 {
+    public const int MinimumEncodedLength = 1;
+    public const int MaximumEncodedLength = 8;
+
     private const long VarIntMax = (1L << 62) - 1;
     public static int EncodeVariableLengthInteger(long longToEncode, Span<byte> buffer)
     {
