@@ -155,7 +155,8 @@ namespace System.Net.Http
 
                 _availableStreamsWaiter?.SetResult(false);
                 _availableStreamsWaiter = null;
-
+                // TODO: this should report to connection lifetime manager
+                // TODO: find all places where CloseAsync is called here
                 _connectionClosedTask ??= _connection.CloseAsync((long)Http3ErrorCode.NoError).AsTask();
 
                 QuicConnection connection = _connection;
@@ -493,6 +494,11 @@ namespace System.Net.Http
             foreach (Http3RequestStream stream in streamsToGoAway)
             {
                 stream.GoAway();
+            }
+
+            foreach (Http3ExtendedConnectManager manager in ProtocolExtendedConnectManagers.Values)
+            {
+                manager.GoAwayReceivedAsync();
             }
         }
 
