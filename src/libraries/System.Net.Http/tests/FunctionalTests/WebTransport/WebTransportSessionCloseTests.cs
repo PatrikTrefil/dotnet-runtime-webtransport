@@ -357,6 +357,38 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
+    [ConditionalFact]
+    public async Task ClientCallsProvidedGracefulShutdownHadnlerAfterReceivingDrainSessionCapsule()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        bool wasHandlerCalled = false;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(
+                server.Address,
+                client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalled = true; return Task.CompletedTask; } }
+                );
+
+            SpinWait.SpinUntil(() => wasHandlerCalled, 3000);
+
+            Assert.True(wasHandlerCalled);
+        });
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task ReceiveDrainCapsuleWithInvalidValueClosesSession()
     {
@@ -458,4 +490,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+    // TODO: write tests for operation cancellations
+    // TODO: write tests that send GOAWAY frame
 }
