@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Test.Common;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
@@ -20,11 +21,25 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     private static long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
     private static long s_minValidVariableLengthIntegerValue = 0;
 
-    private static long[] s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue , s_maxValidVariableLengthIntegerValue];
-    private static long[] s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1 , s_maxValidVariableLengthIntegerValue + 1];
+    private static readonly long[] s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue , s_maxValidVariableLengthIntegerValue];
+    private static readonly long[] s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1 , s_maxValidVariableLengthIntegerValue + 1];
 
     public static readonly IEnumerable<object[]> s_validVariableLengthIntegersAsParameters = s_validVariableLengthIntegers.Select(i => new object[] { i });
     public static readonly IEnumerable<object[]> s_invalidVariableLengthIntegersAsParameters = s_invalidVariableLengthIntegers.Select(i => new object[] { i });
+
+    private static readonly Func<WebTransportSession, CancellationToken, Task>[] s_operations = [
+        (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
+        (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
+        (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken),
+        (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
+        (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
+        (session, cancellationToken) => session.CloseAsync(0, ""u8.ToArray(), cancellationToken)
+        ];
+    public readonly static IEnumerable<object[]> s_operationsAsParameters = s_operations.Select(op => new object[] { op });
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async void ConnectionEstablishmentWithValidHandshakeSucceeds()
@@ -98,6 +113,32 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await clientTask; // prevent server session from closing before client task runs
         });
 
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [MemberData(nameof(s_operationsAsParameters))]
+    public async void OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            CancellationTokenSource cts = new();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation(session, cts.Token));
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await Task.WhenAll(clientTask);
+        });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
