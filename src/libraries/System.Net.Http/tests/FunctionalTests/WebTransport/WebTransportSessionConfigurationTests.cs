@@ -527,4 +527,40 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+
+    [ConditionalFact(nameof(IsWebTransportSupported))]
+    public async void CreationOptionsOfLimitsSetTheirRespectiveProperties()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        int expectedBidirectionalStreamsCountLimitForPeer = 10;
+        int expectedUnidirectionalStreamsCountLimitForPeer = 11;
+        int expectedDataSentLimitForPeer = 111;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            WebTransportSessionCreationOptions options = new()
+            {
+                InitialBidirectionalStreamCountLimitForPeer = expectedBidirectionalStreamsCountLimitForPeer,
+                InitialUnidirectionalStreamCountLimitForPeer = expectedUnidirectionalStreamsCountLimitForPeer,
+                InitialDataSentLimitForPeer = expectedDataSentLimitForPeer,
+            };
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client, options);
+
+            Assert.Equal(expectedBidirectionalStreamsCountLimitForPeer, session.BidirectionalStreamCountLimitForPeer);
+            Assert.Equal(expectedUnidirectionalStreamsCountLimitForPeer, session.UnidirectionalStreamCountLimitForPeer);
+            Assert.Equal(expectedDataSentLimitForPeer, session.DataSentLimitForPeer);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+    // TODO: write tests for subprotocol
+    // TODO: write tests that check that the limits really apply
 }
