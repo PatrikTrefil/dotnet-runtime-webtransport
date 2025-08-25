@@ -12,6 +12,7 @@ namespace System.Net.WebTransport;
 internal sealed class CapsuleSender
 {
     private readonly QuicStream _capsuleStream;
+    private readonly SemaphoreSlim _semaphore = new(1);
 
     public CapsuleSender(QuicStream capsuleStream)
     {
@@ -27,9 +28,21 @@ internal sealed class CapsuleSender
     /// <param name="cancellationToken"></param>
     public async Task SendCapsuleAsync(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)
     {
-        // TODO: maybe the cancellation should destroy the session? it should not be useable afterwards?
         ArgumentNullException.ThrowIfNull(capsule);
 
+        await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SendCapsuleAsyncCore(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private async Task SendCapsuleAsyncCore(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)
+    {
         byte[] arrayPoolBuffer = ArrayPool<byte>.Shared.Rent(capsule.TotalLength); // TODO: does this make sense for small capsules?
 
         capsule.Serialize(arrayPoolBuffer.AsSpan(0, capsule.TotalLength));
@@ -38,5 +51,4 @@ internal sealed class CapsuleSender
 
         ArrayPool<byte>.Shared.Return(arrayPoolBuffer);
     }
-
 }
