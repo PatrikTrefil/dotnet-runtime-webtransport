@@ -535,6 +535,40 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
+    [ConditionalFact]
+    public async Task ClientClosesSessionWhenQuicConnectionIsClosed()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+
+            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Null(session.CloseStatusCode);
+            Assert.Null(session.CloseStatusDescription);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            await serverSession.DisposeAsync(); // This will close the underlying QUIC connection, which will result in the CONNECT stream being closed
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task AllOperationsThrowWebTransportExceptionOnClosedSession()
     {
