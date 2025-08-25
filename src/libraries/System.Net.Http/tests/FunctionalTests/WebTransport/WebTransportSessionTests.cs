@@ -69,7 +69,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.RequestCloseAsync());
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync());
+            Assert.Throws<ObjectDisposedException>(() => session.Close());
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""u8.ToArray()));
         });

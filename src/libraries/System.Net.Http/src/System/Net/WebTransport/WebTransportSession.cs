@@ -30,11 +30,11 @@ public sealed record class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
+    /// The default handler calls <see cref="WebTransportSession.Close()"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
-    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => session.CloseAsync();
+    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
     public string? SubProtocol { get; init; }
     /// <summary>
     /// Default value is zero.
@@ -371,7 +371,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
-    public abstract Task CloseAsync();
+    public abstract void Close();
 
     /// <summary>
     /// Gracefully close the session.
@@ -599,7 +599,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             // TODO: log the exception
             // TODO: give the exception message to the user - maybe introduce an ErrorMessage property?
-            await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
+            CloseByClosingConnectStream();
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
@@ -610,7 +610,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception)
         {
-            await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
+            CloseByClosingConnectStream();
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
@@ -637,13 +637,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// It does not close <see cref="WebTransportStream"/> instances associated with this session - this is expected
     /// to be done by the other endpoint.
     /// </summary>
-    private async ValueTask CloseByClosingConnectStreamAsync()
+    private void CloseByClosingConnectStream()
     {
         lock (_stateLock)
         {
             State = WebTransportSessionState.Closed;
         }
-        await _connectStream.DisposeAsync().ConfigureAwait(false);
+        _connectStream.Abort(QuicAbortDirection.Both, 0);
     }
 
     public override async Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
@@ -737,14 +737,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         };
     }
 
-    public override async Task CloseAsync()
+    public override void Close()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException("The session is not open");
         }
-        await CloseByClosingConnectStreamAsync().ConfigureAwait(false);
+        CloseByClosingConnectStream();
     }
 
     public override async Task CloseAsync(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)

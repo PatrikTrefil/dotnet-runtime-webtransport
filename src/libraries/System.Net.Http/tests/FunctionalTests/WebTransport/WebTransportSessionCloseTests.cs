@@ -581,7 +581,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            await session.CloseAsync();
+            session.Close();
 
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
 
@@ -595,7 +595,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await Assert.ThrowsAsync<WebTransportException>(() => session.SetMaxDataSentLimitForPeerAsync(1));
             await Assert.ThrowsAsync<WebTransportException>(() => session.RequestCloseAsync());
             await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync(1, ""));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync());
+            Assert.Throws<WebTransportException>(() => session.Close());
         });
 
         Task serverTask = Task.Run(async () =>
