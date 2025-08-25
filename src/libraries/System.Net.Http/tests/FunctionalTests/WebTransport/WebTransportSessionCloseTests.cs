@@ -498,6 +498,43 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
+    [ConditionalFact]
+    public async Task ClientCallsProvidedGracefulShutdownHadnlerAfterReceivingGoAwayFrame()
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        bool wasHandlerCalled = false;
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(
+                server.Address,
+                client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalled = true; return Task.CompletedTask; } }
+                );
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => wasHandlerCalled, 3000);
+
+            Assert.True(wasHandlerCalled);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            _ = serverSession.Connection.ShutdownAsync(); // don't await, it will complete only after the client closes the connection completely
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task AllOperationsThrowWebTransportExceptionOnClosedSession()
     {
