@@ -274,7 +274,7 @@ internal sealed class MaxDataCapsule : Capsule
     }
     public override void ProcessReceived(WebTransportSession session)
     {
-        session.MaxDataSentLimitProvidedByPeer = MaxData;
+        session.DataSentLimitProvidedByPeer = MaxData;
     }
     /// <exception cref="WebTransportException">When the received length does not match the payload length</exception>
     public static MaxDataCapsule Deserialize(ReadOnlyMemory<byte> buffer)

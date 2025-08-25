@@ -969,9 +969,9 @@ namespace System.Net.WebTransport
     {
         public Func<WebTransportSession, System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } init { } }
         public string? SubProtocol { get { throw null; } init { } }
-        public long InitialMaxUnidirectionalStreamCount { get { throw null; } init { } }
-        public long InitialMaxBidirectionalStreamCount { get { throw null; } init { } }
-        public long InitialMaxData { get { throw null; } init { } }
+        public long InitialUnidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
+        public long InitialBidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
+        public long InitialDataSentLimitForPeer { get { throw null; } init { } }
     }
     public abstract partial class WebTransportSession : IAsyncDisposable
     {
@@ -991,9 +991,9 @@ namespace System.Net.WebTransport
         public long BidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
         public long BidirectionalStreamCountLimitForPeer { get { throw null; } set { } }
         public abstract System.Threading.Tasks.Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-        public long MaxDataSentLimitProvidedByPeer { get { throw null; } }
-        public long MaxDataSentLimitForPeer { get { throw null; } }
-        public abstract System.Threading.Tasks.Task SetMaxDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
+        public long DataSentLimitProvidedByPeer { get { throw null; } }
+        public long DataSentLimitForPeer { get { throw null; } }
+        public abstract System.Threading.Tasks.Task SetDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
         public long? CloseStatusCode { get { throw null; } }
         public string? CloseStatusDescription { get { throw null; } }
         public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }

@@ -63,7 +63,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await using (session = await WebTransportSession.ConnectAsync(server.Address, client)) { }
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetMaxDataSentLimitForPeerAsync(1));
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetDataSentLimitForPeerAsync(1));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
@@ -89,7 +89,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetMaxDataSentLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetDataSentLimitForPeerAsync(invalidVarInt));
         });
 
         Task serverTask = Task.Run(async () =>
@@ -107,17 +107,17 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     [MemberData(nameof(s_invalidVariableLengthIntegersAsParameters))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialMaxUnidirectionalStreamCount = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialMaxBidirectionalStreamCount = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialMaxData = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = invalidVarInt });
     }
 
     [ConditionalTheory(nameof(IsWebTransportSupported))]
     [MemberData(nameof(s_validVariableLengthIntegersAsParameters))]
     public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
     {
-        new WebTransportSessionCreationOptions() { InitialMaxUnidirectionalStreamCount = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialMaxBidirectionalStreamCount = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialMaxData = validVarInt };
+        new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = validVarInt };
     }
 }

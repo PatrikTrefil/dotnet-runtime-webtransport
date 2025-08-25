@@ -37,15 +37,27 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-4.2-4"/>
     public override long BidirectionalStreamSignalValue => 0x41;
 
-    public WebTransportSession CreateSession(QuicStream connectStream, byte[] connectStreamBuffer, QuicConnection quicConnection, WebTransportSessionCreationOptions? options)
+    public WebTransportSession CreateSession(QuicStream connectStream, byte[] connectStreamBuffer, QuicConnection quicConnection, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subprotocol)
     {
         // It's possible that a there are already pending streams for the session we are creating
         SessionAndChannels sessionAndChannels = _idSessionAndChannelsDict.GetOrAdd(
             connectStream.Id,
              _ => new SessionAndChannels()
         );
-        sessionAndChannels.Session = new MsQuicWebTransportSession(connectStream.Id, this, quicConnection, connectStream, connectStreamBuffer, sessionAndChannels.PendingUnidirectionalStreams, sessionAndChannels.PendingBidirectionalStreams, options);
+
+        sessionAndChannels.Session = new MsQuicWebTransportSession(
+            connectStream.Id,
+            this,
+            quicConnection,
+            connectStream,
+            connectStreamBuffer,
+            sessionAndChannels.PendingUnidirectionalStreams,
+            sessionAndChannels.PendingBidirectionalStreams,
+            gracefulShutdownHandler,
+            subprotocol);
+
         sessionAndChannels.Session.Init();
+
         return sessionAndChannels.Session;
     }
 

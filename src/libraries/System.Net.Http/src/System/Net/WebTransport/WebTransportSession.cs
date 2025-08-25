@@ -42,7 +42,7 @@ public sealed record class WebTransportSessionCreationOptions
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
-    public long InitialMaxUnidirectionalStreamCount
+    public long InitialUnidirectionalStreamCountLimitForPeer
     {
         get;
         init
@@ -58,7 +58,7 @@ public sealed record class WebTransportSessionCreationOptions
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
-    public long InitialMaxBidirectionalStreamCount
+    public long InitialBidirectionalStreamCountLimitForPeer
     {
         get;
         init
@@ -74,7 +74,7 @@ public sealed record class WebTransportSessionCreationOptions
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
-    public long InitialMaxData
+    public long InitialDataSentLimitForPeer
     {
         get;
         init
@@ -102,23 +102,16 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in range the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="extendedConnectManager"/> or <paramref name="controlStreamBuffer"/> is null</exception>
-    internal WebTransportSession(long id, byte[] controlStreamBuffer, MsQuicWebTransportExtendedConnectManager extendedConnectManager, WebTransportSessionCreationOptions? options = default)
+    internal WebTransportSession(long id, byte[] controlStreamBuffer, MsQuicWebTransportExtendedConnectManager extendedConnectManager, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
     {
-        if (options == null)
-        {
-            options = new WebTransportSessionCreationOptions();
-        }
         ArgumentNullException.ThrowIfNull(controlStreamBuffer);
         ArgumentNullException.ThrowIfNull(extendedConnectManager);
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
 
         Id = id;
 
-        SubProtocol = options.SubProtocol;
-        UnidirectionalStreamCountLimitForPeer = options.InitialMaxUnidirectionalStreamCount;
-        BidirectionalStreamCountLimitForPeer = options.InitialMaxBidirectionalStreamCount;
-        MaxDataSentLimitForPeer = options.InitialMaxData;
-        GracefulShutdownHandler = () => options.GracefulShutdownHandler.Invoke(this);
+        SubProtocol = subProtocol;
+        GracefulShutdownHandler = () => gracefulShutdownHandler(this);
     }
 
     [SupportedOSPlatformGuard("windows")]
@@ -245,7 +238,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitProvidedByPeer
+    public long DataSentLimitProvidedByPeer
     {
         get;
         internal set
@@ -270,18 +263,18 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long MaxDataSentLimitForPeer { get; protected set; }
+    public long DataSentLimitForPeer { get; protected set; }
 
     /// <summary>
-    /// Set a new value of <see cref="MaxDataSentLimitForPeer"/> and send it to peer.
+    /// Set a new value of <see cref="DataSentLimitForPeer"/> and send it to peer.
     /// </summary>
-    /// <param name="limit">The new value for <see cref="MaxDataSentLimitForPeer"/></param>
+    /// <param name="limit">The new value for <see cref="DataSentLimitForPeer"/></param>
     /// <param name="cancellationToken"></param>
     /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    public abstract Task SetMaxDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
+    public abstract Task SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule, the
@@ -329,6 +322,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             throw new ArgumentException("The URI scheme must be 'https'.", nameof(uri));
         }
+        options ??= new WebTransportSessionCreationOptions();
 
         HttpRequestMessage requestMessage = new(HttpMethod.Connect, uri)
         {
@@ -356,7 +350,28 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
 
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
-        return wtExtendedConnectManager.CreateSession(extendedConnectContent.ConnectStream, extendedConnectContent.ConnectStreamBuffer, extendedConnectContent.QuicConnection, options);
+
+        WebTransportSession session = wtExtendedConnectManager.CreateSession(
+            extendedConnectContent.ConnectStream,
+            extendedConnectContent.ConnectStreamBuffer,
+            extendedConnectContent.QuicConnection,
+            options.GracefulShutdownHandler,
+            options.SubProtocol);
+
+        if (options.InitialUnidirectionalStreamCountLimitForPeer > 0)
+        {
+            await session.SetUnidirectionalStreamCountLimitForPeerAsync(options.InitialUnidirectionalStreamCountLimitForPeer, cancellationToken).ConfigureAwait(false);
+        }
+        if (options.InitialBidirectionalStreamCountLimitForPeer > 0)
+        {
+            await session.SetBidirectionalStreamCountLimitForPeerAsync(options.InitialBidirectionalStreamCountLimitForPeer, cancellationToken).ConfigureAwait(false);
+        }
+        if (options.InitialDataSentLimitForPeer > 0)
+        {
+            await session.SetDataSentLimitForPeerAsync(options.InitialDataSentLimitForPeer, cancellationToken).ConfigureAwait(false);
+        }
+
+        return session;
     }
 
     /// <summary>
@@ -541,7 +556,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         byte[] controlStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
         Channel<ChannelItem> pendingBidirectionalStreams,
-        WebTransportSessionCreationOptions? options) : base(id, controlStreamBuffer, wtExtendedConnectManager, options)
+        Func<WebTransportSession, Task> gracefulShutdownHandler,
+        string? subprotocol) : base(id, controlStreamBuffer, wtExtendedConnectManager, gracefulShutdownHandler, subprotocol)
     {
         _connection = connection;
         _connectStream = connectStream;
@@ -673,7 +689,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         BidirectionalStreamCountLimitForPeer = limit;
     }
 
-    public override async Task SetMaxDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
+    public override async Task SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
 
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -684,7 +700,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxDataCapsule capsule = new(limit);
         await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
-        MaxDataSentLimitForPeer = limit;
+        DataSentLimitForPeer = limit;
     }
 
     public override async Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)

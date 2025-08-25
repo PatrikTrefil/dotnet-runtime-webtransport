@@ -592,7 +592,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await Assert.ThrowsAsync<WebTransportException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
             await Assert.ThrowsAsync<WebTransportException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
             await Assert.ThrowsAsync<WebTransportException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.SetMaxDataSentLimitForPeerAsync(1));
+            await Assert.ThrowsAsync<WebTransportException>(() => session.SetDataSentLimitForPeerAsync(1));
             await Assert.ThrowsAsync<WebTransportException>(() => session.RequestCloseAsync());
             await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync(1, ""));
             Assert.Throws<WebTransportException>(() => session.Close());
