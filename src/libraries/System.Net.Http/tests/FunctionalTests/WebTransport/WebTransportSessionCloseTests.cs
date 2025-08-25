@@ -339,6 +339,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
             AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
@@ -376,6 +377,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             Assert.True(wasHandlerCalled);
         });
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
