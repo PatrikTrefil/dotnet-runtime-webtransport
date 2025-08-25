@@ -607,6 +607,4 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
-    // TODO: write tests for operation cancellations
-    // TODO: write tests that send GOAWAY frame
 }
