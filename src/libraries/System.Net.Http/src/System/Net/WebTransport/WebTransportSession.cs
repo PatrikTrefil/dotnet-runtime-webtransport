@@ -794,10 +794,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     internal override void ReceiveClose(uint closeStatus, string statusDescription)
     {
-        Debug.Assert(State == WebTransportSessionState.Open);
-        CloseStatusCode = closeStatus;
-        CloseStatusDescription = statusDescription;
-        State = WebTransportSessionState.Closed; // This prevents opening of new streams
+        lock (_stateLock)
+        {
+            Debug.Assert(State == WebTransportSessionState.Open);
+            CloseStatusCode = closeStatus;
+            CloseStatusDescription = statusDescription;
+            State = WebTransportSessionState.Closed;
+        }
 
         if (_openStreams is not null)
         {
