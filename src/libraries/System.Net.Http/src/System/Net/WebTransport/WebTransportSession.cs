@@ -101,11 +101,11 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     protected internal readonly object _stateLock = new();
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in range the range [0, 2^62).</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="extendedConnectManager"/> or <paramref name="controlStreamBuffer"/> is null</exception>
-    internal WebTransportSession(long id, byte[] controlStreamBuffer, MsQuicWebTransportExtendedConnectManager extendedConnectManager, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
+    /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
+    internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
     {
-        ArgumentNullException.ThrowIfNull(controlStreamBuffer);
-        ArgumentNullException.ThrowIfNull(extendedConnectManager);
+        ArgumentNullException.ThrowIfNull(gracefulShutdownHandler);
+
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
 
         Id = id;
@@ -537,6 +537,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private ConcurrentBag<MsQuicWebTransportStream>? _openStreams = new();
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
+    private readonly MsQuicWebTransportExtendedConnectManager _wtExtendedConnectManager;
     /// <summary>
     /// WEBTRANSPORT_SESSION_GONE HTTP/3 error code.
     /// </summary>
@@ -548,6 +549,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     [MemberNotNullWhen(false, nameof(_openStreams))]
     private bool _isDisposed { get; set; }
 
+    /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> is null.</exception>
     internal MsQuicWebTransportSession(
         long id,
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager,
@@ -557,13 +559,21 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         Channel<ChannelItem> pendingUnidirectionalStreams,
         Channel<ChannelItem> pendingBidirectionalStreams,
         Func<WebTransportSession, Task> gracefulShutdownHandler,
-        string? subprotocol) : base(id, controlStreamBuffer, wtExtendedConnectManager, gracefulShutdownHandler, subprotocol)
+        string? subprotocol) : base(id, gracefulShutdownHandler, subprotocol)
     {
+        ArgumentNullException.ThrowIfNull(wtExtendedConnectManager);
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(connectStream);
+        ArgumentNullException.ThrowIfNull(controlStreamBuffer);
+        ArgumentNullException.ThrowIfNull(pendingUnidirectionalStreams);
+        ArgumentNullException.ThrowIfNull(pendingBidirectionalStreams);
+
         _connection = connection;
         _connectStream = connectStream;
         State = WebTransportSessionState.None;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
+        _wtExtendedConnectManager = wtExtendedConnectManager;
         _capsuleConsumer = new CapsuleConsumer(connectStream, controlStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
 
