@@ -142,6 +142,13 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
+    // TODO: add tests with multiple WT sessions
+    // TODO: test that redirects don't connect
+    // TODO: add test for connecting to a host that doesn't support WT
+    // TODO: add test for connection to a non-existent host
+    // TODO: add test for connection to a host that doesn't support HTTP/3
+    // TODO: add test for connection to a host that doesn't support WT over HTTP/3
+    // TODO: add test for connection to a host that performs invalid WT handshake
 
     // TODO: move these to unit tests
     [ConditionalTheory(nameof(IsWebTransportSupported))]

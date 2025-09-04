@@ -194,5 +194,6 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     // TODO: test that an abort with WebTransportAbortDirection.None does not close the stream
     // TODO: test that an abort closes the stream as it should
     // TODO: try to write a test that fails because we don't have RESET_STREAM_AT
+    // TODO: add tests for cancellations of stream operations
 }
 
