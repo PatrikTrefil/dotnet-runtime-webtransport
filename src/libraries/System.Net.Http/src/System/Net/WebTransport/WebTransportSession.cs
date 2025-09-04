@@ -625,7 +625,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             // TODO: log the exception
             // TODO: give the exception message to the user - maybe introduce an ErrorMessage property?
-            CloseByClosingConnectStream();
+            lock (_stateLock)
+            {
+                State = WebTransportSessionState.Closed;
+            }
+            _connectStream.Abort(QuicAbortDirection.Both, 0);
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
@@ -636,7 +640,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception)
         {
-            CloseByClosingConnectStream();
+            lock (_stateLock)
+            {
+                State = WebTransportSessionState.Closed;
+            }
+            _connectStream.Abort(QuicAbortDirection.Both, 0);
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
@@ -645,6 +653,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
             }
         }
+        _wtExtendedConnectManager.RemoveSession(Id);
     }
 
     private async ValueTask CloseBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
@@ -656,20 +665,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
         await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, completeWrites: true, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Closes the connect stream and sets the session state to Closed.
-    /// It does not close <see cref="WebTransportStream"/> instances associated with this session - this is expected
-    /// to be done by the other endpoint.
-    /// </summary>
-    private void CloseByClosingConnectStream()
-    {
-        lock (_stateLock)
-        {
-            State = WebTransportSessionState.Closed;
-        }
-        _connectStream.Abort(QuicAbortDirection.Both, 0);
     }
 
     public override async Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
@@ -770,7 +765,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             throw new WebTransportException("The session is not open");
         }
-        CloseByClosingConnectStream();
+        lock (_stateLock)
+        {
+            State = WebTransportSessionState.Closed;
+        }
+        _connectStream.Abort(QuicAbortDirection.Both, 0);
     }
 
     public override async Task CloseAsync(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)

@@ -103,6 +103,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
+    public void RemoveSession(long sessionId)
+    {
+        _idSessionAndChannelsDict.TryRemove(sessionId, out _);
+    }
+
     private sealed class SessionAndChannels()
     {
         public MsQuicWebTransportSession? Session { get; set; }
