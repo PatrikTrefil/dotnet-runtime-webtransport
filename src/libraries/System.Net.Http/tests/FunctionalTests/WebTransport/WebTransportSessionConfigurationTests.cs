@@ -410,7 +410,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             // Assert the valid capsule after the unknown one is received
-            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, 3000);
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
         });
 
@@ -442,7 +442,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
         });
@@ -509,7 +509,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 3000);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
         });
