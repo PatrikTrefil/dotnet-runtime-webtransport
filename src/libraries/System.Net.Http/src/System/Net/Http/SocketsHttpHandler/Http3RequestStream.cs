@@ -65,6 +65,8 @@ namespace System.Net.Http
             set => Volatile.Write(ref _streamId, value);
         }
 
+        public bool ConnectProtocolEstablished { get; private set; }
+
         public Http3RequestStream(HttpRequestMessage request, Http3Connection connection, QuicStream stream)
         {
             _request = request;
@@ -87,17 +89,14 @@ namespace System.Net.Http
             if (!_disposed)
             {
                 _disposed = true;
-                if (!_request.IsExtendedConnectRequest)
+                AbortStream();
+                if (_stream.WritesClosed.IsCompleted)
                 {
-                    AbortStream();
-                    if (_stream.WritesClosed.IsCompleted)
-                    {
-                        _connection.LogExceptions(_stream.DisposeAsync().AsTask());
-                    }
-                    else
-                    {
-                        _stream.Dispose();
-                    }
+                    _connection.LogExceptions(_stream.DisposeAsync().AsTask());
+                }
+                else
+                {
+                    _stream.Dispose();
                 }
                 DisposeSyncHelper();
             }
@@ -105,7 +104,7 @@ namespace System.Net.Http
 
         private void RemoveFromConnectionIfDone()
         {
-            if (_responseRecvCompleted && _requestSendCompleted)
+            if (_responseRecvCompleted && _requestSendCompleted && !ConnectProtocolEstablished)
             {
                 _connection.RemoveStream(_stream);
             }
@@ -116,17 +115,14 @@ namespace System.Net.Http
             if (!_disposed)
             {
                 _disposed = true;
-                if (!_request.IsExtendedConnectRequest)
+                AbortStream();
+                if (_stream.WritesClosed.IsCompleted)
                 {
-                    AbortStream();
-                    if (_stream.WritesClosed.IsCompleted)
-                    {
-                        _connection.LogExceptions(_stream.DisposeAsync().AsTask());
-                    }
-                    else
-                    {
-                        await _stream.DisposeAsync().ConfigureAwait(false);
-                    }
+                    _connection.LogExceptions(_stream.DisposeAsync().AsTask());
+                }
+                else
+                {
+                    await _stream.DisposeAsync().ConfigureAwait(false);
                 }
 
                 DisposeSyncHelper();
@@ -249,7 +245,7 @@ namespace System.Net.Http
                     extendedConnectContent.ConnectStream = _stream;
                     extendedConnectContent.ConnectStreamBuffer = _recvBuffer.ActiveSpan.ToArray();
                     _recvBuffer.ClearAndReturnBuffer();
-                    disposeSelf = true; // we won't need the Http3RequestStream, just the QUIC stream after this request is finished (the Dispose method does not dispose the QUIC stream when _request.IsExtendedConnect is true)
+                    disposeSelf = false; // it's the extended connect manager's responsibility to dispose the stream
                 }
                 else
                 {
@@ -1095,6 +1091,10 @@ namespace System.Net.Http
                 }
                 else
                 {
+                    if (statusCode == 200 && _response.RequestMessage.IsExtendedConnectRequest)
+                    {
+                        ConnectProtocolEstablished = true;
+                    }
                     _headerState = HeaderState.ResponseHeaders;
                     if (_expect100ContinueCompletionSource != null)
                     {

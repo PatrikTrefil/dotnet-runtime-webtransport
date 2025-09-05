@@ -150,6 +150,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     // TODO: add test for connection to a host that doesn't support HTTP/3
     // TODO: add test for connection to a host that doesn't support WT over HTTP/3
     // TODO: add test for connection to a host that performs invalid WT handshake
+    // TODO: add test that makes two extended CONNECT requests and they should both return the exact same exception object
 
     // TODO: move these to unit tests
     [Theory]

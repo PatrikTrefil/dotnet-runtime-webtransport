@@ -6,29 +6,21 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Generic;
 using System.Runtime.Versioning;
+using System.Diagnostics;
 
 namespace System.Net.Http;
 
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
-internal abstract class Http3ExtendedConnectManager : IDisposable
+internal abstract class Http3ExtendedConnectManager
 {
     /// <summary>
     /// Used to identify the <see cref="HttpRequestOptions"/> entry that contains an instance of <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
-    public static readonly HttpRequestOptionsKey<Func<Action, Http3ExtendedConnectManager>> RequestOptionsKey = new("ExtendedConnectManager");
+    public static readonly HttpRequestOptionsKey<Func<Action<QuicStream>, Http3ExtendedConnectManager>> RequestOptionsKey = new("ExtendedConnectManager");
 
-    private readonly Action _disposedCallback;
-    // Detect redundant Dispose() calls in a thread-safe manner.
-    // _isDisposed == 0 means Dispose(bool) has not been called yet.
-    // _isDisposed == 1 means Dispose(bool) has been already called.
-    private int _isDisposed;
-
-    public Http3ExtendedConnectManager(Action disposedCallback)
-    {
-        _disposedCallback = disposedCallback ?? throw new ArgumentNullException(nameof(disposedCallback));
-    }
+    public Http3ExtendedConnectManager() { }
 
     /// <summary>
     /// This method is called when the HTTP library receives a GOAWAY frame.
@@ -60,28 +52,28 @@ internal abstract class Http3ExtendedConnectManager : IDisposable
     public abstract long BidirectionalStreamSignalValue { get; }
 
     /// <summary>
-    /// This method is called by the HTTP library when an extended CONNECT request is being made
+    /// This method is called by the HTTP library when an extended CONNECT request is being made using an HTTP/3 connection
     /// and the protocol above HTTP/3 is expected to validate the <paramref name="serverSettings"/> (e.g. check that the server
     /// supports the used protocol).
     /// </summary>
+    /// <remarks>
+    /// It is recommended to implement caching of the validation result to avoid validating the settings multiple times.
+    /// Note that this method must be thread-safe.
+    /// </remarks>
     /// <param name="serverSettings">Server settings received in the HTTP SETTINGS frame.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#frame-settings"/>
     public abstract void ValidateServerSettings(Dictionary<long, long> serverSettings);
 
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
+    /// <summary>
+    /// This method is called by the HTTP library when an extended CONNECT request is being made using an HTTP/3 connection.
+    /// It may perform validation of the request. If the request is invalid, it should throw an exception to abort the request.
+    /// </summary>
+    /// <remarks>Note that this method must be thread-safe.</remarks>
+    public abstract void BeforeExtendedConnectRequest();
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) == 0)
-        {
-            if (disposing)
-            {
-                _disposedCallback?.Invoke();
-            }
-        }
-    }
+    /// <summary>
+    /// This method is called by the HTTP library when an extended CONNECT request has failed.
+    /// It may perform cleanup of any state associated with the request.
+    /// </summary>
+    public abstract void AfterFailedExtendedConnectRequest();
 }

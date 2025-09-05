@@ -16,8 +16,22 @@ namespace System.Net.WebTransport;
 
 internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedConnectManager
 {
+    private long _maxSessionsCount;
+    private long _openSessionsCount;
+    private readonly Action<QuicStream> _finishedUsingStreamCallback;
+    private object SyncObjSessionCounts { get; } = new();
     private readonly ConcurrentDictionary<long, SessionAndChannels> _idSessionAndChannelsDict = new();
-    public MsQuicWebTransportExtendedConnectManager(Action disposedCallback) : base(disposedCallback) { }
+
+    private object SyncObjSettingsValidation { get; } = new();
+    private bool _isSettingsValidationDone;
+    private Exception? _validationException;
+
+    public MsQuicWebTransportExtendedConnectManager(Action<QuicStream> finishedUsingConnectStreamCallback) : base()
+    {
+        Debug.Assert(finishedUsingConnectStreamCallback != null);
+
+        _finishedUsingStreamCallback = finishedUsingConnectStreamCallback;
+     }
 
     public override async Task GoAwayReceivedAsync()
     {
@@ -95,17 +109,73 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     public override void ValidateServerSettings(Dictionary<long, long> serverSettings)
     {
-        ArgumentNullException.ThrowIfNull(serverSettings);
-        bool success = serverSettings.TryGetValue((long)Http3SettingType.WebTransportMaxSessions, out long value);
-        if (!success || value == 0)
+        Debug.Assert(serverSettings != null);
+
+        lock (SyncObjSettingsValidation)
+        {
+            if (_isSettingsValidationDone)
+            {
+                if (_validationException != null)
+                {
+                    throw _validationException;
+                }
+            }
+
+            try
+            {
+                ValidateServerSettingsCore(serverSettings);
+            } catch (Exception e)
+            {
+                _validationException = e;
+                _isSettingsValidationDone = true;
+            }
+        }
+    }
+    private void ValidateServerSettingsCore(Dictionary<long, long> serverSettings)
+    {
+        bool maxSessionsSettingRetrievalSuccess = serverSettings.TryGetValue((long)Http3SettingType.WebTransportMaxSessions, out long value);
+
+        if (!maxSessionsSettingRetrievalSuccess || value == 0)
         {
             throw new WebTransportException("Server does not support WebTransport over HTTP/3");
         }
+
+        lock (SyncObjSessionCounts)
+        {
+            _maxSessionsCount = value;
+        }
     }
 
-    public void RemoveSession(long sessionId)
+    public void RemoveSession(QuicStream connectStream)
     {
-        _idSessionAndChannelsDict.TryRemove(sessionId, out _);
+        _idSessionAndChannelsDict.TryRemove(connectStream.Id, out _);
+
+        lock (SyncObjSessionCounts)
+        {
+            _openSessionsCount--;
+        }
+
+        _finishedUsingStreamCallback(connectStream);
+    }
+
+    public override void BeforeExtendedConnectRequest()
+    {
+        lock (SyncObjSessionCounts)
+        {
+            if (_openSessionsCount == _maxSessionsCount)
+            {
+                throw new WebTransportException("Maximum number of allowed sessions reached");
+            }
+            _openSessionsCount++;
+        }
+    }
+
+    public override void AfterFailedExtendedConnectRequest()
+    {
+        lock (SyncObjSessionCounts)
+        {
+            _openSessionsCount--;
+        }
     }
 
     private sealed class SessionAndChannels()

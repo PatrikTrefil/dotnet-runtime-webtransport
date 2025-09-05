@@ -77,5 +77,10 @@ namespace System.Net.Http
         /// The validation of server settings using the provided HTTP/3 extended connect manager failed.
         /// </summary>
         ServerSettingsValidationFailed,
+
+        /// <summary>
+        /// The validation of the extended CONNECT request using the provided HTTP/3 extended connect manager failed.
+        /// </summary>
+        ExtendedConnectRequestValidationFailed
     }
 }

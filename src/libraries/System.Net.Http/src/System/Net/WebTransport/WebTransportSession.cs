@@ -318,6 +318,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(uri);
         ArgumentNullException.ThrowIfNull(httpMessageInvoker);
+
         if (uri.Scheme != "https")
         {
             throw new ArgumentException("The URI scheme must be 'https'.", nameof(uri));
@@ -331,7 +332,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         };
         requestMessage.Options.Set(
             Http3ExtendedConnectManager.RequestOptionsKey,
-            (Action disposedCallback) => new MsQuicWebTransportExtendedConnectManager(disposedCallback)
+            (Action<QuicStream> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
             );
         requestMessage.Headers.Protocol = "webtransport";
 
@@ -653,7 +654,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
             }
         }
-        _wtExtendedConnectManager.RemoveSession(Id);
+        _wtExtendedConnectManager.RemoveSession(_connectStream);
     }
 
     private async ValueTask CloseBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
