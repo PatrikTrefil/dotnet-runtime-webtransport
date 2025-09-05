@@ -11,6 +11,7 @@ using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
 public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 {
     public WebTransportSessionConfigurationTests(ITestOutputHelper output) : base(output) { }
@@ -56,7 +57,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetUnidirectionalStreamCountLimitSendsCorrectCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -88,7 +89,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetBidirectionalStreamCountLimitSendsCorrectCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -120,7 +121,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetDataSentLimitSendsCorrectCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -152,7 +153,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetUnidirectionalStreamCountLimitUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -176,7 +177,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetBidirectionalStreamCountLimitUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -200,7 +201,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SetDataSentLimitUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -224,7 +225,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SendAllCapsuleTypesSendsAndReceivesCorrectCapsules()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -279,7 +280,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ReceiveAllCapsuleTypesUpdatesSessionProperties()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -314,7 +315,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ReceiveUnidirectionalStreamLimitCapsuleUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -341,7 +342,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ReceiveBidirectionalStreamLimitCapsuleUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -368,7 +369,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ReceiveMaxDataCapsuleUpdatesSessionProperty()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -395,7 +396,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(5)]
     [InlineData(10_001)] // This should trigger special handling of long unknown capsules
     public async Task ReceiveUnknownCapsuleOnConnectStream(long capsuleValueSize)
@@ -428,7 +429,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(minValidSizeOfMaxDataCapsuleValue - 1)]
     [InlineData(maxValidSizeOfMaxDataCapsuleValue + 1)]
     public async Task ReceiveMaxDataCapsuleWithInvalidValueClosesSession(int invalidLength)
@@ -462,7 +463,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     }
 
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(minValidSizeOfMaxUnidirectionalCapsuleValue - 1)]
     [InlineData(maxValidSizeOfMaxUnidirectionalCapsuleValue + 1)]
     public async Task ReceiveMaxUnidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
@@ -495,7 +496,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(minValidSizeOfMaxBidirectionalCapsuleValue - 1)]
     [InlineData(maxValidSizeOfMaxBidirectionalCapsuleValue + 1)]
     public async Task ReceiveMaxBidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
@@ -528,7 +529,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async void CreationOptionsOfLimitsSetTheirRespectiveProperties()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();

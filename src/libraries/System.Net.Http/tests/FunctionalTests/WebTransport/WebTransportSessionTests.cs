@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase
 {
     public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
@@ -92,7 +93,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegersAsParameters))]
     public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)
     {
@@ -117,7 +118,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_operationsAsParameters))]
     public async void OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
     {
@@ -151,7 +152,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     // TODO: add test for connection to a host that performs invalid WT handshake
 
     // TODO: move these to unit tests
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegersAsParameters))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
@@ -160,7 +161,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = invalidVarInt });
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_validVariableLengthIntegersAsParameters))]
     public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
     {

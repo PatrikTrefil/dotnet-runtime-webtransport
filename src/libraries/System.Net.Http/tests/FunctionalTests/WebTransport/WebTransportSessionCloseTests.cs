@@ -15,6 +15,7 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
     public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }
@@ -43,7 +44,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Assert.True(stream.ReadsClosed.IsCompleted);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_errorMessagesAsParameters))]
     public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage)
     {
@@ -82,7 +83,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(s_errorMessagesAsParameters))]
     public async Task ClientClosesSessionAfterReceivingCloseSessionCapsule(byte[] expectedApplicationErrorMessage)
     {
@@ -116,7 +117,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ClosesClientSessionAfterServerClosesConnectStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -143,7 +144,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ServerGracefullyClosesConnectStreamResultsInAllOtherStreamsBeingClosed()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -187,7 +188,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(QuicAbortDirection.Write)]
     [InlineData(QuicAbortDirection.Read)]
     [InlineData(QuicAbortDirection.Both)]
@@ -233,7 +234,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -283,7 +284,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task SessionRequestCloseAsyncSendsCorrectCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -391,7 +392,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ReceiveDrainCapsuleWithInvalidValueClosesSession()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -423,7 +424,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(s_minValidSizeOfCloseSessionCapsuleValue - 1)]
     [InlineData(s_maxValidSizeOfCloseSessionCapsuleValue + 1)]
     public async Task ReceiveCloseSessionCapsuleWithInvalidValueClosesSession(int invalidLength)
@@ -571,7 +572,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task AllOperationsThrowWebTransportExceptionOnClosedSession()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();

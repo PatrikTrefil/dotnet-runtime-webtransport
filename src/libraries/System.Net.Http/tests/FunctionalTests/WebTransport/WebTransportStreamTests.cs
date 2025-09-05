@@ -12,12 +12,13 @@ using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
     public WebTransportStreamTests(ITestOutputHelper output) : base(output) { }
     private const int TestTimeout = 200_000;
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async void ClientOpensStream(WebTransportStreamType streamType)
@@ -40,7 +41,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async void ServerOpensStream(WebTransportStreamType streamType)
@@ -64,7 +65,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(DataToSendWithStreamType))]
     public async void SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
@@ -91,7 +92,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(DataToSendAsParameters))]
     public async void SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
@@ -118,7 +119,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(DataToSendAsParameters))]
     public async void SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
@@ -146,7 +147,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [ConditionalTheory(nameof(IsWebTransportSupported))]
+    [Theory]
     [MemberData(nameof(DataToSendWithStreamType))]
     public async void SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
