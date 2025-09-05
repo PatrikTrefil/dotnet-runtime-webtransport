@@ -18,7 +18,7 @@ internal abstract class Http3ExtendedConnectManager
     /// <summary>
     /// Used to identify the <see cref="HttpRequestOptions"/> entry that contains an instance of <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
-    public static readonly HttpRequestOptionsKey<Func<Action<QuicStream>, Http3ExtendedConnectManager>> RequestOptionsKey = new("ExtendedConnectManager");
+    public static readonly HttpRequestOptionsKey<Func<Func<QuicStream, Task>, Http3ExtendedConnectManager>> RequestOptionsKey = new("ExtendedConnectManager");
 
     public Http3ExtendedConnectManager() { }
 

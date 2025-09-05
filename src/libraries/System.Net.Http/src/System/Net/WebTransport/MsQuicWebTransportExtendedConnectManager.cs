@@ -18,7 +18,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 {
     private long _maxSessionsCount;
     private long _openSessionsCount;
-    private readonly Action<QuicStream> _finishedUsingStreamCallback;
+    private readonly Func<QuicStream, Task> _finishedUsingStreamCallback;
     private object SyncObjSessionCounts { get; } = new();
     private readonly ConcurrentDictionary<long, SessionAndChannels> _idSessionAndChannelsDict = new();
 
@@ -26,7 +26,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     private bool _isSettingsValidationDone;
     private Exception? _validationException;
 
-    public MsQuicWebTransportExtendedConnectManager(Action<QuicStream> finishedUsingConnectStreamCallback) : base()
+    public MsQuicWebTransportExtendedConnectManager(Func<QuicStream, Task> finishedUsingConnectStreamCallback) : base()
     {
         Debug.Assert(finishedUsingConnectStreamCallback != null);
 

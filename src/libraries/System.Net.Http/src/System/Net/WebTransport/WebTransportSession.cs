@@ -332,7 +332,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         };
         requestMessage.Options.Set(
             Http3ExtendedConnectManager.RequestOptionsKey,
-            (Action<QuicStream> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
+            (Func<QuicStream, Task> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
             );
         requestMessage.Headers.Protocol = "webtransport";
 
@@ -835,7 +835,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
             if (disposing)
             {
-                await _connectStream.DisposeAsync().ConfigureAwait(false);
                 _pendingBidirectionalStreams = null;
                 _pendingUnidirectionalStreams = null;
                 List<Task> closeOpenStreamsTasks = new();
@@ -846,6 +845,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 await Task.WhenAll(closeOpenStreamsTasks).ConfigureAwait(false); // these tasks should always succeed - DisposeAsync never throws
                 _openStreams = null;
                 _capsuleConsumer.Dispose();
+                _wtExtendedConnectManager.RemoveSession(_connectStream);
             }
         }
 

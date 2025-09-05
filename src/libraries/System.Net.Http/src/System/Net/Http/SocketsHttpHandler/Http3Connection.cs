@@ -271,14 +271,29 @@ namespace System.Net.Http
                     throw exception;
                 }
 
-                request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Func<Action<QuicStream>, Http3ExtendedConnectManager>? valueFactory);
+                request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Func<Func<QuicStream, Task>, Http3ExtendedConnectManager>? valueFactory);
                 if (valueFactory == null)
                 {
                     throw new HttpRequestException(HttpRequestError.MissingExtendedConnectManager, SR.net_missing_extended_connect_manager);
                 }
                 string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
 
-                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(RemoveStream));
+                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(async (connectStream) =>
+                {
+                    Http3RequestStream? value;
+                    lock (SyncObj)
+                    {
+                        _activeRequests.TryGetValue(connectStream, out value);
+                    }
+
+                    Debug.Assert(value == null, "This callback has been called more than once for the same stream, which should never happen.");
+
+                    if (value != null)
+                    {
+                        await value.DisposeAsync().ConfigureAwait(false);
+                    }
+                }));
+
                 try
                 {
                     extendedconnectManager.ValidateServerSettings(NonHttpSettings);
