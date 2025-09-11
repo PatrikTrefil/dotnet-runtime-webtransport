@@ -192,7 +192,35 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         }
     }
 
-    // TODO: test that an abort with WebTransportAbortDirection.None does not close the stream
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+
+    public async void AbortStreamWithInvalidAbortDirectionThrows(WebTransportStreamType streamType)
+    {
+        var invalidAbortDirection = (WebTransportAbortDirection)42;
+
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            Assert.Throws<ArgumentOutOfRangeException>("abortDirection", () => serverInitiatedStream.Abort(invalidAbortDirection, 0));
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
     // TODO: test that an abort closes the stream as it should
     // TODO: try to write a test that fails because we don't have RESET_STREAM_AT
     // TODO: add tests for cancellations of stream operations

@@ -3,6 +3,7 @@
 
 using System.IO;
 using System.Net.Quic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
@@ -104,14 +105,14 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     public override Task WritesClosed => _quicStream.WritesClosed;
 
-    private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection)
+    private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection, [CallerArgumentExpression(nameof(abortDirection))] string? paramName = null)
     {
         return abortDirection switch
         {
             WebTransportAbortDirection.Read => QuicAbortDirection.Read,
             WebTransportAbortDirection.Write => QuicAbortDirection.Write,
             WebTransportAbortDirection.Both => QuicAbortDirection.Both,
-            _ => throw new ArgumentOutOfRangeException(nameof(abortDirection), abortDirection, "Invalid abort direction.")
+            _ => throw new ArgumentOutOfRangeException(paramName, abortDirection, "Invalid abort direction value.")
         };
     }
 
