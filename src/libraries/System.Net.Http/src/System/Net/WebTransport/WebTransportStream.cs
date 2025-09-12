@@ -106,20 +106,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override Task ReadsClosed {
         get {
             return _quicStream.ReadsClosed.ContinueWith((task, _) => {
-                if (task.Exception?.InnerException is QuicException ex && ex.ApplicationErrorCode != null) // May be false after Dispose
-                {
-                    throw new WebTransportStreamClosedException("Reading side has been closed", ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode!));
-                } else
-                {
-                    if (task.Exception != null)
-                    {
-                        throw new WebTransportException("Reading side has been closed", task.Exception);
-                    } else
-                    {
-                        throw new WebTransportException("Reading side has been closed");
-                    }
-                }
-
+                QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
             }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
         }
     }
@@ -127,19 +114,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override Task WritesClosed {
         get {
             return _quicStream.WritesClosed.ContinueWith((task, _) => {
-                if (task.Exception?.InnerException is QuicException ex && ex.ApplicationErrorCode != null) // May be false after Dispose
-                {
-                    throw new WebTransportStreamClosedException("Writing side has been closed", ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode!));
-                } else
-                {
-                    if (task.Exception != null)
-                    {
-                        throw new WebTransportException("Writing side has been closed", task.Exception);
-                    } else
-                    {
-                        throw new WebTransportException("Writing side has been closed");
-                    }
-                }
+                QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
             }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
         }
     }
@@ -222,7 +197,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
         if (!CanWrite)
         {
-            throw new InvalidOperationException("This stream does not support writing");
+            throw new NotSupportedException("This stream does not support writing");
         }
 
         try
@@ -251,8 +226,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     private static WebTransportException QuicExceptionHandler(QuicException quicException)
     {
-        if (quicException.ApplicationErrorCode is long applicationErrorCode)
+        if (quicException.QuicError == QuicError.StreamAborted)
         {
+            long applicationErrorCode = (long)quicException.ApplicationErrorCode!; // can't be null if QuicError is StreamAborted
+
             long remappedErrorCode;
             try
             {
@@ -260,9 +237,9 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             }
             catch (ArgumentOutOfRangeException)
             {
-                return new WebTransportException("Stream closed with invalid application error code.");
+                return new WebTransportException("Stream aborted with invalid application error code.");
             }
-            return new WebTransportStreamClosedException("The stream has beed closed", remappedErrorCode, quicException);
+            return new WebTransportStreamClosedException("The stream has beed aborted.", remappedErrorCode, quicException);
         }
         else
         {
