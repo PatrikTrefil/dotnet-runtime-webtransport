@@ -952,7 +952,7 @@ namespace System.Net.WebTransport
         public abstract long StreamId { get; }
         public abstract System.Threading.Tasks.Task ReadsClosed { get; }
         public abstract System.Threading.Tasks.Task WritesClosed { get; }
-        public abstract void Abort(WebTransportAbortDirection abortDirection, int errorCode);
+        public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
     }
     public enum WebTransportSessionState
     {
@@ -1013,9 +1013,9 @@ namespace System.Net.WebTransport
     }
     public sealed partial class WebTransportStreamClosedException : WebTransportException
     {
-        public int ApplicationErrorCode { get { throw null; } }
-        public WebTransportStreamClosedException(string message, int applicationErrorCode) : base(message) { }
-        public WebTransportStreamClosedException(string message, int applicationErrorCode, Exception innerException) : base(message, innerException) { }
+        public long ApplicationErrorCode { get { throw null; } }
+        public WebTransportStreamClosedException(string message, long applicationErrorCode) : base(message) { }
+        public WebTransportStreamClosedException(string message, long applicationErrorCode, Exception innerException) : base(message, innerException) { }
     }
     public sealed partial class WebTransportSessionClosedException : WebTransportException
     {

@@ -1,9 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using System.IO;
 using System.Net.Quic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
@@ -29,9 +31,9 @@ public abstract class WebTransportStream : Stream, IAsyncDisposable
     /// Aborts either the reading, writing, or both sides of the stream.
     /// </summary>
     /// <param name="abortDirection">The direction of the stream to abort.</param>
-    /// <param name="errorCode">The error code with which to abort the stream.</param>
+    /// <param name="errorCode">The error code with which to abort the stream. The value must be in the range [0, 2^32).</param>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    public abstract void Abort(WebTransportAbortDirection abortDirection, int errorCode);
+    public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
 
     /// <summary>
     /// Gets a <see cref="Task"/> that will complete once the reading side has been closed (gracefully or abortively).
@@ -101,9 +103,46 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         set => throw new NotSupportedException();
     }
 
-    public override Task ReadsClosed => _quicStream.ReadsClosed;
+    public override Task ReadsClosed {
+        get {
+            return _quicStream.ReadsClosed.ContinueWith((task, _) => {
+                if (task.Exception?.InnerException is QuicException ex && ex.ApplicationErrorCode != null) // May be false after Dispose
+                {
+                    throw new WebTransportStreamClosedException("Reading side has been closed", ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode!));
+                } else
+                {
+                    if (task.Exception != null)
+                    {
+                        throw new WebTransportException("Reading side has been closed", task.Exception);
+                    } else
+                    {
+                        throw new WebTransportException("Reading side has been closed");
+                    }
+                }
 
-    public override Task WritesClosed => _quicStream.WritesClosed;
+            }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
+        }
+    }
+
+    public override Task WritesClosed {
+        get {
+            return _quicStream.WritesClosed.ContinueWith((task, _) => {
+                if (task.Exception?.InnerException is QuicException ex && ex.ApplicationErrorCode != null) // May be false after Dispose
+                {
+                    throw new WebTransportStreamClosedException("Writing side has been closed", ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode!));
+                } else
+                {
+                    if (task.Exception != null)
+                    {
+                        throw new WebTransportException("Writing side has been closed", task.Exception);
+                    } else
+                    {
+                        throw new WebTransportException("Writing side has been closed");
+                    }
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
+        }
+    }
 
     private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection, [CallerArgumentExpression(nameof(abortDirection))] string? paramName = null)
     {
@@ -124,7 +163,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         _quicStream.Abort(abortDirection, httpErrorCode);
     }
 
-    public override void Abort(WebTransportAbortDirection abortDirection, int errorCode)
+    public override void Abort(WebTransportAbortDirection abortDirection, long errorCode)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
@@ -158,6 +197,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             QuicExceptionHandler(quicException);
         }
     }
+
     public override int Read(byte[] buffer, int offset, int count)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -171,8 +211,11 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             throw QuicExceptionHandler(quicException);
         }
     }
+
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
     public override void SetLength(long value) => throw new NotSupportedException();
+
     public override void Write(byte[] buffer, int offset, int count)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -192,18 +235,32 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        return base.ReadAsync(buffer, offset, count, cancellationToken);
+    }
+
+    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        return base.WriteAsync(buffer, offset, count, cancellationToken);
+    }
+
     private static WebTransportException QuicExceptionHandler(QuicException quicException)
     {
         if (quicException.ApplicationErrorCode is long applicationErrorCode)
         {
-            int remappedErrorCode;
+            long remappedErrorCode;
             try
             {
                 remappedErrorCode = ErrorCodeRemapping.HttpCodeToWebTransportCode(applicationErrorCode);
             }
             catch (ArgumentOutOfRangeException)
             {
-                return new WebTransportException("Invalid application error code received.");
+                return new WebTransportException("Stream closed with invalid application error code.");
             }
             return new WebTransportStreamClosedException("The stream has beed closed", remappedErrorCode, quicException);
         }
@@ -212,6 +269,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             return new WebTransportException("Transport layer error occurred.", quicException);
         }
     }
+
     protected override void Dispose(bool disposing)
     {
 

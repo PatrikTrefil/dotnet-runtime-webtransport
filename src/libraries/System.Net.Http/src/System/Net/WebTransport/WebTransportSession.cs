@@ -100,7 +100,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     [CLSCompliant(false)]
     protected internal readonly object _stateLock = new();
 
-    /// <exception cref="WebTransportException">When <paramref name="id"/> is not in range the range [0, 2^62).</exception>
+    /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
     internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
     {

@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
 using System.Linq;
+using System.IO;
+using System.Threading;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -221,8 +223,257 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    // TODO: test that an abort closes the stream as it should
-    // TODO: try to write a test that fails because we don't have RESET_STREAM_AT
+    [Theory]
+    [MemberData(nameof(AbortTestParameters))]
+    public async void ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            await AssertReadOperationsOnStreamThrowAsync<QuicException>(
+                clientInitiatedStream,
+                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
+                );
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            clientInitiatedStream.Abort(WebTransportAbortDirection.Write, expectedWebTransportErrorCode);
+
+            await Task.WhenAll(serverTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [Theory]
+    [MemberData(nameof(AbortTestParameters))]
+    public async void ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            await AssertWriteOperationsOnStreamThrowAsync<QuicException>(
+                serverInitiatedStream,
+                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
+                );
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            serverInitiatedStream.Abort(WebTransportAbortDirection.Read, expectedWebTransportErrorCode);
+
+            await Task.WhenAll(serverTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    private static readonly uint[] _errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
+    public static IEnumerable<object[]> AbortTestParameters()
+    {
+        foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
+        {
+            foreach (uint errorCode in _errorCodes)
+            {
+                yield return new object[] { streamType, errorCode };
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AbortTestParameters))]
+    public async void ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            await AssertWriteOperationsOnStreamThrowAsync<WebTransportStreamClosedException>(
+                clientInitiatedStream,
+                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode)
+                );
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            clientInitiatedStream.Abort(QuicAbortDirection.Read, ErrorCodeRemapping.WebTransportCodeToHttpCode(expectedWebTransportErrorCode));
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [Theory]
+    [MemberData(nameof(AbortTestParameters))]
+    public async void ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            await AssertReadOperationsOnStreamThrowAsync<WebTransportStreamClosedException>(
+                serverInitiatedStream,
+                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode)
+                );
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            serverInitiatedStream.Abort(QuicAbortDirection.Write, ErrorCodeRemapping.WebTransportCodeToHttpCode(expectedWebTransportErrorCode));
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async void DisposedStreamTest(WebTransportStreamType streamType)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            WebTransportStream serverInitiatedStream;
+            using (serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType)) { }
+
+            await AssertAllOperationsOnStreamThrowAsync<ObjectDisposedException>(serverInitiatedStream, exceptionValidator: null);
+            Assert.False(serverInitiatedStream.CanRead);
+            Assert.False(serverInitiatedStream.CanWrite);
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    async Task AssertAllOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    {
+        await AssertReadOperationsOnStreamThrowAsync(stream, exceptionValidator);
+        await AssertWriteOperationsOnStreamThrowAsync(stream, exceptionValidator);
+    }
+
+    async Task AssertWriteOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    {
+        TException[] exceptions = [
+            await Assert.ThrowsAsync<TException>(() => stream.WriteAsync(new byte[1]).AsTask()),
+            Assert.Throws<TException>(() => stream.WriteByte(2)),
+            Assert.Throws<TException>(() => stream.Write(new byte[1])),
+        ];
+        foreach (TException ex in exceptions)
+        {
+            exceptionValidator?.Invoke(ex);
+        }
+    }
+
+    async Task AssertReadOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    {
+        TException[] exceptions = [
+            await Assert.ThrowsAsync<TException>(() => stream.ReadAsync(new byte[1]).AsTask()),
+            await Assert.ThrowsAsync<TException>(() => stream.ReadAtLeastAsync(new byte[1], 1).AsTask()),
+            await Assert.ThrowsAsync<TException>(() => stream.ReadExactlyAsync(new byte[1]).AsTask()),
+            await Assert.ThrowsAsync<TException>(() => stream.CopyToAsync(new MemoryStream(), 10)),
+            Assert.Throws<TException>(() => stream.CopyTo(new MemoryStream(), 10)),
+            Assert.Throws<TException>(() => stream.ReadByte()),
+            Assert.Throws<TException>(() => stream.Read(new byte[1])),
+            Assert.Throws<TException>(() => stream.ReadExactly(new byte[1]))
+        ];
+        foreach (TException ex in exceptions)
+        {
+            exceptionValidator?.Invoke(ex);
+        }
+    }
+
+    async Task AssertReadOperationsOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    {
+        TException ex = await Assert.ThrowsAsync<TException>(() => stream.ReadsClosed);
+        exceptionValidator?.Invoke(ex);
+        await AssertReadOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
+    }
+
+    async Task AssertWriteOperationsOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    {
+        TException ex = await Assert.ThrowsAsync<TException>(() => stream.WritesClosed);
+        exceptionValidator?.Invoke(ex);
+        await AssertWriteOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
+    }
+
+    async Task AssertReadOperationsOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    {
+        TException ex = await Assert.ThrowsAsync<TException>(() => stream.ReadsClosed);
+        exceptionValidator?.Invoke(ex);
+        await AssertReadOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
+    }
+
+    async Task AssertWriteOperationsOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    {
+        TException ex = await Assert.ThrowsAsync<TException>(() => stream.WritesClosed);
+        exceptionValidator?.Invoke(ex);
+        await AssertWriteOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
+    }
+
     // TODO: add tests for cancellations of stream operations
 }
 

@@ -1,9 +1,9 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Runtime.CompilerServices;
 
-namespace System.Net.WebTransport;
+namespace System.Net.WebTransport.Functional.Tests;
 
 internal static class ErrorCodeRemapping
 {
@@ -30,16 +30,16 @@ internal static class ErrorCodeRemapping
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="httpCode"/> is not in range [0x52e4a40fa8db, 0x52e5ac983162]</exception>
     /// <exception cref="ArgumentException">When the argument is in the invalid form '0x1f * N + 0x21'</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-resetting-data-streams"/>
-    public static long HttpCodeToWebTransportCode(long httpCode)
+    public static long HttpCodeToWebTransportCode(long httpCode, [CallerArgumentExpression(nameof(httpCode))] string? paramName = null)
     {
 
         if (httpCode < first || httpCode > last)
         {
-            throw new ArgumentOutOfRangeException(nameof(httpCode), "must be in the range [" + first + ", " + last + "]");
+            throw new ArgumentOutOfRangeException(paramName, "must be in the range [" + first + ", " + last + "]");
         }
         if ((httpCode - 0x21) % 0x1f == 0)
         {
-            throw new ArgumentException(nameof(httpCode), "must not be in the form '0x1f * N + 0x21'");
+            throw new ArgumentException(paramName, "must not be in the form '0x1f * N + 0x21'");
         }
         long shifted = httpCode - first;
         return shifted - (shifted / 0x1f);
