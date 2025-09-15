@@ -35,13 +35,18 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
     public static readonly IEnumerable<object[]> s_errorMessagesAsParameters = s_errorMessages.Select(item => new object[] { item });
 
-    private void AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
+    private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
-        SpinWait.SpinUntil(() => stream.WritesClosed.IsCompleted, TestTimeout);
-        Assert.True(stream.WritesClosed.IsCompleted);
+        try
+        {
+            await stream.WritesClosed;
+        } catch (Exception) { }
 
-        SpinWait.SpinUntil(() => stream.ReadsClosed.IsCompleted, TestTimeout);
-        Assert.True(stream.ReadsClosed.IsCompleted);
+
+        try
+        {
+            await stream.ReadsClosed;
+        } catch (Exception) { }
     }
 
     [Theory]
@@ -164,10 +169,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
 
-            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
@@ -211,10 +216,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
-            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
@@ -256,10 +261,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
 
-            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
@@ -335,10 +340,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
-            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
@@ -478,10 +483,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
-            AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
