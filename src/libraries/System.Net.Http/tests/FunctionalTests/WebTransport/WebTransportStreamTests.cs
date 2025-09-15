@@ -606,6 +606,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await AssertWriteOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
     }
 
+    // TODO: add tests for when the client receives an invalid webtransport error code
     // TODO: add tests for cancellations of stream operations
 }
 
