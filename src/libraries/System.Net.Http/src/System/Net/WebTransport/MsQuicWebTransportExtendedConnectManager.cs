@@ -137,7 +137,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         if (!maxSessionsSettingRetrievalSuccess || value == 0)
         {
-            throw new WebTransportException("Server does not support WebTransport over HTTP/3");
+            throw new WebTransportException(WebTransportError.HeaderError, "Server does not support WebTransport over HTTP/3");
         }
 
         lock (SyncObjSessionCounts)
@@ -164,7 +164,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         {
             if (_openSessionsCount == _maxSessionsCount)
             {
-                throw new WebTransportException("Maximum number of allowed sessions reached");
+                throw new WebTransportException(WebTransportError.SessionRefused, "Maximum number of allowed sessions reached");
             }
             _openSessionsCount++;
         }

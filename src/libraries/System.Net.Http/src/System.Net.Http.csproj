@@ -176,10 +176,12 @@
     <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
     <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleConsumer.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleSender.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
     <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
   </ItemGroup>

@@ -21,9 +21,13 @@ public abstract class WebTransportStream : Stream, IAsyncDisposable
     /// It is a 62-bit unsigned integer.
     /// </summary>
     public abstract long StreamId { get; }
+
     public WebTransportStreamType Type { get; }
+
     protected internal WebTransportStream(WebTransportStreamType type)
     {
+        Debug.Assert(Enum.IsDefined(type));
+
         Type = type;
     }
 
@@ -40,6 +44,7 @@ public abstract class WebTransportStream : Stream, IAsyncDisposable
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.4.1"/>
     public abstract Task ReadsClosed { get; }
+
     /// <summary>
     /// Gets a <see cref="Task"/> that will complete once the writing side has been closed (gracefully or abortively).
     /// </summary>
@@ -81,7 +86,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         {
             WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
             WebTransportStreamType.Bidirectional => s_bidirectionalStreamTypeEncodedAsVariableLengthInteger,
-            _ => throw new WebTransportException("Unknown stream type")
+            _ => throw new WebTransportException(WebTransportError.InternalError, "Unknown stream type.")
         };
         await _readStream.WriteAsync(initialBytes).ConfigureAwait(false);
         await _readStream.WriteAsync(encodedSessionId).ConfigureAwait(false);
@@ -106,7 +111,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override Task ReadsClosed {
         get {
             return _quicStream.ReadsClosed.ContinueWith((task, _) => {
-                QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
+                throw QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
             }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
         }
     }
@@ -114,7 +119,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override Task WritesClosed {
         get {
             return _quicStream.WritesClosed.ContinueWith((task, _) => {
-                QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
+                throw QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
             }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
         }
     }
@@ -237,13 +242,13 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             }
             catch (ArgumentOutOfRangeException)
             {
-                return new WebTransportException("Stream aborted with invalid application error code.");
+                return new WebTransportException(WebTransportError.StreamAborted, null, null, "Stream aborted with invalid application error code.");
             }
-            return new WebTransportStreamClosedException("The stream has beed aborted.", remappedErrorCode, quicException);
+            return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, "The stream has beed aborted.", quicException);
         }
         else
         {
-            return new WebTransportException("Transport layer error occurred.", quicException);
+            return new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", quicException);
         }
     }
 

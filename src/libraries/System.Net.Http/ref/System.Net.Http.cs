@@ -1006,23 +1006,28 @@ namespace System.Net.WebTransport
         public abstract System.Threading.Tasks.Task<int> ReceiveDatagramAsync( Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default);
         public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
     }
-    public partial class WebTransportException : Exception
+    public enum WebTransportError
     {
-        public WebTransportException(string message) : base(message) { }
-        public WebTransportException(string message, Exception innerException) : base(message, innerException) { }
+        Success = 0,
+        InternalError = 1,
+        SessionClosed = 2,
+        StreamAborted = 3,
+        TransportLayerError = 4,
+        SessionRefused = 5,
+        OperationAborted = 6,
+        CallbackError = 7,
+        UnsupportedProtocol = 8,
+        HeaderError = 9
     }
-    public sealed partial class WebTransportStreamClosedException : WebTransportException
+    public sealed partial class WebTransportException : Exception
     {
-        public long ApplicationErrorCode { get { throw null; } }
-        public WebTransportStreamClosedException(string message, long applicationErrorCode) : base(message) { }
-        public WebTransportStreamClosedException(string message, long applicationErrorCode, Exception innerException) : base(message, innerException) { }
-    }
-    public sealed partial class WebTransportSessionClosedException : WebTransportException
-    {
-        public int ApplicationErrorCode { get { throw null; } }
-        public string ApplicationErrorMessage { get { throw null; } }
-        public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage) : base(message) { }
-        public WebTransportSessionClosedException(string message, int applicationErrorCode, string applicationErrorMessage, Exception innerException) : base(message, innerException) { }
+        public WebTransportException(WebTransportError error, string message) { }
+        public WebTransportException(WebTransportError error, string message, Exception? innerException) { }
+        public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message) { }
+        public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message, Exception? innerException) { }
+        public WebTransportError WebTransportError { get; }
+        public long? ApplicationErrorCode { get { throw null; } }
+        public string? ApplicationErrorMessage { get { throw null; } }
     }
     [Flags]
     public enum WebTransportAbortDirection

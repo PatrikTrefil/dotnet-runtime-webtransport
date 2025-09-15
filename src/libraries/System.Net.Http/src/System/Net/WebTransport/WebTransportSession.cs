@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using ChannelItem = (System.Net.ArrayBuffer ArrayBuffer, System.Net.Quic.QuicStream QuicStream);
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace System.Net.WebTransport;
 
@@ -162,7 +163,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             VariableLengthIntegerValidator.ThrowIfInvalid(value);
             if (State != WebTransportSessionState.Open)
             {
-                throw new WebTransportException("The session is not open");
+                throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
             }
             field = value;
         }
@@ -205,7 +206,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             VariableLengthIntegerValidator.ThrowIfInvalid(value);
             if (State != WebTransportSessionState.Open)
             {
-                throw new WebTransportException("The session is not open");
+                throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
             }
             field = value;
         }
@@ -247,7 +248,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             VariableLengthIntegerValidator.ThrowIfInvalid(value);
             if (State != WebTransportSessionState.Open)
             {
-                throw new WebTransportException("The session is not open");
+                throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
             }
             field = value;
         }
@@ -346,7 +347,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         catch (Exception e)
         {
-            throw new WebTransportException("Failed to create a WebTransport session.", e);
+            throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
         }
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
 
@@ -414,7 +415,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         if (closeStatus < 0 || closeStatus > uint.MaxValue)
         {
@@ -622,7 +623,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             // https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-6-9
             ReceiveClose(0, "");
         }
-        catch (WebTransportException) // Unexpected capsule data received
+        catch (CapsuleProtocolException) // Unexpected capsule data received
         {
             // TODO: log the exception
             // TODO: give the exception message to the user - maybe introduce an ErrorMessage property?
@@ -674,7 +675,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxUnidirectionalStreamsCapsule capsule = new(limit);
@@ -687,7 +688,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxBidirectionalStreamsCapsule capsule = new(limit);
@@ -701,7 +702,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxDataCapsule capsule = new(limit);
@@ -714,7 +715,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
 
         Channel<ChannelItem> channel = type switch
@@ -739,7 +740,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
         QuicStream quicStream = await _connection.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
@@ -749,13 +750,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         return wtStream;
     }
 
-    private static QuicStreamType WebTransportStreamTypeToQuicStreamType(WebTransportStreamType streamType)
+    private static QuicStreamType WebTransportStreamTypeToQuicStreamType(WebTransportStreamType streamType, [CallerArgumentExpression(nameof(streamType))] string? paramName = null)
     {
         return streamType switch
         {
             WebTransportStreamType.Unidirectional => QuicStreamType.Unidirectional,
             WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
-            _ => throw new ArgumentOutOfRangeException(nameof(streamType))
+            _ => throw new ArgumentOutOfRangeException(paramName, streamType, "Invalid stream type.")
         };
     }
 
@@ -764,7 +765,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         lock (_stateLock)
         {
@@ -778,7 +779,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         if (statusDescription.Length > 1024)
         {
@@ -797,7 +798,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
-            throw new WebTransportException("The session is not open");
+            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, completeWrites: false, cancellationToken).ConfigureAwait(false);
     }

@@ -261,6 +261,7 @@
     <Compile Include="WebTransport\WebTransportPlatformDetectionTests.cs" />
     <Compile Include="WebTransport\WebTransportLoopbackServer.cs" />
     <Compile Include="WebTransport\VariableLengthIntegerStreamHelper.cs" />
+    <Compile Include="WebTransport\ErrorCodeRemapping.cs" />
   </ItemGroup>
 
   <!-- Windows specific files -->

@@ -322,9 +322,13 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             barrier.SignalAndWait();
 
-            await AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<WebTransportStreamClosedException>(
+            await AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<WebTransportException>(
                 clientInitiatedStream,
-                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode)
+                exceptionValidator: (ex) =>
+                {
+                    Assert.Equal(WebTransportError.SessionClosed, ex.WebTransportError);
+                    Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
+                }
                 );
         });
 
@@ -358,9 +362,13 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             barrier.SignalAndWait();
 
-            await AssertReadOperationsAndReadsClosedOnStreamThrowAsync<WebTransportStreamClosedException>(
+            await AssertReadOperationsAndReadsClosedOnStreamThrowAsync<WebTransportException>(
                 serverInitiatedStream,
-                exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode)
+                exceptionValidator: (ex) =>
+                {
+                    Assert.Equal(WebTransportError.StreamAborted, ex.WebTransportError);
+                    Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
+                }
                 );
         });
 
@@ -372,6 +380,46 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
 
             serverInitiatedStream.Abort(QuicAbortDirection.Write, ErrorCodeRemapping.WebTransportCodeToHttpCode(expectedWebTransportErrorCode));
+
+            await Task.WhenAll(clientTask);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async void ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
+    {
+        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+
+        const long maxValidErrorCode = 0x52e5ac983162;
+        const long invalidWebTransportErrorCode = maxValidErrorCode + 1;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            using HttpClient client = CreateHttpClient();
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            await AssertReadOperationsAndReadsClosedOnStreamThrowAsync<WebTransportException>(
+                serverInitiatedStream,
+                exceptionValidator: (ex) => Assert.Null(ex.ApplicationErrorCode)
+                );
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            serverInitiatedStream.Abort(QuicAbortDirection.Write, invalidWebTransportErrorCode);
 
             await Task.WhenAll(clientTask);
         });

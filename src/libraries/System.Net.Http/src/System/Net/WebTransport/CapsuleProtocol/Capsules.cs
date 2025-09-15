@@ -70,13 +70,13 @@ internal sealed class CloseSessionCapsule : Capsule
 
         if (applicationErrorMessageLength > s_applicationErrorMessageLengthInBytesLimit)
         {
-            throw new WebTransportException("Application error message length exceeded");
+            throw new CapsuleProtocolException("Application error message length exceeded");
         }
 
         bool isReadOfApplicationErrorCodeSuccessful = BinaryPrimitives.TryReadUInt32BigEndian(buffer.Span, out uint applicationErrorCode);
         if (!isReadOfApplicationErrorCodeSuccessful)
         {
-            throw new WebTransportException("Invalid connect stream data received");
+            throw new CapsuleProtocolException("Invalid connect stream data received");
         }
 
         byte[] errorMessageBuffer = new byte[applicationErrorMessageLength];
@@ -134,7 +134,7 @@ internal sealed class DrainSessionCapsule : Capsule
     {
         if (buffer.Length != 0)
         {
-            throw new WebTransportException("Invalid capsule data received");
+            throw new CapsuleProtocolException("Invalid capsule data received");
         }
         return new DrainSessionCapsule();
     }
@@ -173,14 +173,14 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
     {
         session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
     }
-    /// <exception cref="WebTransportException">When the received length does not match the payload length</exception>
+    /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxBidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
         bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxBidirectionalStreams, out int maxBidirectionalStreamsBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxBidirectionalStreamsBytesRead)
         {
-            throw new WebTransportException("Received invalid capsule data");
+            throw new CapsuleProtocolException("Received invalid capsule data");
         }
 
         return new MaxBidirectionalStreamsCapsule(maxBidirectionalStreams);
@@ -223,14 +223,14 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
     {
         session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
     }
-    /// <exception cref="WebTransportException">When the received length does not match the payload length</exception>
+    /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxUnidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
         bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxUnidirectionalStream, out int maxUnidirectionalStreamsBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxUnidirectionalStreamsBytesRead)
         {
-            throw new WebTransportException("Deserialization failed because of invalid capsule data - received length does not match the payload length");
+            throw new CapsuleProtocolException("Deserialization failed because of invalid capsule data - received length does not match the payload length");
         }
 
         return new MaxUnidirectionalStreamsCapsule(maxUnidirectionalStream);
@@ -276,14 +276,14 @@ internal sealed class MaxDataCapsule : Capsule
     {
         session.DataSentLimitProvidedByPeer = MaxData;
     }
-    /// <exception cref="WebTransportException">When the received length does not match the payload length</exception>
+    /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxDataCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
         bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxData, out int maxDataBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxDataBytesRead)
         {
-            throw new WebTransportException("Received invalid capsule data");
+            throw new CapsuleProtocolException("Received invalid capsule data");
         }
 
         return new MaxDataCapsule(maxData);
