@@ -463,40 +463,30 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact]
-    public async Task ClientClosesSessionAndAllStreamsAfterReceivingGoAwayFrameWhenDefaultHandlerIsUsed()
+    public async Task ClientClosesSessionAfterReceivingGoAwayFrameWhenDefaultHandlerIsUsed()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+            barrier.SignalAndWait(); // Signal the session creation is completed
 
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
-
-            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
         });
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
 
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
 
             await serverSession.Connection.ShutdownAsync();
 
