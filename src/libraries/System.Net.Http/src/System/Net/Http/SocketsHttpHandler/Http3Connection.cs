@@ -302,8 +302,6 @@ namespace System.Net.Http
                         _activeRequests.TryGetValue(connectStream, out value);
                     }
 
-                    Debug.Assert(value == null, "This callback has been called more than once for the same stream, which should never happen.");
-
                     if (value != null)
                     {
                         await value.DisposeAsync().ConfigureAwait(false);

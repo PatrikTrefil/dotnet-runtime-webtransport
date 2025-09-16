@@ -146,6 +146,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
+    /// <summary>
+    /// Call when a session is closed and the CONNECT stream is no longer used.
+    /// This method may be called multiple times for the same stream and is thread-safe.
+    /// </summary>
+    /// <param name="connectStream">CONNECT stream of the session to remove.</param>
     public void RemoveSession(QuicStream connectStream)
     {
         _idSessionAndChannelsDict.TryRemove(connectStream.Id, out _);
