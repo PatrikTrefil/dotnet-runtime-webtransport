@@ -497,10 +497,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact]
-    public async Task ClientCallsProvidedGracefulShutdownHadnlerAfterReceivingGoAwayFrame()
+    public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingGoAwayFrame()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
-        bool wasHandlerCalled = false;
+        using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 1);
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
@@ -509,14 +509,14 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(
                 server.Address,
                 client,
-                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalled = true; return Task.CompletedTask; } }
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; } }
                 );
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            SpinWait.SpinUntil(() => wasHandlerCalled, TestTimeout);
+            await wasHandlerCalledSemaphore.WaitAsync(TestTimeout);
 
-            Assert.True(wasHandlerCalled);
+            barrier.SignalAndWait(); // Signal the handler was called
         });
 
         Task serverTask = Task.Run(async () =>
@@ -527,7 +527,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             _ = serverSession.Connection.ShutdownAsync(); // don't await, it will complete only after the client closes the connection completely
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait(); // Wait for the handler to be called
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
