@@ -72,6 +72,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task serverTask = Task.Run(async () =>
         {
@@ -80,6 +81,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             byte[] receivedData = new byte[data.Length];
             await clientInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -88,7 +91,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
             clientInitiatedStream.Write(data);
-            await serverTask; // prevent stream reset before the data is read by the server
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -99,12 +103,16 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
+
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
             stream.Write(data);
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -115,7 +123,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             byte[] receivedData = new byte[data.Length];
             await stream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
-            await serverTask; // prevent stream reset before the data is read by the server
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -126,6 +135,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
@@ -135,6 +145,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -143,7 +155,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             serverInitiatedStream.Write(data);
-            await serverTask; // prevent stream reset before the data is read by the server
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -154,6 +167,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -163,6 +177,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(data, receivedData);
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -170,7 +186,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             serverInitiatedStream.Write(data);
-            await Task.WhenAll(clientTask);
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -203,6 +220,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         var invalidAbortDirection = (WebTransportAbortDirection)42;
 
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -211,13 +229,16 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             Assert.Throws<ArgumentOutOfRangeException>("abortDirection", () => serverInitiatedStream.Abort(invalidAbortDirection, 0));
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
-            await Task.WhenAll(clientTask);
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -241,6 +262,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 clientInitiatedStream,
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -253,7 +276,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             clientInitiatedStream.Abort(WebTransportAbortDirection.Write, expectedWebTransportErrorCode);
 
-            await Task.WhenAll(serverTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -277,6 +300,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 serverInitiatedStream,
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -289,7 +314,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             serverInitiatedStream.Abort(WebTransportAbortDirection.Read, expectedWebTransportErrorCode);
 
-            await Task.WhenAll(serverTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -330,6 +355,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                     Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
                 }
                 );
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -341,7 +368,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             clientInitiatedStream.Abort(QuicAbortDirection.Read, ErrorCodeRemapping.WebTransportCodeToHttpCode(expectedWebTransportErrorCode));
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -370,6 +397,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                     Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
                 }
                 );
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -381,7 +410,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             serverInitiatedStream.Abort(QuicAbortDirection.Write, ErrorCodeRemapping.WebTransportCodeToHttpCode(expectedWebTransportErrorCode));
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -410,6 +439,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 serverInitiatedStream,
                 exceptionValidator: (ex) => Assert.Null(ex.ApplicationErrorCode)
                 );
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -421,7 +452,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             serverInitiatedStream.Abort(QuicAbortDirection.Write, invalidWebTransportErrorCode);
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -433,6 +464,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task DisposedStreamTest(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -444,6 +476,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await AssertAllOperationsOnStreamThrowAsync<ObjectDisposedException>(serverInitiatedStream, exceptionValidator: null);
             Assert.False(serverInitiatedStream.CanRead);
             Assert.False(serverInitiatedStream.CanWrite);
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -451,7 +485,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -463,6 +497,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task NotSupportedOperationsThrows(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -480,6 +515,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 await AssertWriteOperationsOnStreamThrowAsync<NotSupportedException>(serverInitiatedStream, exceptionValidator: null);
             }
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -487,7 +524,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -497,6 +534,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task WritesCompleteIsCompletedInUnidirectionalStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -504,6 +542,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             await serverInitiatedStream.WritesClosed;
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -511,7 +551,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -521,6 +561,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     public async Task ReadsCompleteIsCompletedInUnidirectionalStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -528,6 +569,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
             using WebTransportStream serverInitiatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             await serverInitiatedStream.ReadsClosed;
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
@@ -535,7 +578,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
             await using QuicStream serverInitiatedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
-            await Task.WhenAll(clientTask);
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);

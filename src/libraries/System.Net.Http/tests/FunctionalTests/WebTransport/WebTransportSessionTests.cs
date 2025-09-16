@@ -98,6 +98,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -106,12 +107,15 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetDataSentLimitForPeerAsync(invalidVarInt));
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await clientTask; // prevent server session from closing before client task runs
+
+            barrier.SignalAndWait();
         });
 
 
@@ -123,6 +127,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+        using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -133,12 +138,15 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation(session, cts.Token));
+
+            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
-            await Task.WhenAll(clientTask);
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
