@@ -7,15 +7,13 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
 using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
+[ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
     public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }

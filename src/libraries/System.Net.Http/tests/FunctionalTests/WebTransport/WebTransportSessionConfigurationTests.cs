@@ -11,7 +11,7 @@ using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
+[ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 {
     public WebTransportSessionConfigurationTests(ITestOutputHelper output) : base(output) { }

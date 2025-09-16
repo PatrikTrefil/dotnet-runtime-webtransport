@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-[ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
+[ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
     private const int TestTimeout = 200_000;
