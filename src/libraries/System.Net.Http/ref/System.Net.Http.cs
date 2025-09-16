@@ -1030,7 +1030,6 @@ namespace System.Net.WebTransport
         public long? ApplicationErrorCode { get { throw null; } }
         public string? ApplicationErrorMessage { get { throw null; } }
     }
-    [Flags]
     public enum WebTransportAbortDirection
     {
         Read = 1,

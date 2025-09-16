@@ -8,10 +8,9 @@ namespace System.Net.WebTransport;
 /// This enumeration supports a bitwise combination of its member values.
 /// </summary>
 /// <seealso cref="WebTransportStream.Abort(WebTransportAbortDirection, long)"/>
-[Flags]
 public enum WebTransportAbortDirection
 {
     Read = 1,
     Write = 2,
-    Both = Read | Write
+    Both = 3
 }
