@@ -33,7 +33,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
     ];
 
-    public static readonly IEnumerable<object[]> s_errorMessagesAsParameters = s_errorMessages.Select(item => new object[] { item });
+    public static readonly TheoryData<byte[]> s_errorMessagesAsParameters = new TheoryData<byte[]>(s_errorMessages);
 
     private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {

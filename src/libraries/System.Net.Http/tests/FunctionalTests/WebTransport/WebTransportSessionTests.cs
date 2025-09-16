@@ -20,15 +20,15 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     private const int TestTimeout = 200_000;
 
     private static long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
-    private static long s_minValidVariableLengthIntegerValue = 0;
+    private const long s_minValidVariableLengthIntegerValue = 0;
 
-    private static readonly long[] s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue , s_maxValidVariableLengthIntegerValue];
-    private static readonly long[] s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1 , s_maxValidVariableLengthIntegerValue + 1];
+    private static readonly long[] s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue, s_maxValidVariableLengthIntegerValue];
+    private static readonly long[] s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
 
-    public static readonly IEnumerable<object[]> s_validVariableLengthIntegersAsParameters = s_validVariableLengthIntegers.Select(i => new object[] { i });
-    public static readonly IEnumerable<object[]> s_invalidVariableLengthIntegersAsParameters = s_invalidVariableLengthIntegers.Select(i => new object[] { i });
+    public static readonly TheoryData<long> s_validVariableLengthIntegersAsParameters = new TheoryData<long>(s_validVariableLengthIntegers);
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegersAsParameters = new TheoryData<long>(s_invalidVariableLengthIntegers);
 
-    private static readonly Func<WebTransportSession, CancellationToken, Task>[] s_operations = [
+    public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = new TheoryData<Func<WebTransportSession, CancellationToken, Task>>([
         (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
         (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
         (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken),
@@ -39,8 +39,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, ""u8.ToArray(), cancellationToken)
-        ];
-    public readonly static IEnumerable<object[]> s_operationsAsParameters = s_operations.Select(op => new object[] { op });
+        ]);
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task ConnectionEstablishmentWithValidHandshakeSucceeds()

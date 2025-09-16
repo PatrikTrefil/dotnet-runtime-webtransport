@@ -2,13 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Xunit.Abstractions;
-using System.Collections.Generic;
 using System.Net.Quic;
 using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
-using System.Linq;
 using System.IO;
 using System.Threading;
 
@@ -17,8 +15,44 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(WebTransportTestBase.IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
-    public WebTransportStreamTests(ITestOutputHelper output) : base(output) { }
     private const int TestTimeout = 200_000;
+
+    private static readonly uint[] _errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
+    public static readonly TheoryData<WebTransportStreamType, long> s_abortTestParameters = AbortTestParameters();
+    private static TheoryData<WebTransportStreamType, long> AbortTestParameters()
+    {
+        var theoryData = new TheoryData<WebTransportStreamType, long>();
+        foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
+        {
+            foreach (uint errorCode in _errorCodes)
+            {
+                theoryData.Add(streamType, errorCode);
+            }
+        }
+        return theoryData;
+    }
+
+    public static readonly TheoryData<byte[]> s_dataToSend = new TheoryData<byte[]>([
+        [1],
+        [1, 2, 3]
+    ]);
+
+    public static readonly TheoryData<byte[], WebTransportStreamType> s_dataToSendWithStreamType = DataToSendWithStreamType();
+
+    private static TheoryData<byte[], WebTransportStreamType> DataToSendWithStreamType()
+    {
+        var theoryData = new TheoryData<byte[], WebTransportStreamType>();
+        foreach (byte[] dataToSend in s_dataToSend)
+        {
+            foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
+            {
+                theoryData.Add(dataToSend, streamType);
+            }
+        }
+        return theoryData;
+    }
+
+    public WebTransportStreamTests(ITestOutputHelper output) : base(output) { }
 
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
@@ -68,7 +102,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
 
     [Theory]
-    [MemberData(nameof(DataToSendWithStreamType))]
+    [MemberData(nameof(s_dataToSendWithStreamType))]
     public async Task SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -99,7 +133,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(DataToSendAsParameters))]
+    [MemberData(nameof(s_dataToSend))]
     public async Task SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -131,7 +165,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(DataToSendAsParameters))]
+    [MemberData(nameof(s_dataToSend))]
     public async Task SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -163,7 +197,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(DataToSendWithStreamType))]
+    [MemberData(nameof(s_dataToSendWithStreamType))]
     public async Task SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -191,24 +225,6 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
-    }
-
-    private static readonly IEnumerable<byte[]> _dataToSendRaw = [
-        [1],
-        [1, 2, 3]
-    ];
-    private static readonly IEnumerable<object[]> _dataToSendAsParameters = _dataToSendRaw.Select(item => new object[] { item });
-    public static IEnumerable<object[]> DataToSendAsParameters => _dataToSendAsParameters;
-
-    public static IEnumerable<object[]> DataToSendWithStreamType()
-    {
-        foreach (byte[] dataToSend in _dataToSendRaw)
-        {
-            foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
-            {
-                yield return new object[] { dataToSend, streamType };
-            }
-        }
     }
 
     [Theory]
@@ -245,7 +261,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(AbortTestParameters))]
+    [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -283,7 +299,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(AbortTestParameters))]
+    [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -320,20 +336,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    private static readonly uint[] _errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
-    public static IEnumerable<object[]> AbortTestParameters()
-    {
-        foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
-        {
-            foreach (uint errorCode in _errorCodes)
-            {
-                yield return new object[] { streamType, errorCode };
-            }
-        }
-    }
-
     [Theory]
-    [MemberData(nameof(AbortTestParameters))]
+    [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
@@ -375,7 +379,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(AbortTestParameters))]
+    [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
