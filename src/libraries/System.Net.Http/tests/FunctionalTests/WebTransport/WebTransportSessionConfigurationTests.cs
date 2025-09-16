@@ -293,7 +293,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
 
-            await Task.Delay(2000);
+            SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
+            SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
+            SpinWait.SpinUntil(() => expectedDataSentLimit == session.DataSentLimitProvidedByPeer, TestTimeout);
 
             Assert.Equal(expectedUnidirectionalStreamCountLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
             Assert.Equal(expectedBidirectionalStreamCountLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
@@ -325,7 +327,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
-            await Task.Delay(2000);
+
+            SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
+
             Assert.Equal(expectedLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
         });
 
@@ -352,7 +356,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
-            await Task.Delay(2000);
+
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
+
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
         });
 
@@ -379,7 +385,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         {
             using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
-            await Task.Delay(2000);
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit, TestTimeout);
+
             Assert.Equal(expectedLimit, session.DataSentLimitProvidedByPeer);
         });
 
