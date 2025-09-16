@@ -43,7 +43,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     public readonly static IEnumerable<object[]> s_operationsAsParameters = s_operations.Select(op => new object[] { op });
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
-    public async void ConnectionEstablishmentWithValidHandshakeSucceeds()
+    public async Task ConnectionEstablishmentWithValidHandshakeSucceeds()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -63,7 +63,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
 
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
-    public async void ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
+    public async Task ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -120,7 +120,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(s_operationsAsParameters))]
-    public async void OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
+    public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 

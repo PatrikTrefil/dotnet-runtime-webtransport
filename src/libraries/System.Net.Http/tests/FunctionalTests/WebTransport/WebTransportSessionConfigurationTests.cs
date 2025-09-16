@@ -530,7 +530,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     }
 
     [Fact]
-    public async void CreationOptionsOfLimitsSetTheirRespectiveProperties()
+    public async Task CreationOptionsOfLimitsSetTheirRespectiveProperties()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 

@@ -19,7 +19,7 @@ internal sealed class WebTransportLoopbackServer
             new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
             );
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
-        QuicStream controlStream = connection.CurrentStream.QuicStream;
+        QuicStream controlStream = connection.CurrentStream.Stream;
         bool isValidOpeningHandshake = httpRequestData.Method == HttpMethod.Connect.ToString() && httpRequestData.GetSingleHeaderValue(":protocol") == s_protocolPseudoHeaderValue;
         Assert.True(isValidOpeningHandshake, "Invalid handshake from client received");
         await connection.SendResponseAsync(content: null, isFinal: false);

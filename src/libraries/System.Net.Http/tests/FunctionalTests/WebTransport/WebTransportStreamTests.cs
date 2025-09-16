@@ -23,7 +23,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async void ClientOpensStream(WebTransportStreamType streamType)
+    public async Task ClientOpensStream(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -46,7 +46,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async void ServerOpensStream(WebTransportStreamType streamType)
+    public async Task ServerOpensStream(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -69,7 +69,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(DataToSendWithStreamType))]
-    public async void SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
+    public async Task SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -96,7 +96,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(DataToSendAsParameters))]
-    public async void SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
+    public async Task SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
@@ -123,7 +123,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(DataToSendAsParameters))]
-    public async void SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
+    public async Task SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -151,7 +151,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(DataToSendWithStreamType))]
-    public async void SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
+    public async Task SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -198,7 +198,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
 
-    public async void AbortStreamWithInvalidAbortDirectionThrows(WebTransportStreamType streamType)
+    public async Task AbortStreamWithInvalidAbortDirectionThrows(WebTransportStreamType streamType)
     {
         var invalidAbortDirection = (WebTransportAbortDirection)42;
 
@@ -225,7 +225,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(AbortTestParameters))]
-    public async void ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    public async Task ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
@@ -261,7 +261,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(AbortTestParameters))]
-    public async void ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    public async Task ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
@@ -309,7 +309,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(AbortTestParameters))]
-    public async void ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    public async Task ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
@@ -349,7 +349,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(AbortTestParameters))]
-    public async void ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
+    public async Task ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
@@ -390,7 +390,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async void ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
+    public async Task ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
@@ -430,7 +430,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async void DisposedStreamTest(WebTransportStreamType streamType)
+    public async Task DisposedStreamTest(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -460,7 +460,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async void NotSupportedOperationsThrows(WebTransportStreamType streamType)
+    public async Task NotSupportedOperationsThrows(WebTransportStreamType streamType)
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -494,7 +494,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Fact]
-    public async void WritesCompleteIsCompletedInUnidirectionalStream()
+    public async Task WritesCompleteIsCompletedInUnidirectionalStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
@@ -518,7 +518,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Fact]
-    public async void ReadsCompleteIsCompletedInUnidirectionalStream()
+    public async Task ReadsCompleteIsCompletedInUnidirectionalStream()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
