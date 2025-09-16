@@ -392,11 +392,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [ConditionalFact]
-    public async Task ClientCallsProvidedGracefulShutdownHadnlerAfterReceivingDrainSessionCapsule()
+    public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingDrainSessionCapsule()
     {
         using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
-        bool wasHandlerCalled = false;
+        using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 1);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -404,12 +404,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(
                 server.Address,
                 client,
-                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalled = true; return Task.CompletedTask; } }
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; } }
                 );
 
-            SpinWait.SpinUntil(() => wasHandlerCalled, TestTimeout);
-
-            Assert.True(wasHandlerCalled);
+            await wasHandlerCalledSemaphore.WaitAsync();
 
             barrier.SignalAndWait();
         });
