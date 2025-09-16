@@ -64,16 +64,54 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private bool _isDisposed;
     private static readonly ReadOnlyMemory<byte> s_bidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
     private static readonly ReadOnlyMemory<byte> s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
+    private readonly TaskCompletionSource _tcsReadsClosed = new();
+    private readonly TaskCompletionSource _tcsWritesClosed = new();
 
     public MsQuicWebTransportStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream) : base(type)
     {
+        ArgumentNullException.ThrowIfNull(quicStream);
+
         _readStream = new ConcatenatedStream(arrayBuffer, quicStream);
         _quicStream = quicStream;
+        InitTcs(quicStream);
     }
+
     public MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream) : base(type)
     {
+        ArgumentNullException.ThrowIfNull(quicStream);
+
         _quicStream = quicStream;
         _readStream = quicStream;
+        InitTcs(quicStream);
+    }
+
+    private void InitTcs(QuicStream quicStream)
+    {
+        // TODO: log exceptions
+        Task.Run(async () =>
+        {
+            try
+            {
+                await quicStream.ReadsClosed.ConfigureAwait(false);
+                _tcsReadsClosed.SetResult();
+            }
+            catch (QuicException ex)
+            {
+                _tcsReadsClosed.SetException(QuicExceptionHandler(ex));
+            }
+        });
+        Task.Run(async () =>
+        {
+            try
+            {
+                await quicStream.WritesClosed.ConfigureAwait(false);
+                _tcsWritesClosed.SetResult();
+            }
+            catch (QuicException ex)
+            {
+                _tcsWritesClosed.SetException(QuicExceptionHandler(ex));
+            }
+        });
     }
 
     /// <summary>
@@ -108,21 +146,9 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         set => throw new NotSupportedException();
     }
 
-    public override Task ReadsClosed {
-        get {
-            return _quicStream.ReadsClosed.ContinueWith((task, _) => {
-                throw QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
-            }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
-        }
-    }
+    public override Task ReadsClosed => _tcsReadsClosed.Task;
 
-    public override Task WritesClosed {
-        get {
-            return _quicStream.WritesClosed.ContinueWith((task, _) => {
-                throw QuicExceptionHandler((QuicException)task.Exception!.InnerException!);
-            }, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Current);
-        }
-    }
+    public override Task WritesClosed => _tcsWritesClosed.Task;
 
     private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection, [CallerArgumentExpression(nameof(abortDirection))] string? paramName = null)
     {
