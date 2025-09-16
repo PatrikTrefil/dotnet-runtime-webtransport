@@ -326,7 +326,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 clientInitiatedStream,
                 exceptionValidator: (ex) =>
                 {
-                    Assert.Equal(WebTransportError.SessionClosed, ex.WebTransportError);
+                    Assert.Equal(WebTransportError.StreamAborted, ex.WebTransportError);
                     Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
                 }
                 );
