@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-internal sealed class WebTransportLoopbackServer: IAsyncDisposable
+internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 {
     public const string s_protocolPseudoHeaderValue = "webtransport";
     private readonly Http3LoopbackServer _httpServer;

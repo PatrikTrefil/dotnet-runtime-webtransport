@@ -6,7 +6,7 @@ using Xunit;
 
 namespace System.Net.WebTransport.Unit.Tests;
 
-public class WebTransportSessionTests: WebTransportTestBase
+public class WebTransportSessionTests : WebTransportTestBase
 {
     private static long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
     private const long s_minValidVariableLengthIntegerValue = 0;

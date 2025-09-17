@@ -33,13 +33,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         try
         {
             await stream.WritesClosed;
-        } catch (Exception) { }
+        }
+        catch (Exception) { }
 
 
         try
         {
             await stream.ReadsClosed;
-        } catch (Exception) { }
+        }
+        catch (Exception) { }
     }
 
     [Theory]

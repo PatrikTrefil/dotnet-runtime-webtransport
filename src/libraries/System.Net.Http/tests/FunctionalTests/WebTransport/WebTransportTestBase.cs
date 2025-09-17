@@ -20,7 +20,8 @@ public abstract class WebTransportTestBase : HttpClientHandlerTestBase
     internal readonly WebTransportLoopbackServer _webTransportServer;
     internal readonly HttpClient _client;
 
-    public WebTransportTestBase(ITestOutputHelper output) : base(output) {
+    public WebTransportTestBase(ITestOutputHelper output) : base(output)
+    {
         _httpServer = CreateHttp3LoopbackServer();
         _webTransportServer = new WebTransportLoopbackServer(_httpServer);
         _client = CreateHttpClient();
