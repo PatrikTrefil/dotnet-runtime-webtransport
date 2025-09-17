@@ -6,76 +6,65 @@ using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
+using System.Collections.Generic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-internal sealed class WebTransportLoopbackServer
+internal sealed class WebTransportLoopbackServer: IAsyncDisposable
 {
     public const string s_protocolPseudoHeaderValue = "webtransport";
-    public static async Task<WebTransportServerSession> EstablishWebTransportServerSessionAsync(Http3LoopbackServer server)
+    private readonly Http3LoopbackServer _httpServer;
+    private bool _disposedValue;
+    private List<WebTransportServerSession> _sessions = new List<WebTransportServerSession>();
+
+    public Uri Address => _httpServer.Address;
+
+    public WebTransportLoopbackServer(Http3LoopbackServer httpServer)
     {
-        Http3LoopbackConnection connection = await server.EstablishConnectionAsync(
+        ArgumentNullException.ThrowIfNull(httpServer);
+
+        _httpServer = httpServer;
+    }
+
+    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync()
+    {
+        Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
             new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
             );
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
         QuicStream controlStream = connection.CurrentStream.Stream;
         bool isValidOpeningHandshake = httpRequestData.Method == HttpMethod.Connect.ToString() && httpRequestData.GetSingleHeaderValue(":protocol") == s_protocolPseudoHeaderValue;
+
         Assert.True(isValidOpeningHandshake, "Invalid handshake from client received");
+
         await connection.SendResponseAsync(content: null, isFinal: false);
-        return new WebTransportServerSession { Connection = connection, ConnectStream = controlStream };
-    }
-}
-internal sealed class WebTransportServerSession : IAsyncDisposable
-{
-    private static byte[] s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
 
-    private static byte[] s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
-    public long SessionId => ConnectStream.Id;
-    public Http3LoopbackConnection Connection { get; init; }
-    public QuicStream ConnectStream { get; init; }
+        WebTransportServerSession session = new() { Connection = connection, ConnectStream = controlStream };
+        _sessions.Add(session);
 
-    public ValueTask DisposeAsync() => Connection.DisposeAsync();
-
-    public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType streamType)
-    {
-
-        QuicStream clientInitatedStream = await Connection.AcceptQuicStreamAsync();
-        byte[] expectedStreamTypeOrSignalValueValue = streamType switch
-        {
-            WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
-            WebTransportStreamType.Bidirectional => s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger,
-            _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
-        };
-        byte[] receivedStreamTypeOrSignalValue = new byte[expectedStreamTypeOrSignalValueValue.Length];
-        clientInitatedStream.Read(receivedStreamTypeOrSignalValue);
-        Assert.Equal(expectedStreamTypeOrSignalValueValue, receivedStreamTypeOrSignalValue);
-        var (sessionId, _) = await VariableLengthIntegerStreamHelper.ReadAsync(clientInitatedStream);
-        Assert.Equal(SessionId, sessionId);
-        return clientInitatedStream;
+        return session;
     }
 
-    public async Task<QuicStream> OpenStreamFromServerAsync(WebTransportStreamType streamType)
+    private async ValueTask DisposeAsyncCore(bool disposing)
     {
-        QuicStreamType quicStreamType = streamType switch
+        if (!_disposedValue)
         {
-            WebTransportStreamType.Unidirectional => QuicStreamType.Unidirectional,
-            WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
-            _ => throw new ArgumentOutOfRangeException(nameof(streamType), "Invalid stream type")
-        };
-        QuicStream stream = await Connection.OpenQuicStreamAsync(quicStreamType);
-        switch (streamType)
-        {
-            case WebTransportStreamType.Unidirectional:
-                stream.Write(s_unidirectionalStreamTypeEncodedAsVariableLengthInteger);
-                break;
-            case WebTransportStreamType.Bidirectional:
-                stream.Write(s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger);
-                break;
+            if (disposing)
+            {
+                foreach (WebTransportServerSession session in _sessions)
+                {
+                    await session.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+
+            _disposedValue = true;
         }
-        VariableLengthIntegerStreamHelper.Write(stream, SessionId);
-        stream.Flush();
-        return stream;
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeAsyncCore(disposing: true).ConfigureAwait(false);
+        GC.SuppressFinalize(this);
+    }
 }

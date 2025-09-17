@@ -1,8 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Net.Http;
-using System.Net.Test.Common;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,21 +10,14 @@ using Xunit.Abstractions;
 namespace System.Net.WebTransport.Functional.Tests;
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
-public sealed class WebTransportSessionTests : WebTransportTestBase
+public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
 {
-    public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
-    private const int TestTimeout = 200_000;
-
     private static long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
     private const long s_minValidVariableLengthIntegerValue = 0;
 
-    private static readonly long[] s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue, s_maxValidVariableLengthIntegerValue];
-    private static readonly long[] s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
 
-    public static readonly TheoryData<long> s_validVariableLengthIntegersAsParameters = new TheoryData<long>(s_validVariableLengthIntegers);
-    public static readonly TheoryData<long> s_invalidVariableLengthIntegersAsParameters = new TheoryData<long>(s_invalidVariableLengthIntegers);
-
-    public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = new TheoryData<Func<WebTransportSession, CancellationToken, Task>>([
+    public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
         (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
         (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
         (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken),
@@ -37,22 +28,22 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
         (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, ""u8.ToArray(), cancellationToken)
-        ]);
+        ];
+
+    public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
+
 
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task ConnectionEstablishmentWithValidHandshakeSucceeds()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
-
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
         });
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
@@ -62,18 +53,15 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     [ConditionalFact(nameof(IsWebTransportSupported))]
     public async Task ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
-
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
         });
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
             WebTransportSession session;
-            await using (session = await WebTransportSession.ConnectAsync(server.Address, client)) { }
+            await using (session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client)) { }
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetDataSentLimitForPeerAsync(1));
@@ -91,16 +79,14 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(s_invalidVariableLengthIntegersAsParameters))]
+    [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetDataSentLimitForPeerAsync(invalidVarInt));
@@ -110,7 +96,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -123,13 +109,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     [MemberData(nameof(s_operationsAsParameters))]
     public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             CancellationTokenSource cts = new();
             cts.Cancel();
@@ -141,7 +125,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -156,23 +140,4 @@ public sealed class WebTransportSessionTests : WebTransportTestBase
     // TODO: add test for connection to a host that doesn't support WT over HTTP/3
     // TODO: add test for connection to a host that performs invalid WT handshake
     // TODO: add test that makes two extended CONNECT requests and they should both return the exact same exception object
-
-    // TODO: move these to unit tests
-    [Theory]
-    [MemberData(nameof(s_invalidVariableLengthIntegersAsParameters))]
-    public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = invalidVarInt });
-    }
-
-    [Theory]
-    [MemberData(nameof(s_validVariableLengthIntegersAsParameters))]
-    public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
-    {
-        new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = validVarInt };
-    }
 }

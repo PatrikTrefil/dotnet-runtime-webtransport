@@ -3,10 +3,8 @@
 
 using Xunit.Abstractions;
 using System.Net.Quic;
-using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
-using System.Net.Http;
 using System.IO;
 using System.Threading;
 
@@ -15,16 +13,15 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
-    private const int TestTimeout = 200_000;
-
-    private static readonly uint[] _errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
+    private static readonly uint[] s_errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
     public static readonly TheoryData<WebTransportStreamType, long> s_abortTestParameters = AbortTestParameters();
+
     private static TheoryData<WebTransportStreamType, long> AbortTestParameters()
     {
         var theoryData = new TheoryData<WebTransportStreamType, long>();
         foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
         {
-            foreach (uint errorCode in _errorCodes)
+            foreach (uint errorCode in s_errorCodes)
             {
                 theoryData.Add(streamType, errorCode);
             }
@@ -32,10 +29,10 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         return theoryData;
     }
 
-    public static readonly TheoryData<byte[]> s_dataToSend = new TheoryData<byte[]>([
+    public static readonly TheoryData<byte[]> s_dataToSend = [
         [1],
         [1, 2, 3]
-    ]);
+    ];
 
     public static readonly TheoryData<byte[], WebTransportStreamType> s_dataToSendWithStreamType = DataToSendWithStreamType();
 
@@ -59,18 +56,16 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ClientOpensStream(WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
         });
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
         });
 
@@ -82,18 +77,15 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ServerOpensStream(WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
-
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
         });
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
         });
 
@@ -105,12 +97,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_dataToSendWithStreamType))]
     public async Task SendDataFromClientToServerOverClientInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await clientInitiatedStream.ReadExactlyAsync(receivedData);
@@ -121,8 +112,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
             clientInitiatedStream.Write(data);
 
@@ -136,13 +126,12 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_dataToSend))]
     public async Task SendDataFromServerToClientOverClientInitiatedStream(byte[] data)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
             stream.Write(data);
 
@@ -151,8 +140,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await stream.ReadExactlyAsync(receivedData);
@@ -168,13 +156,12 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_dataToSend))]
     public async Task SendDataFromClientToServerOverServerInitiatedStream(byte[] data)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
@@ -185,8 +172,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             serverInitiatedStream.Write(data);
 
@@ -200,13 +186,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_dataToSendWithStreamType))]
     public async Task SendDataFromServerToClientOverServerInitiatedStream(byte[] data, WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
@@ -217,7 +201,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             serverInitiatedStream.Write(data);
 
@@ -235,13 +219,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     {
         var invalidAbortDirection = (WebTransportAbortDirection)42;
 
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             Assert.Throws<ArgumentOutOfRangeException>("abortDirection", () => serverInitiatedStream.Abort(invalidAbortDirection, 0));
@@ -251,7 +233,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -264,12 +246,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -284,8 +265,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -302,12 +282,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -322,8 +301,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -340,13 +318,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -365,7 +341,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -382,13 +358,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -407,7 +381,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -425,7 +399,6 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
 
         const long maxValidErrorCode = 0x52e5ac983162;
@@ -433,8 +406,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -449,7 +421,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -467,13 +439,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task DisposedStreamTest(WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             WebTransportStream serverInitiatedStream;
             using (serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType)) { }
 
@@ -486,7 +456,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -500,13 +470,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task NotSupportedOperationsThrows(WebTransportStreamType streamType)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             Assert.Throws<NotSupportedException>(() => serverInitiatedStream.Seek(0, SeekOrigin.Begin));
@@ -525,7 +493,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -537,13 +505,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Fact]
     public async Task WritesCompleteIsCompletedInUnidirectionalStream()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             await serverInitiatedStream.WritesClosed;
 
@@ -552,7 +518,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             barrier.SignalAndWait();
@@ -564,13 +530,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Fact]
     public async Task ReadsCompleteIsCompletedInUnidirectionalStream()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             await serverInitiatedStream.ReadsClosed;
 
@@ -579,7 +543,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             barrier.SignalAndWait();

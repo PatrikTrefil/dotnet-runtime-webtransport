@@ -5,7 +5,6 @@ using Xunit.Abstractions;
 using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
-using System.Net.Http;
 using System.Threading;
 using System.IO;
 
@@ -14,25 +13,25 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 {
+    private const long s_maxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
+    private const long s_maxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
+    private const long s_maxDataCapsuleCode = 0x190B4D3D;
+    private const long s_unknownCapsuleCode = 0x12345678;
+
+    private const int s_minValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int s_maxValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
+    private const int s_minValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int s_maxValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
+    private const int s_minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
+    private const int s_maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
     public WebTransportSessionConfigurationTests(ITestOutputHelper output) : base(output) { }
-    private const int TestTimeout = 200_000;
-    private const long MaxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
-    private const long MaxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
-    private const long MaxDataCapsuleCode = 0x190B4D3D;
-    private const long unknownCapsuleCode = 0x12345678;
-
-    private const int minValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
-    private const int maxValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
-
-    private const int minValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
-    private const int maxValidSizeOfMaxUnidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
-
-    private const int minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
-    private const int maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
 
     private void WriteMaxDataCapsule(Stream stream, long dataSentLimit)
     {
-        VariableLengthIntegerStreamHelper.Write(stream, MaxDataCapsuleCode);
+        VariableLengthIntegerStreamHelper.Write(stream, s_maxDataCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
         int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(dataSentLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
@@ -41,7 +40,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
     private void WriteBidirectionalStreamLimitCapsule(Stream stream, long bidirectionalStreamLimit)
     {
-        VariableLengthIntegerStreamHelper.Write(stream, MaxBidirectionalStreamLimitCapsuleCode);
+        VariableLengthIntegerStreamHelper.Write(stream, s_maxBidirectionalStreamLimitCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
         int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(bidirectionalStreamLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
@@ -50,7 +49,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
     private void WriteUnidirectionalStreamLimitCapsule(Stream stream, long unidirectionalStreamLimit)
     {
-        VariableLengthIntegerStreamHelper.Write(stream, MaxUnidirectionalStreamLimitCapsuleCode);
+        VariableLengthIntegerStreamHelper.Write(stream, s_maxUnidirectionalStreamLimitCapsuleCode);
         Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
         int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(unidirectionalStreamLimit, valueBuffer);
         VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
@@ -60,13 +59,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetUnidirectionalStreamCountLimitSendsCorrectCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedUnidirectionalStreamCountLimit = 1;
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -74,7 +72,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
             var (receivedMaxUnidirectionalStreams, bytesReadMaxUnidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(MaxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
+            Assert.Equal(s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedMaxUnidirectionalStreams);
             Assert.Equal(capsuleValueLength, bytesReadMaxUnidirectionalStreams);
 
@@ -83,8 +81,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetUnidirectionalStreamCountLimitForPeerAsync(expectedUnidirectionalStreamCountLimit);
 
             barrier.SignalAndWait();
@@ -96,13 +93,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetBidirectionalStreamCountLimitSendsCorrectCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedBidirectionalStreamCountLimit = 2;
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -110,7 +106,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
             var (receivedMaxBidirectionalStreams, bytesReadMaxBidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(MaxBidirectionalStreamLimitCapsuleCode, capsuleCode);
+            Assert.Equal(s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedMaxBidirectionalStreams);
             Assert.Equal(capsuleValueLength, bytesReadMaxBidirectionalStreams);
 
@@ -119,8 +115,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetBidirectionalStreamCountLimitForPeerAsync(expectedBidirectionalStreamCountLimit);
 
             barrier.SignalAndWait();
@@ -132,13 +127,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetDataSentLimitSendsCorrectCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedDataSentLimit = 1024;
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -146,7 +140,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
             var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(MaxDataCapsuleCode, capsuleCode);
+            Assert.Equal(s_maxDataCapsuleCode, capsuleCode);
             Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
             Assert.Equal(capsuleValueLength, bytesReadDataSentLimit);
 
@@ -155,8 +149,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetDataSentLimitForPeerAsync(expectedDataSentLimit);
 
             barrier.SignalAndWait();
@@ -168,14 +161,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetUnidirectionalStreamCountLimitUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
             int expectedUnidirectionalStreamCountLimit = 1024;
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetUnidirectionalStreamCountLimitForPeerAsync(expectedUnidirectionalStreamCountLimit);
 
             Assert.Equal(expectedUnidirectionalStreamCountLimit, session.UnidirectionalStreamCountLimitForPeer);
@@ -184,7 +175,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -195,14 +186,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetBidirectionalStreamCountLimitUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
             int expectedBidirectionalStreamCountLimit = 1024;
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetBidirectionalStreamCountLimitForPeerAsync(expectedBidirectionalStreamCountLimit);
 
             Assert.Equal(expectedBidirectionalStreamCountLimit, session.BidirectionalStreamCountLimitForPeer);
@@ -211,7 +200,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -222,14 +211,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SetDataSentLimitUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
             int expectedDataSentLimit = 1024;
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.SetDataSentLimitForPeerAsync(expectedDataSentLimit);
 
             Assert.Equal(expectedDataSentLimit, session.DataSentLimitForPeer);
@@ -238,7 +225,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -249,7 +236,6 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task SendAllCapsuleTypesSendsAndReceivesCorrectCapsules()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedUnidirectionalStreamCountLimit = 11;
         int expectedBidirectionalStreamCountLimit = 22;
@@ -257,7 +243,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             // Unidirectional Stream Count Limit Capsule
             var (capsuleCode1, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
@@ -274,15 +260,15 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
             var (capsuleValueLength3, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
             var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(MaxUnidirectionalStreamLimitCapsuleCode, capsuleCode1);
+            Assert.Equal(s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode1);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedUnidirectionalStreamCountLimit);
             Assert.Equal(capsuleValueLength1, bytesReadUnidirectional);
 
-            Assert.Equal(MaxBidirectionalStreamLimitCapsuleCode, capsuleCode2);
+            Assert.Equal(s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode2);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedBidirectionalStreamCountLimit);
             Assert.Equal(capsuleValueLength2, bytesReadBidirectional);
 
-            Assert.Equal(MaxDataCapsuleCode, capsuleCode3);
+            Assert.Equal(s_maxDataCapsuleCode, capsuleCode3);
             Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
             Assert.Equal(capsuleValueLength3, bytesReadDataSentLimit);
 
@@ -291,8 +277,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             await session.SetUnidirectionalStreamCountLimitForPeerAsync(expectedUnidirectionalStreamCountLimit);
             await session.SetBidirectionalStreamCountLimitForPeerAsync(expectedBidirectionalStreamCountLimit);
@@ -307,7 +292,6 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task ReceiveAllCapsuleTypesUpdatesSessionProperties()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedUnidirectionalStreamCountLimit = 123;
         int expectedBidirectionalStreamCountLimit = 456;
@@ -315,8 +299,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
             SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
@@ -331,7 +314,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
@@ -348,14 +331,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task ReceiveUnidirectionalStreamLimitCapsuleUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedLimit = 123;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
 
@@ -366,7 +347,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -381,14 +362,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task ReceiveBidirectionalStreamLimitCapsuleUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedLimit = 456;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
 
@@ -399,7 +378,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -414,14 +393,12 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task ReceiveMaxDataCapsuleUpdatesSessionProperty()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         int expectedLimit = 7890;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit, TestTimeout);
 
@@ -432,7 +409,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -449,15 +426,13 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [InlineData(10_001)] // This should trigger special handling of long unknown capsules
     public async Task ReceiveUnknownCapsuleOnConnectStream(long capsuleValueSize)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         int expectedLimit = 42;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             // Assert the valid capsule after the unknown one is received
             SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
@@ -467,9 +442,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, unknownCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_unknownCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleValueSize);
             serverSession.ConnectStream.Write(new byte[capsuleValueSize]);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
@@ -482,17 +457,15 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     }
 
     [Theory]
-    [InlineData(minValidSizeOfMaxDataCapsuleValue - 1)]
-    [InlineData(maxValidSizeOfMaxDataCapsuleValue + 1)]
+    [InlineData(s_minValidSizeOfMaxDataCapsuleValue - 1)]
+    [InlineData(s_maxValidSizeOfMaxDataCapsuleValue + 1)]
     public async Task ReceiveMaxDataCapsuleWithInvalidValueClosesSession(int invalidLength)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
@@ -504,9 +477,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxDataCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxDataCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
             await serverSession.ConnectStream.FlushAsync();
@@ -519,17 +492,15 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
 
     [Theory]
-    [InlineData(minValidSizeOfMaxUnidirectionalCapsuleValue - 1)]
-    [InlineData(maxValidSizeOfMaxUnidirectionalCapsuleValue + 1)]
+    [InlineData(s_minValidSizeOfMaxUnidirectionalCapsuleValue - 1)]
+    [InlineData(s_maxValidSizeOfMaxUnidirectionalCapsuleValue + 1)]
     public async Task ReceiveMaxUnidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 10000);
@@ -541,9 +512,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxUnidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxUnidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
             await serverSession.ConnectStream.FlushAsync();
@@ -555,17 +526,15 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     }
 
     [Theory]
-    [InlineData(minValidSizeOfMaxBidirectionalCapsuleValue - 1)]
-    [InlineData(maxValidSizeOfMaxBidirectionalCapsuleValue + 1)]
+    [InlineData(s_minValidSizeOfMaxBidirectionalCapsuleValue - 1)]
+    [InlineData(s_maxValidSizeOfMaxBidirectionalCapsuleValue + 1)]
     public async Task ReceiveMaxBidirectionalStreamLimitCapsuleWithInvalidValueClosesSession(int invalidLength)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
@@ -577,9 +546,9 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, MaxBidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxBidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
             await serverSession.ConnectStream.FlushAsync();
@@ -593,7 +562,6 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     [Fact]
     public async Task CreationOptionsOfLimitsSetTheirRespectiveProperties()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         int expectedBidirectionalStreamsCountLimitForPeer = 10;
@@ -602,14 +570,13 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
             WebTransportSessionCreationOptions options = new()
             {
                 InitialBidirectionalStreamCountLimitForPeer = expectedBidirectionalStreamsCountLimitForPeer,
                 InitialUnidirectionalStreamCountLimitForPeer = expectedUnidirectionalStreamsCountLimitForPeer,
                 InitialDataSentLimitForPeer = expectedDataSentLimitForPeer,
             };
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client, options);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
 
             Assert.Equal(expectedBidirectionalStreamsCountLimitForPeer, session.BidirectionalStreamCountLimitForPeer);
             Assert.Equal(expectedUnidirectionalStreamsCountLimitForPeer, session.UnidirectionalStreamCountLimitForPeer);
@@ -620,7 +587,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });

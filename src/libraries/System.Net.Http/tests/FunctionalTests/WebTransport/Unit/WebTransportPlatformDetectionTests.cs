@@ -6,14 +6,18 @@ using Xunit;
 using Xunit.Abstractions;
 using System.Net.Quic;
 
-namespace System.Net.WebTransport.Functional.Tests;
+namespace System.Net.WebTransport.Unit.Tests;
 
 public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
 {
-    public WebTransportPlatformDetectionTests(ITestOutputHelper output) : base(output) { }
-
     public static bool IsWebTransportUnsupported => !IsWebTransportSupported;
     public static bool IsQuicSupported => QuicConnection.IsSupported;
+
+    private readonly ITestOutputHelper _output;
+    public WebTransportPlatformDetectionTests(ITestOutputHelper output) : base()
+    {
+        _output = output;
+    }
 
     [ConditionalFact(nameof(IsWebTransportUnsupported))]
     public async Task UnsupportedPlatforms_ThrowsPlatformNotSupportedException()

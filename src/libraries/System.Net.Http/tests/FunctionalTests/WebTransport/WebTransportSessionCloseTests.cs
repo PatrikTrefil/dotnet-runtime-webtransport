@@ -2,10 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Xunit.Abstractions;
-using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
-using System.Net.Http;
 using System.Buffers.Binary;
 using System.Text;
 using System.Threading;
@@ -17,7 +15,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
     public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }
-    private const int TestTimeout = 200_000_00;
 
     private const long s_closeSessionCapsuleCode = 0x2843;
     private const long s_drainSessionCapsuleCode = 0x78ae;
@@ -25,13 +22,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     private const int s_maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
     private const int s_minValidSizeOfCloseSessionCapsuleValue = 32;
 
-    private static readonly byte[][] s_errorMessages = [
+    public static readonly TheoryData<byte[]> s_errorMessages = [
         ""u8.ToArray(),
         "test errror message"u8.ToArray(),
 
     ];
-
-    public static readonly TheoryData<byte[]> s_errorMessagesAsParameters = new TheoryData<byte[]>(s_errorMessages);
 
     private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
@@ -48,16 +43,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(s_errorMessagesAsParameters))]
+    [MemberData(nameof(s_errorMessages))]
     public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         uint expectedApplicationErrorCode = 1;
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -80,8 +74,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             await session.CloseAsync(expectedApplicationErrorCode, expectedApplicationErrorMessage);
 
             barrier.SignalAndWait();
@@ -91,17 +84,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(s_errorMessagesAsParameters))]
+    [MemberData(nameof(s_errorMessages))]
     public async Task ClientClosesSessionAfterReceivingCloseSessionCapsule(byte[] expectedApplicationErrorMessage)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         uint expectedApplicationErrorCode = 1;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
@@ -114,7 +105,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
@@ -131,13 +122,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task ClosesClientSessionAfterServerClosesConnectStream()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
@@ -150,7 +139,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             serverSession.ConnectStream.CompleteWrites();
 
             barrier.SignalAndWait();
@@ -162,13 +151,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task ServerGracefullyClosesConnectStreamResultsInAllOtherStreamsBeingClosed()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
@@ -190,7 +177,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
@@ -212,13 +199,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [InlineData(QuicAbortDirection.Both)]
     public async Task ServerAbortivelyClosesConnectStreamResultsInAllOtherStreamsBeingClosed(QuicAbortDirection abortDirection)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
@@ -240,7 +225,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
@@ -258,15 +243,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         byte[] expectedApplicationErrorMessage = "test error message"u8.ToArray();
         uint expectedApplicationErrorCode = 1;
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
@@ -288,7 +271,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
@@ -311,12 +294,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task SessionRequestCloseAsyncSendsCorrectCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -330,8 +312,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             await session.RequestCloseAsync();
 
@@ -344,13 +325,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [ConditionalFact]
     public async Task ClientClosesSessionAndAllStreamsAfterReceivingDrainSessionCapsuleWhenDefaultHandlerIsUsed()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
@@ -373,7 +352,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
@@ -392,16 +371,14 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [ConditionalFact]
     public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingDrainSessionCapsule()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
         using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 1);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(
-                server.Address,
-                client,
+                _webTransportServer.Address,
+                _client,
                 new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; } }
                 );
 
@@ -412,7 +389,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
@@ -426,13 +403,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task ReceiveDrainCapsuleWithInvalidValueClosesSession()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
@@ -444,7 +419,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             int invalidLength = 1;
@@ -463,13 +438,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [InlineData(s_maxValidSizeOfCloseSessionCapsuleValue + 1)]
     public async Task ReceiveCloseSessionCapsuleWithInvalidValueClosesSession(int invalidLength)
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
@@ -481,7 +454,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
@@ -497,13 +470,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [ConditionalFact]
     public async Task ClientClosesSessionAfterReceivingGoAwayFrameWhenDefaultHandlerIsUsed()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
@@ -518,7 +489,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
@@ -533,16 +504,14 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [ConditionalFact]
     public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingGoAwayFrame()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 1);
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(
-                server.Address,
-                client,
+                _webTransportServer.Address,
+                _client,
                 new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; } }
                 );
 
@@ -555,7 +524,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
@@ -570,13 +539,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [ConditionalFact]
     public async Task ClientClosesSessionWhenQuicConnectionIsClosed()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
@@ -591,7 +558,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
@@ -606,13 +573,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Fact]
     public async Task AllOperationsThrowWebTransportExceptionOnClosedSession()
     {
-        using Http3LoopbackServer server = CreateHttp3LoopbackServer();
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
-            using HttpClient client = CreateHttpClient();
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(server.Address, client);
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             session.Close();
 
@@ -635,7 +600,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await WebTransportLoopbackServer.EstablishWebTransportServerSessionAsync(server);
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
