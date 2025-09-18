@@ -53,13 +53,21 @@ public sealed record class WebTransportSessionCreationOptions
         {
             if (value != null)
             {
-                _availableSubProtocolsEncodedAsStructuredFieldValue = StructuredFieldValuesForHttp.SerializeListOfTokens(value);
+                for (int i = 0; i < value.Length; i++)
+                {
+                    try
+                    {
+                        StructuredFieldValuesForHttp.ValidateToken(value[i]);
+                    }
+                    catch (ArgumentException e)
+                    {
+                        throw new ArgumentException($"The token at index {i} is not valid.", nameof(value), e);
+                    }
+                }
+                field = value;
             }
-            field = value;
         }
     }
-    private string? _availableSubProtocolsEncodedAsStructuredFieldValue;
-    internal string? AvailableSubProtocolsEncodedAsStructuredFieldValue => _availableSubProtocolsEncodedAsStructuredFieldValue;
     /// <summary>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
@@ -361,7 +369,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         requestMessage.Headers.Protocol = "webtransport";
         if (options.AvailableSubProtocols != null)
         {
-            requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocolsEncodedAsStructuredFieldValue);
+            requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocols);
         }
 
         HttpResponseMessage response;
@@ -387,20 +395,20 @@ public abstract partial class WebTransportSession : IAsyncDisposable
                     throw new WebTransportException(WebTransportError.HeaderError, "Multiple WT-Protocol headers received from the server.");
                 }
 
-                string parsedValue;
                 try
                 {
-                     parsedValue = StructuredFieldValuesForHttp.ParseToken(value);
-                } catch (Exception)
+                    StructuredFieldValuesForHttp.ValidateToken(value);
+                }
+                catch (Exception e)
                 {
-                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
+                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.", e);
                 }
 
-                if (!options.AvailableSubProtocols.Contains(parsedValue))
+                if (!options.AvailableSubProtocols.Contains(value))
                 {
                     throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
                 }
-                selectedProtocol = parsedValue;
+                selectedProtocol = value;
             }
         }
 

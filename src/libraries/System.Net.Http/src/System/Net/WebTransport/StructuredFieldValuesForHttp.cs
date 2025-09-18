@@ -13,61 +13,9 @@ internal static class StructuredFieldValuesForHttp
 {
     private static readonly char[] s_specialCharsThatAreNotDelimiters = ['!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'];
 
-    /// <summary>
-    /// Serialize a list of tokens.
-    /// </summary>
-    /// <param name="tokens">List of tokens to serialize.</param>
-    /// <returns>String contaning the serialized list.</returns>
-    /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-list"/>
-    /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-token"/>
-    /// <exception cref="ArgumentException">When the list serializations fails.</exception>"
-    public static string SerializeListOfTokens(string[] tokens)
-    {
-        Debug.Assert(tokens != null);
-
-        string result = string.Empty;
-        for (int i = 0; i < tokens.Length; i++)
-        {
-            try
-            {
-                result += SerializeToken(tokens[i]);
-            }
-            catch (ArgumentException e)
-            {
-                throw new ArgumentException($"The token at index {i} is not valid.", nameof(tokens), e);
-            }
-
-            if (i < tokens.Length - 1)
-            {
-                result += ',';
-            }
-        }
-        return result;
-    }
-
     /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-token"/>
     /// <exception cref="ArgumentException">When the token serialization fails.</exception>
-    public static string SerializeToken(string token)
-    {
-        Debug.Assert(token != null);
-
-        ValidateTokenCharacters(token);
-
-        return token;
-    }
-
-    /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-parsing-a-token"/>
-    /// <exception cref="ArgumentException">When the token parsing fails.</exception>
-    public static string ParseToken(string token)
-    {
-        Debug.Assert(token != null);
-
-        ValidateTokenCharacters(token);
-
-        return token;
-    }
-
-    private static void ValidateTokenCharacters(string token)
+    public static void ValidateToken(string token)
     {
         Debug.Assert(token != null);
 
