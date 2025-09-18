@@ -72,7 +72,7 @@ namespace System.Net.Http
                 return false;
             }
 
-            Debug.Assert(Enum.GetValues<HttpRequestError>().Length == 12, "We need to extend the mapping in case new values are added to HttpRequestError.");
+            Debug.Assert(Enum.GetValues<HttpRequestError>().Length == 15, "We need to extend the mapping in case new values are added to HttpRequestError.");
             errorType = (exception as HttpRequestException)?.HttpRequestError switch
             {
                 HttpRequestError.NameResolutionError => "name_resolution_error",
@@ -88,6 +88,7 @@ namespace System.Net.Http
                 HttpRequestError.ConfigurationLimitExceeded => "configuration_limit_exceeded",
                 HttpRequestError.MissingExtendedConnectManager => "missing_extended_connect_manager",
                 HttpRequestError.ServerSettingsValidationFailed => "server_settings_validation_failed",
+                HttpRequestError.ExtendedConnectRequestValidationFailed => "extended_connect_request_validation_failed",
 
                 // Fall back to the exception type name in case of HttpRequestError.Unknown or when exception is not an HttpRequestException.
                 _ => exception.GetType().FullName!
