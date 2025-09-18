@@ -646,17 +646,22 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             State = WebTransportSessionState.Open;
         }
 
+        // TODO: log exception
+        // TODO: might get garbage collected
         // Reaction to peer aborting their reading of the CONNECT stream.
-        _connectStream.WritesClosed.ContinueWith((_) =>
+        Task.Run(async () =>
+        {
+            try
+            {
+                await _connectStream.WritesClosed.ConfigureAwait(false);
+            } catch (Exception)
             {
                 // close the other side of the CONNECT stream
                 _connectStream.Abort(QuicAbortDirection.Read, s_webtransportSessionGoneErrorCode);
-            },
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted, // react only to peer aborting
-            TaskScheduler.Current); // TODO: is current the right scheduler?
+            }
+        });
 
-        _ = ProcessIncomingCapsules();
+        _ = ProcessIncomingCapsules(); // TODO: might get garbage collected
     }
 
     private async Task ProcessIncomingCapsules()
