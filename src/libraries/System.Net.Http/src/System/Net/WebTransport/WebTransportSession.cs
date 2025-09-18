@@ -662,7 +662,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             try
             {
                 await _connectStream.WritesClosed.ConfigureAwait(false);
-            } catch (Exception)
+            }
+            catch (Exception)
             {
                 // close the other side of the CONNECT stream
                 _connectStream.Abort(QuicAbortDirection.Read, s_webtransportSessionGoneErrorCode);
