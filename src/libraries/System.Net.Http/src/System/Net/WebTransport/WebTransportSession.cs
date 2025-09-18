@@ -656,10 +656,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             TaskContinuationOptions.OnlyOnFaulted, // react only to peer aborting
             TaskScheduler.Current); // TODO: is current the right scheduler?
 
-        using (ExecutionContext.SuppressFlow())
-        {
-            _ = ProcessIncomingCapsules();
-        }
+        _ = ProcessIncomingCapsules();
     }
 
     private async Task ProcessIncomingCapsules()
