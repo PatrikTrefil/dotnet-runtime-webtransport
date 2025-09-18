@@ -10,8 +10,11 @@ using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+/// <summary>
+/// Contains tests for limits configuration of WebTransport sessions such as setting of maximum count of open unidirectional streams.
+/// </summary>
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
-public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
+public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTestBase
 {
     private const long s_maxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
     private const long s_maxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
@@ -27,7 +30,7 @@ public sealed class WebTransportSessionConfigurationTests : WebTransportTestBase
     private const int s_minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
     private const int s_maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
 
-    public WebTransportSessionConfigurationTests(ITestOutputHelper output) : base(output) { }
+    public WebTransportSessionConfigurationLimitsTests(ITestOutputHelper output) : base(output) { }
 
     private void WriteMaxDataCapsule(Stream stream, long dataSentLimit)
     {

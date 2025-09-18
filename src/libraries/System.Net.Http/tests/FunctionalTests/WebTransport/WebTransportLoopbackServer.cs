@@ -26,7 +26,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
         _httpServer = httpServer;
     }
 
-    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync()
+    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync(string? subprotocolToRespondWith = null)
     {
         Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
@@ -38,7 +38,13 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 
         Assert.True(isValidOpeningHandshake, "Invalid handshake from client received");
 
-        await connection.SendResponseAsync(content: null, isFinal: false);
+        List<HttpHeaderData> headers = [];
+        if (subprotocolToRespondWith != null)
+        {
+            headers.Add(new HttpHeaderData("WT-Protocol", subprotocolToRespondWith));
+        }
+
+        await connection.SendResponseAsync(content: null, headers: headers, isFinal: false);
 
         WebTransportServerSession session = new() { Connection = connection, ConnectStream = controlStream };
         _sessions.Add(session);

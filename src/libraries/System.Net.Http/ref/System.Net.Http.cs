@@ -969,7 +969,7 @@ namespace System.Net.WebTransport
     public sealed partial record class WebTransportSessionCreationOptions
     {
         public Func<WebTransportSession, System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } init { } }
-        public string? SubProtocol { get { throw null; } init { } }
+        public string[]? AvailableSubProtocols { get { throw null; } init { } }
         public long InitialUnidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
         public long InitialBidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
         public long InitialDataSentLimitForPeer { get { throw null; } init { } }

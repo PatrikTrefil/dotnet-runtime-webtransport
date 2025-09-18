@@ -36,7 +36,30 @@ public sealed record class WebTransportSessionCreationOptions
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
     public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
-    public string? SubProtocol { get; init; }
+    /// <summary>
+    /// List of protocols that may be used in the session in order of preference.
+    /// The selected protocol will be available in <see cref="WebTransportSession.SubProtocol"/>.
+    /// </summary>
+    /// <remarks>
+    /// Note that the server may choose not to use any of the provided protocols. In that case <see cref="WebTransportSession.SubProtocol"/> will be null.
+    /// The value must be serializable as a list of tokens according to RFC 8941.
+    /// </remarks>
+    /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-token"/>
+    /// <exception cref="ArgumentException">When the provided value is not serializable as a list of tokens according to RFC 8941.</exception>
+    public string[]? AvailableSubProtocols
+    {
+        get;
+        init
+        {
+            if (value != null)
+            {
+                _availableSubProtocolsEncodedAsStructuredFieldValue = StructuredFieldValuesForHttp.SerializeListOfTokens(value);
+            }
+            field = value;
+        }
+    }
+    private string? _availableSubProtocolsEncodedAsStructuredFieldValue;
+    internal string? AvailableSubProtocolsEncodedAsStructuredFieldValue => _availableSubProtocolsEncodedAsStructuredFieldValue;
     /// <summary>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
@@ -336,6 +359,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             (Func<QuicStream, Task> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
             );
         requestMessage.Headers.Protocol = "webtransport";
+        if (options.AvailableSubProtocols != null)
+        {
+            requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocolsEncodedAsStructuredFieldValue);
+        }
 
         HttpResponseMessage response;
         try
@@ -349,6 +376,34 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
         }
+
+        string? selectedProtocol = null;
+        if (options.AvailableSubProtocols != null && response.Headers.TryGetValues("WT-Protocol", out IEnumerable<string>? values))
+        {
+            foreach (string value in values)
+            {
+                if (selectedProtocol != null)
+                {
+                    throw new WebTransportException(WebTransportError.HeaderError, "Multiple WT-Protocol headers received from the server.");
+                }
+
+                string parsedValue;
+                try
+                {
+                     parsedValue = StructuredFieldValuesForHttp.ParseToken(value);
+                } catch (Exception)
+                {
+                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
+                }
+
+                if (!options.AvailableSubProtocols.Contains(parsedValue))
+                {
+                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
+                }
+                selectedProtocol = parsedValue;
+            }
+        }
+
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
 
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
@@ -358,7 +413,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             extendedConnectContent.ConnectStreamBuffer,
             extendedConnectContent.QuicConnection,
             options.GracefulShutdownHandler,
-            options.SubProtocol);
+            selectedProtocol);
 
         if (options.InitialUnidirectionalStreamCountLimitForPeer > 0)
         {
