@@ -6,7 +6,6 @@ using System.Net.Http.Functional.Tests;
 using System.Threading.Tasks;
 using System.Net.Test.Common;
 using System.Net.Http;
-using System.Threading;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
