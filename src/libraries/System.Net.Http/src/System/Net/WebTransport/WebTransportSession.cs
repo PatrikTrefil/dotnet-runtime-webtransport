@@ -53,21 +53,27 @@ public sealed record class WebTransportSessionCreationOptions
         {
             if (value != null)
             {
-                for (int i = 0; i < value.Length; i++)
-                {
-                    try
-                    {
-                        StructuredFieldValuesForHttp.ValidateToken(value[i]);
-                    }
-                    catch (ArgumentException e)
-                    {
-                        throw new ArgumentException($"The token at index {i} is not valid.", nameof(value), e);
-                    }
-                }
+                ValidateAvailableSubProtocolValue(value);
                 field = value;
             }
         }
     }
+
+    private static void ValidateAvailableSubProtocolValue(string[] availableSubProtocols, [CallerArgumentExpression(nameof(availableSubProtocols))] string? paramName = null)
+    {
+        for (int i = 0; i < availableSubProtocols.Length; i++)
+        {
+            try
+            {
+                StructuredFieldValuesForHttp.ValidateToken(availableSubProtocols[i]);
+            }
+            catch (ArgumentException e)
+            {
+                throw new ArgumentException($"The token at index {i} is not valid.", paramName, e);
+            }
+        }
+    }
+
     /// <summary>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
