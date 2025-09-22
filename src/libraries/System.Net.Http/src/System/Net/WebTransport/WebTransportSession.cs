@@ -543,27 +543,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
     public abstract Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Send a datagram message (unreliable/unordered). Length is limited by maximum datagram size of the underlying transport.
-    /// </summary>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or when the datagram is larger than the maximum datagram size of the underlying transport.<seealso href="https://datatracker.ietf.org/doc/html/rfc9221#name-transport-parameter"/></exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="data"/> is null</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    public abstract Task SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Receive the next datagram (unreliable/unordered).
-    /// </summary>
-    /// <returns>The total number of bytes read into buffer between zero and min(<paramref name="buffer"/>.Length, maximum datagram size of the underlying transport]</returns>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="buffer"/> is null</exception>
-    public abstract Task<int> ReceiveDatagramAsync(
-        Memory<byte> buffer,
-        CancellationToken cancellationToken = default);
-
     protected virtual ValueTask DisposeAsyncCore(bool disposing)
     {
         if (!_isDisposed)
@@ -889,10 +868,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         _connectStream.Abort(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
     }
-
-    public override Task SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-
-    public override Task<int> ReceiveDatagramAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
     protected override async ValueTask DisposeAsyncCore(bool disposing)
     {

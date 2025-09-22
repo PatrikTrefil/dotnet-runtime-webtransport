@@ -1003,8 +1003,6 @@ namespace System.Net.WebTransport
         public abstract System.Threading.Tasks.Task CloseAsync(long closeStatus, byte[] statusDescription, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
-        public abstract System.Threading.Tasks.Task SendDatagramAsync(ReadOnlyMemory<byte> data, System.Threading.CancellationToken cancellationToken = default);
-        public abstract System.Threading.Tasks.Task<int> ReceiveDatagramAsync( Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default);
         public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
     }
     public enum WebTransportError
