@@ -19,7 +19,6 @@ using System.Runtime.CompilerServices;
 // TODO: separate out error messages to resx file
 // TODO: introduce invalidstate error enum option and use it when operations fail because the session was closed by this side
 // TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
-// TODO: create a ClientWebTransportSession class
 // TODO: create ThrowIfInvalidState method to check if the session is open and not disposed
 // TODO: accept/open stream should be valuetasks because quic accept/open ops are value tasks
 // TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
