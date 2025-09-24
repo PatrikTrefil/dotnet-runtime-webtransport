@@ -25,6 +25,9 @@ internal abstract class Http3ExtendedConnectManager
     /// <summary>
     /// This method is called when the HTTP library receives a GOAWAY frame.
     /// </summary>
+    /// <remarks>
+    /// This method is expected to never throw an exception.
+    /// </remarks>
     public abstract Task GoAwayReceivedAsync();
 
     /// <summary>
@@ -75,5 +78,6 @@ internal abstract class Http3ExtendedConnectManager
     /// This method is called by the HTTP library when an extended CONNECT request has failed.
     /// It may perform cleanup of any state associated with the request.
     /// </summary>
-    public abstract void AfterFailedExtendedConnectRequest();
+    /// <param name="quicStream">The stream used for the CONNECT request.</param>
+    public abstract void AfterFailedExtendedConnectRequest(QuicStream? quicStream);
 }

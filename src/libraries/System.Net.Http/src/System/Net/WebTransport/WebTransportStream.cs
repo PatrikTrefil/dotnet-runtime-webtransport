@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Net.Http;
 using System.Net.Quic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -188,11 +189,11 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <summary>
     /// Abort the underlying QUIC stream. Used to abort the stream with error codes outside of the WebTransport error code range.
     /// </summary>
-    internal void AbortQuicStream(QuicAbortDirection abortDirection, long httpErrorCode)
+    internal void AbortQuicStream(QuicAbortDirection abortDirection, Http3ErrorCode httpErrorCode)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        _quicStream.Abort(abortDirection, httpErrorCode);
+        _quicStream.Abort(abortDirection, (long)httpErrorCode);
     }
 
     public override void Abort(WebTransportAbortDirection abortDirection, long errorCode)

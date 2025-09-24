@@ -418,7 +418,7 @@ namespace System.Net.Http
                 }
                 catch (Exception)
                 {
-                    extendedconnectManager?.AfterFailedExtendedConnectRequest();
+                    extendedconnectManager?.AfterFailedExtendedConnectRequest(quicStream);
                     throw;
                 }
             }
@@ -536,7 +536,7 @@ namespace System.Net.Http
 
             foreach (Http3ExtendedConnectManager manager in ProtocolExtendedConnectManagers.Values)
             {
-                manager.GoAwayReceivedAsync();
+                LogExceptions(manager.GoAwayReceivedAsync()); // should not throw
             }
         }
 

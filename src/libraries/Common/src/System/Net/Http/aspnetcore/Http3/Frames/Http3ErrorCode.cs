@@ -106,5 +106,18 @@ namespace System.Net.Http
         /// The encoder failed to interpret an decoder instruction received on the decoder stream.
         /// </summary>
         QPackDecoderStreamError = 0x202,
+        /// <summary>
+        /// WEBTRANSPORT_BUFFERED_STREAM_REJECTED (0x3994bd84)
+        /// When the number of buffered streams is exceeded, a stream SHALL be closed by sending
+        /// a RESET_STREAM and/or STOP_SENDING with the WEBTRANSPORT_BUFFERED_STREAM_REJECTED error code.
+        /// </summary>
+        WebTransportBufferedStreamRejected = 0x3994bd84,
+        /// <summary>
+        /// WEBTRANSPORT_SESSION_GONE (0x170d7b68)
+        /// Upon learning that a WebTransport session has been terminated,
+        /// the endpoint MUST reset the send side and abort reading on the receive side
+        /// of all of the streams associated with the session with this error code.
+        /// </summary>
+        WebtransportSessionGone = 0x170d7b68,
     }
 }

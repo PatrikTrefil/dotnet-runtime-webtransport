@@ -138,6 +138,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     [CLSCompliant(false)]
     protected internal readonly object _stateLock = new();
 
+    private static readonly Lazy<HttpMessageInvoker> s_sharedHttpMessageInvoker = new(() => new HttpClient(), true);
+
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
     internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
@@ -349,20 +351,25 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Create a WebTransport session.
     /// </summary>
     /// <exception cref="ArgumentException">When <paramref name="uri"/>  does not use https scheme</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> or <paramref name="httpMessageInvoker"/> is null</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> is null</exception>
     /// <exception cref="WebTransportException">When the creation of the session fails.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     public static async Task<WebTransportSession> ConnectAsync(Uri uri, HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(uri);
-        ArgumentNullException.ThrowIfNull(httpMessageInvoker);
 
         if (uri.Scheme != "https")
         {
             throw new ArgumentException("The URI scheme must be 'https'.", nameof(uri));
         }
-        options ??= new WebTransportSessionCreationOptions();
 
+        httpMessageInvoker ??= s_sharedHttpMessageInvoker.Value;
+
+        return await ConnectAsyncCore(uri, httpMessageInvoker, options ?? new WebTransportSessionCreationOptions(), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<WebTransportSession> ConnectAsyncCore(Uri uri, HttpMessageInvoker httpMessageInvoker, WebTransportSessionCreationOptions options, CancellationToken cancellationToken)
+    {
         HttpRequestMessage requestMessage = new(HttpMethod.Connect, uri)
         {
             Version = HttpVersion.Version30,
@@ -388,15 +395,44 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         }
         catch (Exception e)
         {
+            // TODO: handle case where user provides message invoker that does not support http/3 with special WT Error and message and write test for it
             throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
         }
 
-        string? selectedProtocol = null;
-        if (options.AvailableSubProtocols != null && response.Headers.TryGetValues("WT-Protocol", out IEnumerable<string>? values))
+        Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
+        MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
+
+        string? selectedSubprotocol;
+        try
+        {
+            selectedSubprotocol = GetAndValidateSelectedSubprotocolFromResponse(response, options.AvailableSubProtocols);
+        }
+        catch (Exception)
+        {
+            wtExtendedConnectManager.TryRemoveSession(extendedConnectContent.ConnectStream); // TODO: add test for this path
+            throw;
+        }
+
+        WebTransportSession session = wtExtendedConnectManager.CreateSession(
+            extendedConnectContent.ConnectStream,
+            extendedConnectContent.ConnectStreamBuffer,
+            extendedConnectContent.QuicConnection,
+            options.GracefulShutdownHandler,
+            selectedSubprotocol);
+
+        await SetInitialOptions(session, options, cancellationToken).ConfigureAwait(false);
+
+        return session;
+    }
+
+    private static string? GetAndValidateSelectedSubprotocolFromResponse(HttpResponseMessage response, string[]? availableSubProtocols)
+    {
+        string? selectedSubprotocol = null;
+        if (availableSubProtocols != null && response.Headers.TryGetValues("WT-Protocol", out IEnumerable<string>? values))
         {
             foreach (string value in values)
             {
-                if (selectedProtocol != null)
+                if (selectedSubprotocol != null)
                 {
                     throw new WebTransportException(WebTransportError.HeaderError, "Multiple WT-Protocol headers received from the server.");
                 }
@@ -410,25 +446,19 @@ public abstract partial class WebTransportSession : IAsyncDisposable
                     throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.", e);
                 }
 
-                if (!options.AvailableSubProtocols.Contains(value))
+                if (!availableSubProtocols.Contains(value))
                 {
                     throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
                 }
-                selectedProtocol = value;
+                selectedSubprotocol = value;
             }
         }
 
-        Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
+        return selectedSubprotocol;
+    }
 
-        MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
-
-        WebTransportSession session = wtExtendedConnectManager.CreateSession(
-            extendedConnectContent.ConnectStream,
-            extendedConnectContent.ConnectStreamBuffer,
-            extendedConnectContent.QuicConnection,
-            options.GracefulShutdownHandler,
-            selectedProtocol);
-
+    private static async Task SetInitialOptions(WebTransportSession session, WebTransportSessionCreationOptions options, CancellationToken cancellationToken)
+    {
         if (options.InitialUnidirectionalStreamCountLimitForPeer > 0)
         {
             await session.SetUnidirectionalStreamCountLimitForPeerAsync(options.InitialUnidirectionalStreamCountLimitForPeer, cancellationToken).ConfigureAwait(false);
@@ -441,8 +471,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             await session.SetDataSentLimitForPeerAsync(options.InitialDataSentLimitForPeer, cancellationToken).ConfigureAwait(false);
         }
-
-        return session;
     }
 
     /// <summary>
@@ -588,11 +616,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
     private readonly MsQuicWebTransportExtendedConnectManager _wtExtendedConnectManager;
-    /// <summary>
-    /// WEBTRANSPORT_SESSION_GONE HTTP/3 error code.
-    /// </summary>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.5-2.10.1"/>
-    private const long s_webtransportSessionGoneErrorCode = 0x170d7b68;
 
     [MemberNotNullWhen(false, nameof(_pendingBidirectionalStreams))]
     [MemberNotNullWhen(false, nameof(_pendingUnidirectionalStreams))]
@@ -639,23 +662,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             State = WebTransportSessionState.Open;
         }
 
-        // TODO: log exception
-        // TODO: might get garbage collected
-        // Reaction to peer aborting their reading of the CONNECT stream.
-        Task.Run(async () =>
-        {
-            try
-            {
-                await _connectStream.WritesClosed.ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // close the other side of the CONNECT stream
-                _connectStream.Abort(QuicAbortDirection.Read, s_webtransportSessionGoneErrorCode);
-            }
-        });
-
-        _ = ProcessIncomingCapsules(); // TODO: might get garbage collected
+            _connectStream.Abort(QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
     }
 
     private async Task ProcessIncomingCapsules()
@@ -687,7 +694,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
                 {
-                    item.AbortQuicStream(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+                    item.AbortQuicStream(QuicAbortDirection.Both, Http3ErrorCode.WebtransportSessionGone);
                 }
             }
         }
@@ -702,11 +709,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
                 {
-                    item.AbortQuicStream(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+                    item.AbortQuicStream(QuicAbortDirection.Both, Http3ErrorCode.WebtransportSessionGone);
                 }
             }
         }
-        _wtExtendedConnectManager.RemoveSession(_connectStream);
+        _wtExtendedConnectManager.TryRemoveSession(_connectStream);
     }
 
     private async ValueTask CloseBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
@@ -864,15 +871,20 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             State = WebTransportSessionState.Closed;
         }
 
+        CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
+    }
+
+    internal void CloseOpenStreamsAndConnectStream(Http3ErrorCode httpErrorCode)
+    {
         if (_openStreams is not null)
         {
             foreach (MsQuicWebTransportStream item in _openStreams)
             {
-                item.AbortQuicStream(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+                item.AbortQuicStream(QuicAbortDirection.Both, httpErrorCode);
             }
         }
 
-        _connectStream.Abort(QuicAbortDirection.Both, s_webtransportSessionGoneErrorCode);
+        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
     }
 
     protected override async ValueTask DisposeAsyncCore(bool disposing)
@@ -893,7 +905,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 await Task.WhenAll(closeOpenStreamsTasks).ConfigureAwait(false); // these tasks should always succeed - DisposeAsync never throws
                 _openStreams = null;
                 _capsuleConsumer.Dispose();
-                _wtExtendedConnectManager.RemoveSession(_connectStream);
+                _wtExtendedConnectManager.TryRemoveSession(_connectStream);
             }
         }
 
