@@ -966,7 +966,7 @@ namespace System.Net.WebTransport
         Unidirectional,
         Bidirectional
     }
-    public sealed partial record class WebTransportSessionCreationOptions
+    public sealed partial class WebTransportSessionCreationOptions
     {
         public Func<WebTransportSession, System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } init { } }
         public string[]? AvailableSubProtocols { get { throw null; } init { } }
@@ -981,7 +981,6 @@ namespace System.Net.WebTransport
         [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
         [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
         public static bool IsSupported { get { throw null; } }
-        public Func<System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } }
         public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public long Id { get { throw null; } }
         public string? SubProtocol { get { throw null; } }
@@ -998,9 +997,8 @@ namespace System.Net.WebTransport
         public long? CloseStatusCode { get { throw null; } }
         public string? CloseStatusDescription { get { throw null; } }
         public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public abstract void Close();
+        public abstract System.Threading.Tasks.Task CloseAsync(System.Threading.CancellationToken cancellationToken = default);
         public System.Threading.Tasks.Task CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public abstract System.Threading.Tasks.Task CloseAsync(long closeStatus, byte[] statusDescription, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }

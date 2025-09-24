@@ -8,8 +8,15 @@ using System.Buffers.Binary;
 using System.Text;
 using System.Threading;
 using System.Net.Quic;
+using System.Numerics;
 
 namespace System.Net.WebTransport.Functional.Tests;
+
+// TODO: write a test that makes gracefulshutdownhandler ignore the goaway and then check if we can do operations
+// TODO: write test for gracefulshutdown that throws
+// TODO: write test for the scenario: client opens a session and then closes it and then server tries to open a stream for the closed session
+// TODO: write test for when a session is closed the session's streams are closed with the correct error code (might already be covered or maybe just needs to modify existing test)
+// TODO: write test for opening more streams than can be pending
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
@@ -22,11 +29,37 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     private const int s_maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
     private const int s_minValidSizeOfCloseSessionCapsuleValue = 32;
 
-    public static readonly TheoryData<byte[]> s_errorMessages = [
+    public static readonly long[] s_applicationErrorCodesRaw = [0, 1, uint.MaxValue];
+    public static readonly byte[][] s_errorMessagesRaw = [
         ""u8.ToArray(),
         "test errror message"u8.ToArray(),
-
     ];
+    public static readonly TheoryData<byte[]> s_errorMessages = [.. s_errorMessagesRaw];
+
+    public static readonly TheoryData<byte[], long> s_closeParameters = CreateCloseParameters();
+
+    private static readonly long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
+    private const long s_minValidVariableLengthIntegerValue = 0;
+
+    private const string invalidUtf8String = "abc\uD801\uD802d";  // TODO: create test that this gets replaced by a fallback char
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = new TheoryData<long> {
+        s_minValidVariableLengthIntegerValue - 1,
+        s_maxValidVariableLengthIntegerValue + 1,
+    };
+
+    private static TheoryData<byte[], long> CreateCloseParameters()
+    {
+        TheoryData<byte[], long> data = new();
+        foreach (byte[] message in s_errorMessagesRaw)
+        {
+            foreach (long code in s_applicationErrorCodesRaw)
+            {
+                data.Add(message, code);
+            }
+        }
+        return data;
+    }
+
 
     private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
@@ -45,11 +78,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Theory]
-    [MemberData(nameof(s_errorMessages))]
-    public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage)
+    [MemberData(nameof(s_closeParameters))]
+    public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage, long expectedApplicationErrorCode)
     {
         using Barrier barrier = new(2);
-        uint expectedApplicationErrorCode = 1;
 
         Task serverTask = Task.Run(async () =>
         {
@@ -60,7 +92,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
             Memory<byte> errorCodeBuffer = new byte[4];
-            await serverSession.ConnectStream.ReadExactlyAsync(errorCodeBuffer); // TODO: use async reads everywhere
+            await serverSession.ConnectStream.ReadExactlyAsync(errorCodeBuffer);
             uint receivedApplicationErrorCode = BinaryPrimitives.ReadUInt32BigEndian(errorCodeBuffer.Span);
 
             Memory<byte> messageBuffer = new byte[expectedApplicationErrorMessage.Length];
@@ -77,7 +109,33 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            await session.CloseAsync(expectedApplicationErrorCode, expectedApplicationErrorMessage);
+            await session.CloseAsync(expectedApplicationErrorCode, Encoding.UTF8.GetString(expectedApplicationErrorMessage));
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+    }
+
+
+    [Theory]
+    [MemberData(nameof(s_invalidVariableLengthIntegers))]
+    public async Task SessionCloseAsyncThrowsOnInvalidParameters(long applicationErrorCode)
+    {
+        using Barrier barrier = new(2);
+        var applicationErrorMessage = "valid message";
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.CloseAsync(applicationErrorCode, applicationErrorMessage));
 
             barrier.SignalAndWait();
         });
@@ -242,11 +300,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
     }
 
-    [Fact]
-    public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule()
+    [Theory]
+    [MemberData(nameof(s_errorMessages))]
+    public async Task ClientClosesAllStreamsInSessionAfterReceivingCloseSessionCapsule(byte[] expectedApplicationErrorMessage)
     {
         using Barrier barrier = new(2);
-        byte[] expectedApplicationErrorMessage = "test error message"u8.ToArray();
         uint expectedApplicationErrorCode = 1;
 
         Task clientTask = Task.Run(async () =>
@@ -495,7 +553,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            await serverSession.Connection.ShutdownAsync();
+            _ = serverSession.Connection.ShutdownAsync(); // don't await, because it requires the client to disconnect, which requires a closing WebTransport handshake
+
+            Assert.Equal(-1, serverSession.ConnectStream.ReadByte()); // assert the reading side is closed
 
             barrier.SignalAndWait();
         });
@@ -581,7 +641,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            session.Close();
+            await session.CloseAsync();
 
             SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
 
@@ -595,7 +655,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await Assert.ThrowsAsync<WebTransportException>(() => session.SetDataSentLimitForPeerAsync(1));
             await Assert.ThrowsAsync<WebTransportException>(() => session.RequestCloseAsync());
             await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync(1, ""));
-            Assert.Throws<WebTransportException>(() => session.Close());
+            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync());
 
             barrier.SignalAndWait();
         });

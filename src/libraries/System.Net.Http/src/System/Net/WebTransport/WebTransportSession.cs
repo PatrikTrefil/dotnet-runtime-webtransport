@@ -18,24 +18,28 @@ using System.Runtime.CompilerServices;
 
 namespace System.Net.WebTransport;
 
-// TODO: maybe the public properties values should depend on _isDisposed or maybe even throw?
-// TODO: implement application protocol negotiation
-// TODO: add tracing/logging
 // TODO: separate out error messages to resx file
+// TODO: introduce invalidstate error enum option and use it when operations fail because the session was closed by this side
+// TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
+// TODO: create a ClientWebTransportSession class
+// TODO: move creation options to a separate file
+// TODO: create ThrowIfInvalidState method to check if the session is open and not disposed
+// TODO: accept/open stream should be valuetasks because quic accept/open ops are value tasks
+// TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
 
-public sealed record class WebTransportSessionCreationOptions
+public sealed class WebTransportSessionCreationOptions
 {
-    // TODO: maybe the shutdown handler should have a CancellationToken parameter?
     /// <summary>
     /// This function is invoked when peer requests a graceful shutdown. The session may be used to send more data,
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The default handler calls <see cref="WebTransportSession.Close()"/>.
+    /// The default handler calls <see cref="WebTransportSession.CloseAsync(CancellationToken)"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
+    /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
-    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
+    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.CloseAsync(); return Task.CompletedTask; };
     /// <summary>
     /// List of protocols that may be used in the session in order of preference.
     /// The selected protocol will be available in <see cref="WebTransportSession.SubProtocol"/>.
@@ -131,6 +135,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _encoding = Encoding.UTF8;
     private bool _isDisposed;
+    // TODO: move this to the derived class
     /// <summary>
     /// Lock this object when working with <see cref="State"/>, <see cref="CloseStatusCode"/>,
     /// and <see cref="CloseStatusDescription"/>.
@@ -159,7 +164,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     [SupportedOSPlatformGuard("osx")]
     public static bool IsSupported => QuicConnection.IsSupported;
 
-    public Func<Task> GracefulShutdownHandler { get; }
+    internal Func<Task> GracefulShutdownHandler { get; }
 
     /// <summary>
     /// The identifier of the session. The identifier is the same as the identifier of the CONNECT stream that initiated the session.
@@ -180,7 +185,15 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             lock (_stateLock) { return field; }
         }
-        protected set;
+        protected set
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {field} to {value}");
+
+            Debug.Assert(Monitor.IsEntered(_stateLock));
+            // TODO: complete the writer for pending streams
+
+            field = value;
+        }
     }
 
     // TODO: add locks for configuration properties
@@ -485,7 +498,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
-    public abstract void Close();
+    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
+    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    public abstract Task CloseAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gracefully close the session.
@@ -510,24 +525,30 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     public async Task CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
+
         if (closeStatus < 0 || closeStatus > uint.MaxValue)
         {
             throw new ArgumentOutOfRangeException(nameof(closeStatus), "The value has to be in range [0, 2^32)");
         }
+
         byte[] statusDescriptionUtf8 = _encoding.GetBytes(statusDescription);
-        await CloseAsync(closeStatus, statusDescriptionUtf8, cancellationToken).ConfigureAwait(false);
+
+        if (statusDescriptionUtf8.Length > 1024)
+        {
+            throw new ArgumentException("The status description is longer than 1024 bytes after encoding.", nameof(statusDescription));
+        }
+
+        await CloseAsyncCore(closeStatus, statusDescriptionUtf8, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Gracefully close the session.
     /// </summary>
-    /// <remarks>
-    /// The session is closed using a CLOSE_WEBTRANSPORT_SESSION capsule.
-    /// </remarks>
     /// <param name="closeStatus">Reason code sent in the capsule.</param>
     /// <param name="statusDescription">
     /// Message sent in the capsule. The message is expected to be encoded to UTF-8 without BOM.
@@ -536,12 +557,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </param>
     /// <param name="cancellationToken"></param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes.</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="closeStatus"/> is not in range [0, 2^32)</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
-    public abstract Task CloseAsync(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
+    protected abstract Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// This method should be called when peer initiates session drain operation.
@@ -550,7 +567,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     internal void ReceiveDrain()
     {
         Debug.Assert(State == WebTransportSessionState.Open);
-        GracefulShutdownHandler.Invoke();
+        GracefulShutdownHandler();
     }
 
     /// <summary>
@@ -579,6 +596,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     protected virtual ValueTask DisposeAsyncCore(bool disposing)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"{nameof(_isDisposed)}={_isDisposed}");
+
         if (!_isDisposed)
         {
             _isDisposed = true;
@@ -597,6 +616,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         await DisposeAsyncCore(disposing: true).ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }
@@ -643,12 +664,21 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         _connection = connection;
         _connectStream = connectStream;
-        State = WebTransportSessionState.None;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
         _wtExtendedConnectManager = wtExtendedConnectManager;
         _capsuleConsumer = new CapsuleConsumer(connectStream, controlStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
+
+
+        if (NetEventSource.Log.IsEnabled())
+        {
+            NetEventSource.Associate(this, _connection);
+            NetEventSource.Associate(this, _connectStream);
+            NetEventSource.Associate(this, _wtExtendedConnectManager);
+            NetEventSource.Associate(this, _capsuleConsumer);
+            NetEventSource.Associate(this, _capsuleSender);
+        }
 
         byte[] buffer = new byte[VariableLengthIntegerHelper.MaximumEncodedLength];
         VariableLengthIntegerHelper.TryWrite(buffer, id, out int bytesWritten);
@@ -662,7 +692,22 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             State = WebTransportSessionState.Open;
         }
 
+        _ = ReactToWritesClosedOnConnectStream();
+        _ = ProcessIncomingCapsules();
+    }
+
+    private async Task ReactToWritesClosedOnConnectStream()
+    {
+        try
+        {
+            await _connectStream.WritesClosed.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed. Aborting read side...");
+            // close the other side of the CONNECT stream
             _connectStream.Abort(QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
+        }
     }
 
     private async Task ProcessIncomingCapsules()
@@ -676,14 +721,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (EndOfStreamException) // Clean termination
         {
-            // TODO: log the exception
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream closed cleanly by peer. Closing session...");
+
             // Clean termination of the CONNECT stream should be equivalent to status code 0 and description equal to an emtpy string
             // https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-6-9
             ReceiveClose(0, "");
         }
-        catch (CapsuleProtocolException) // Unexpected capsule data received
+        catch (CapsuleProtocolException) // Invalid capsule data received
         {
-            // TODO: log the exception
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid capsule received on CONNECT stream. Closing session...");
             // TODO: give the exception message to the user - maybe introduce an ErrorMessage property?
             lock (_stateLock)
             {
@@ -700,11 +746,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception)
         {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream closed. Closing session...");
+
             lock (_stateLock)
             {
                 State = WebTransportSessionState.Closed;
             }
+
             _connectStream.Abort(QuicAbortDirection.Both, 0);
+
             if (_openStreams is not null)
             {
                 foreach (MsQuicWebTransportStream item in _openStreams)
@@ -713,11 +763,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
             }
         }
+
         _wtExtendedConnectManager.TryRemoveSession(_connectStream);
     }
 
     private async ValueTask CloseBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncStarted(this);
+
         lock (_stateLock)
         {
             State = WebTransportSessionState.Closed;
@@ -725,10 +778,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
         await _capsuleSender.SendCapsuleAsync(closeSessionCapsule, completeWrites: true, cancellationToken).ConfigureAwait(false);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncCompleted(this);
     }
 
     public override async Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
@@ -737,12 +793,16 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxUnidirectionalStreamsCapsule capsule = new(limit);
+
         await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
+
         UnidirectionalStreamCountLimitForPeer = limit;
     }
 
     public override async Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
@@ -750,12 +810,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxBidirectionalStreamsCapsule capsule = new(limit);
+
         await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
+
         BidirectionalStreamCountLimitForPeer = limit;
     }
 
     public override async Task SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
@@ -764,47 +827,92 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
         MaxDataCapsule capsule = new(limit);
+
         await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
+
         DataSentLimitForPeer = limit;
     }
 
     public override async Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
 
-        Channel<ChannelItem> channel = type switch
+        return await AcceptInboundStreamAsyncCore(type, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.AcceptInboundStreamAsyncCoreStarted(this);
+
+        Debug.Assert(!_isDisposed);
+
+        MsQuicWebTransportStream wtStream;
+        try
         {
-            WebTransportStreamType.Unidirectional => _pendingUnidirectionalStreams,
-            WebTransportStreamType.Bidirectional => _pendingBidirectionalStreams,
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid abort direction.")
-        };
-        ChannelItem channelItem = await channel.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            Channel<ChannelItem> channel = type switch
+            {
+                WebTransportStreamType.Unidirectional => _pendingUnidirectionalStreams,
+                WebTransportStreamType.Bidirectional => _pendingBidirectionalStreams,
+                _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid abort direction.")
+            };
+            ChannelItem channelItem = await channel.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
 
-        Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
-        Debug.Assert(channelItem.QuicStream.CanRead);
+            Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
+            Debug.Assert(channelItem.QuicStream.CanRead);
 
-        MsQuicWebTransportStream wtStream = new MsQuicWebTransportStream(type, channelItem.ArrayBuffer, channelItem.QuicStream);
-        _openStreams.Add(wtStream);
+            wtStream = new MsQuicWebTransportStream(type, channelItem.ArrayBuffer, channelItem.QuicStream);
+            _openStreams.Add(wtStream);
+        }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.AcceptInboundStreamAsyncCoreCompleted(this);
+        }
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Associate(this, wtStream);
+
         return wtStream;
-
     }
 
     public override async Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
         QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
-        QuicStream quicStream = await _connection.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
-        MsQuicWebTransportStream wtStream = new(type, quicStream);
-        await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
-        _openStreams.Add(wtStream);
+
+        return await OpenOutboundStreamAsyncCore(type, quicStreamType, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, QuicStreamType quicStreamType, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.OpenOutboundStreamCoreStarted(this);
+
+        Debug.Assert(!_isDisposed);
+
+        MsQuicWebTransportStream wtStream;
+        try
+        {
+            QuicStream quicStream = await _connection.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
+            wtStream = new(type, quicStream);
+            await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
+            _openStreams.Add(wtStream);
+        }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.OpenOutboundStreamCoreCompleted(this);
+        }
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Associate(this, wtStream);
+
         return wtStream;
     }
 
@@ -818,47 +926,72 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         };
     }
 
-    public override void Close()
+    public override async Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
+
         lock (_stateLock)
         {
             State = WebTransportSessionState.Closed;
         }
-        _connectStream.Abort(QuicAbortDirection.Both, 0);
+
+        await CloseBySendingFinAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public override async Task CloseAsync(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)
+    private async Task CloseBySendingFinAsync(CancellationToken cancellationToken)
     {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-        if (State != WebTransportSessionState.Open)
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncStarted(this);
+
+        try
         {
-            throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
+            await _connectStream.WriteAsync(ReadOnlyMemory<byte>.Empty, completeWrites: true, cancellationToken).ConfigureAwait(false);
         }
-        if (statusDescription.Length > 1024)
+        catch (QuicException e)
         {
-            throw new ArgumentException("The status description is longer than 1024 bytes after encoding.", nameof(statusDescription));
+            throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error when closing the session.", e);
         }
-        if (closeStatus < uint.MinValue || closeStatus > uint.MaxValue)
-        {
-            throw new ArgumentOutOfRangeException(nameof(closeStatus), "The value has to be in range [0, 2^32)");
-        }
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncCompleted(this);
+    }
+
+    protected override async Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         await CloseBySendingCloseCapsuleAsync((uint)closeStatus, statusDescription, cancellationToken).ConfigureAwait(false);
     }
 
     public override async Task RequestCloseAsync(CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (State != WebTransportSessionState.Open)
         {
             throw new WebTransportException(WebTransportError.SessionClosed, CloseStatusCode, CloseStatusDescription, "The session is not open");
         }
-        await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, completeWrites: false, cancellationToken).ConfigureAwait(false);
+
+        await RequestCloseAsyncCore(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RequestCloseAsyncCore(CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.RequestCloseAsyncCoreStarted(this);
+
+        try
+        {
+            await _capsuleSender.SendCapsuleAsync(DrainSessionCapsule.Instance, completeWrites: false, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.RequestCloseAsyncCoreCompleted(this);
+        }
     }
 
     internal override void ReceiveClose(uint closeStatus, string statusDescription)
@@ -895,16 +1028,21 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
             if (disposing)
             {
-                _pendingBidirectionalStreams = null;
-                _pendingUnidirectionalStreams = null;
-                List<Task> closeOpenStreamsTasks = new();
+                List<Task> closeOpenWtStreamsTasks = new();
                 foreach (WebTransportStream wtStream in _openStreams)
                 {
-                    closeOpenStreamsTasks.Add(wtStream.DisposeAsync().AsTask());
+                    closeOpenWtStreamsTasks.Add(wtStream.DisposeAsync().AsTask());
                 }
-                await Task.WhenAll(closeOpenStreamsTasks).ConfigureAwait(false); // these tasks should always succeed - DisposeAsync never throws
-                _openStreams = null;
+                await Task.WhenAll(closeOpenWtStreamsTasks).ConfigureAwait(false); // these tasks should always succeed - DisposeAsync never throws
+
+                _connectStream.Abort(QuicAbortDirection.Both, 0);
+
                 _capsuleConsumer.Dispose();
+
+                _pendingBidirectionalStreams = null;
+                _pendingUnidirectionalStreams = null;
+                _openStreams = null;
+
                 _wtExtendedConnectManager.TryRemoveSession(_connectStream);
             }
         }
