@@ -13,7 +13,7 @@ public abstract class WebTransportTestBase : HttpClientHandlerTestBase
 {
     protected override Version UseVersion => HttpVersion.Version30;
     public static bool IsWebTransportSupported => WebTransportSession.IsSupported;
-    public virtual int TestTimeout => 200_000;
+    public virtual int TestTimeoutInMilliseconds => 200_000;
 
     internal readonly Http3LoopbackServer _httpServer;
     internal readonly WebTransportLoopbackServer _webTransportServer;

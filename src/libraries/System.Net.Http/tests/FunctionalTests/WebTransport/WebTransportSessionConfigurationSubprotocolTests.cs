@@ -49,7 +49,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -78,7 +78,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -107,7 +107,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -137,6 +137,6 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 }

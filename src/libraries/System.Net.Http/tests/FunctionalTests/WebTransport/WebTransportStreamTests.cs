@@ -69,7 +69,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -89,7 +89,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
 
@@ -119,7 +119,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -149,7 +149,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -179,7 +179,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -208,7 +208,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -239,7 +239,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -275,7 +275,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -311,7 +311,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -351,7 +351,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -391,7 +391,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -431,7 +431,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -462,7 +462,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -499,7 +499,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -524,7 +524,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -549,7 +549,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     async Task AssertAllOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception

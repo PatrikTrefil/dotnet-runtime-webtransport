@@ -114,7 +114,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
 
@@ -140,7 +140,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -154,7 +154,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
@@ -176,7 +176,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
@@ -205,7 +205,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal("", session.CloseStatusDescription);
@@ -250,7 +250,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         });
 
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -269,7 +269,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
@@ -297,7 +297,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -315,7 +315,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
@@ -348,7 +348,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -379,7 +379,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [ConditionalFact]
@@ -396,7 +396,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
@@ -425,7 +425,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [ConditionalFact]
@@ -457,7 +457,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -470,7 +470,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
 
@@ -490,7 +490,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -505,7 +505,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
 
@@ -524,7 +524,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [ConditionalFact]
@@ -538,7 +538,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusDescription);
@@ -560,7 +560,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [ConditionalFact]
@@ -579,7 +579,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            await wasHandlerCalledSemaphore.WaitAsync(TestTimeout);
+            await wasHandlerCalledSemaphore.WaitAsync(TestTimeoutInMilliseconds);
 
             barrier.SignalAndWait(); // Signal the handler was called
         });
@@ -595,7 +595,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait(); // Wait for the handler to be called
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [ConditionalFact]
@@ -609,7 +609,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
             Assert.Null(session.CloseStatusCode);
@@ -629,7 +629,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -643,7 +643,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await session.CloseAsync();
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             // All operations should throw WebTransportException
             await Assert.ThrowsAsync<WebTransportException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional));
@@ -667,6 +667,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 }

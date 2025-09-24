@@ -48,7 +48,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
 
@@ -76,7 +76,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""));
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -103,7 +103,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         });
 
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -131,7 +131,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
     // TODO: add tests with multiple WT sessions
     // TODO: test that redirects don't connect

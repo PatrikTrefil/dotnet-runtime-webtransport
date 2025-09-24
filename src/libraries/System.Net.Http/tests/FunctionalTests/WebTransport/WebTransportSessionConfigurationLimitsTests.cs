@@ -94,7 +94,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -308,9 +308,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
-            SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer, TestTimeout);
-            SpinWait.SpinUntil(() => expectedDataSentLimit == session.DataSentLimitProvidedByPeer, TestTimeout);
+            SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => expectedDataSentLimit == session.DataSentLimitProvidedByPeer, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedUnidirectionalStreamCountLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
             Assert.Equal(expectedBidirectionalStreamCountLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
@@ -332,7 +332,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -345,7 +345,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
+            SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
 
@@ -363,7 +363,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -376,7 +376,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
 
@@ -394,7 +394,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -407,7 +407,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit, TestTimeout);
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.DataSentLimitProvidedByPeer);
 
@@ -425,7 +425,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -441,7 +441,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             // Assert the valid capsule after the unknown one is received
-            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeout);
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
 
             barrier.SignalAndWait();
@@ -460,7 +460,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -475,7 +475,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
 
@@ -494,7 +494,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
 
@@ -529,7 +529,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Theory]
@@ -544,7 +544,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeout);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.Closed, session.State);
 
@@ -563,7 +563,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
     [Fact]
@@ -599,7 +599,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             barrier.SignalAndWait();
         });
 
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
     // TODO: write tests for subprotocol
     // TODO: write tests that check that the limits really apply
