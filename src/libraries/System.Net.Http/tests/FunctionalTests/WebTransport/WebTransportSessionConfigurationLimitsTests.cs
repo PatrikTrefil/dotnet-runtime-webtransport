@@ -10,6 +10,10 @@ using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+// TODO: write tests for limits enforcement (e.g. try to open more streams than allowed and see that it fails)
+// TODO: write test that opens max streams, asserts a new stream cannot be opened, closes one of the streams and asserts a new stream can be opened again
+// TODO: write test to check max pending streams per session
+
 /// <summary>
 /// Contains tests for limits configuration of WebTransport sessions such as setting of maximum count of open unidirectional streams.
 /// </summary>

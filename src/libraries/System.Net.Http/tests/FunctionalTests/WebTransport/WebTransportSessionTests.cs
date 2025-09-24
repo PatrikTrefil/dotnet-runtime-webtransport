@@ -9,6 +9,9 @@ using Xunit.Abstractions;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+// TODO: write test when server opens a stream for a non-existing session and then client opens a session with that id (implementation easy if we can predict the session id, otherwise we have to do manual session establishment)
+// TODO: write test when a CONNECT request fails (e.g. timeout) and then check if the connection is closed by client (it should because it is not used)
+
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
 {
@@ -27,7 +30,6 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken),
         (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
-        (session, cancellationToken) => session.CloseAsync(0, ""u8.ToArray(), cancellationToken)
         ];
 
     public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
@@ -70,9 +72,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.RequestCloseAsync());
-            Assert.Throws<ObjectDisposedException>(() => session.Close());
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync());
             await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""u8.ToArray()));
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeout);
