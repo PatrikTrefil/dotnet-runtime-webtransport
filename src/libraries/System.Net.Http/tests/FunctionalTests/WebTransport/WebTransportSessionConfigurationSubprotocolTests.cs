@@ -35,7 +35,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             {
                 AvailableSubProtocols = [expectedSubprotocol]
             };
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
 
             Assert.Equal(expectedSubprotocol, session.SubProtocol);
 
@@ -64,7 +64,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
             {
                 AvailableSubProtocols = offeredSubprotocols
             };
-            await using WebTransportSession session = await WebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
 
             Assert.Null(session.SubProtocol);
 
@@ -94,7 +94,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 AvailableSubProtocols = offeredSubprotocols
             };
 
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => WebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 
             barrier.SignalAndWait();
@@ -124,7 +124,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 AvailableSubProtocols = offeredSubprotocols
             };
 
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => WebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 
             barrier.SignalAndWait();

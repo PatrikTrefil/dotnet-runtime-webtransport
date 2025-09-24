@@ -974,6 +974,10 @@ namespace System.Net.WebTransport
         public long InitialBidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
         public long InitialDataSentLimitForPeer { get { throw null; } init { } }
     }
+    public static class ClientWebTransportSession
+    {
+        public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+    }
     public abstract partial class WebTransportSession : IAsyncDisposable
     {
         internal WebTransportSession() { }
@@ -981,7 +985,6 @@ namespace System.Net.WebTransport
         [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
         [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
         public static bool IsSupported { get { throw null; } }
-        public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public long Id { get { throw null; } }
         public string? SubProtocol { get { throw null; } }
         public WebTransportSessionState State { get { throw null; } }
