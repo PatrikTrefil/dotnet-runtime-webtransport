@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net.Quic;
 using System.Runtime.CompilerServices;
@@ -14,7 +15,7 @@ namespace System.Net.WebTransport;
 /// Represents a WebTransport stream.
 /// </summary>
 /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-1.2-3.8.1"/>
-public abstract class WebTransportStream : Stream, IAsyncDisposable
+public abstract class WebTransportStream : Stream
 {
     /// <summary>
     /// The stream ID of this stream.
@@ -50,6 +51,25 @@ public abstract class WebTransportStream : Stream, IAsyncDisposable
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
     public abstract Task WritesClosed { get; }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        base.Dispose(disposing);
+    }
+
+    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
+
+    public sealed override async ValueTask DisposeAsync()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        await DisposeAsyncCore().ConfigureAwait(false);
+
+        Dispose(false);
+        GC.SuppressFinalize(this);
+    }
 }
 
 // TODO: add session data limit tracking
@@ -67,27 +87,29 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private readonly TaskCompletionSource _tcsReadsClosed = new();
     private readonly TaskCompletionSource _tcsWritesClosed = new();
 
-    public MsQuicWebTransportStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream) : base(type)
+    public MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream) : base(type)
     {
         ArgumentNullException.ThrowIfNull(quicStream);
 
-        _readStream = new ConcatenatedStream(arrayBuffer, quicStream);
+        _readStream = readStream;
         _quicStream = quicStream;
+
+        if (NetEventSource.Log.IsEnabled())
+        {
+            NetEventSource.Associate(this, quicStream);
+        }
+
         InitTcs(quicStream);
     }
 
-    public MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream) : base(type)
-    {
-        ArgumentNullException.ThrowIfNull(quicStream);
+    public MsQuicWebTransportStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream)
+        : this(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream) { }
 
-        _quicStream = quicStream;
-        _readStream = quicStream;
-        InitTcs(quicStream);
-    }
+    public MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream)
+        : this(type, quicStream, quicStream) { }
 
     private void InitTcs(QuicStream quicStream)
     {
-        // TODO: log exceptions
         Task.Run(async () =>
         {
             try
@@ -120,6 +142,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <returns></returns>
     internal async Task InitOutbound(ReadOnlyMemory<byte> encodedSessionId)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ReadOnlyMemory<byte> initialBytes = Type switch
         {
             WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
@@ -166,11 +190,15 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// </summary>
     internal void AbortQuicStream(QuicAbortDirection abortDirection, long httpErrorCode)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         _quicStream.Abort(abortDirection, httpErrorCode);
     }
 
     public override void Abort(WebTransportAbortDirection abortDirection, long errorCode)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         QuicAbortDirection quicAbortDirection = WebTransportAbortDirectionToQuicAbortDirection(abortDirection);
@@ -280,7 +308,6 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     protected override void Dispose(bool disposing)
     {
-
         if (!_isDisposed)
         {
             _isDisposed = true;
@@ -294,13 +321,9 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
         base.Dispose(disposing);
     }
-    public override async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         await _quicStream.DisposeAsync().ConfigureAwait(false);
         await _readStream.DisposeAsync().ConfigureAwait(false);
-
-        Dispose(false);
-
-        GC.SuppressFinalize(this);
     }
 }
