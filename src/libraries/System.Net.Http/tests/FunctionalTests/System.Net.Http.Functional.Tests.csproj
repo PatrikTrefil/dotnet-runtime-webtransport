@@ -248,8 +248,8 @@
              Link="ProductionCode\Common\System\Net\StreamBuffer.cs" />
     <Compile Include="$(CommonTestPath)System\Net\Http\Http3SettingsEntry.cs"
              Link="ProductionCode\Common\System\Net\Http\Http3SettingsEntry.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Http3SettingType.cs"
-             Link="ProductionCode\Common\System\Net\Http\aspnetcore\Http3\Http3SettingsType.cs" />
+    <Compile Include="$(CommonTestPath)System\Net\Http\Http3SettingType.cs"
+             Link="ProductionCode\Common\System\Net\Http\Http3SettingsType.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
