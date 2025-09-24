@@ -175,6 +175,7 @@
     <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
     <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
+    <Compile Include="System\Net\WebTransport\NetEventSource.WebTransport.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
     <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
