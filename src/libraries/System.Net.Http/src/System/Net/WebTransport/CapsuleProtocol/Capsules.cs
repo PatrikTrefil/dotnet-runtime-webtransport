@@ -12,6 +12,7 @@ namespace System.Net.WebTransport;
 
 internal abstract class Capsule
 {
+    public abstract long Code { get; }
     /// <summary>
     /// Length of the capsule when serialized in bytes.
     /// </summary>
@@ -38,7 +39,8 @@ internal abstract class Capsule
 
 internal sealed class CloseSessionCapsule : Capsule
 {
-    public const long CapsuleCode = 0x2843;
+    public const long s_code = 0x2843;
+    public override long Code => s_code;
     private static readonly byte[] s_capsuleCodeEncodedAsVariableLengthInteger = [0x68, 0x43];
     protected override byte[] CapsuleCodeEncodedAsVariableLengthInteger => s_capsuleCodeEncodedAsVariableLengthInteger;
     private static readonly Encoding _encoding = Encoding.UTF8;
@@ -119,17 +121,21 @@ internal sealed class DrainSessionCapsule : Capsule
             return s_instance;
         }
     }
-    public const long CapsuleCode = 0x78ae;
+    public const long s_code = 0x78ae;
     private static readonly byte[] s_capsuleCodeEncodedAsVariableLengthInteger = [0x80, 0x0, 0x78, 0xAE];
     protected override byte[] CapsuleCodeEncodedAsVariableLengthInteger => s_capsuleCodeEncodedAsVariableLengthInteger;
 
     protected override int ValueLength => 0;
 
+    public override long Code => s_code;
+
     private DrainSessionCapsule() { }
+
     public override void ProcessReceived(WebTransportSession session)
     {
         session.ReceiveDrain();
     }
+
     public static DrainSessionCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
         if (buffer.Length != 0)
@@ -138,6 +144,7 @@ internal sealed class DrainSessionCapsule : Capsule
         }
         return new DrainSessionCapsule();
     }
+
     public override void Serialize(Span<byte> buffer)
     {
         if (buffer.Length < TotalLength)
@@ -157,8 +164,9 @@ internal sealed class DrainSessionCapsule : Capsule
 
 internal sealed class MaxBidirectionalStreamsCapsule : Capsule
 {
-    public const long CapsuleCode = 0x190B4D3F;
+    public const long s_code = 0x190B4D3F;
     private static readonly byte[] s_capsuleCodeEncodedAsVariableLengthInteger = [0x99, 0xB, 0x4D, 0x3F];
+    public override long Code => s_code;
     protected override byte[] CapsuleCodeEncodedAsVariableLengthInteger => s_capsuleCodeEncodedAsVariableLengthInteger;
 
     public long MaxBidirectionalStreams { get; }
@@ -169,10 +177,12 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
     {
         MaxBidirectionalStreams = maxBidirectionalStreams;
     }
+
     public override void ProcessReceived(WebTransportSession session)
     {
         session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
     }
+
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxBidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
@@ -208,7 +218,8 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
 
 internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
 {
-    public const long CapsuleCode = 0x190B4D40;
+    public const long s_code = 0x190B4D40;
+    public override long Code => s_code;
     public long MaxUnidirectionalStreams { get; }
     private static readonly byte[] s_capsuleCodeEncodedAsVariableLengthInteger = [0x99, 0xB, 0x4D, 0x40];
     protected override byte[] CapsuleCodeEncodedAsVariableLengthInteger => s_capsuleCodeEncodedAsVariableLengthInteger;
@@ -219,10 +230,12 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
     {
         MaxUnidirectionalStreams = maxUnidirectionalStreams;
     }
+
     public override void ProcessReceived(WebTransportSession session)
     {
         session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
     }
+
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxUnidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
@@ -235,6 +248,7 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
 
         return new MaxUnidirectionalStreamsCapsule(maxUnidirectionalStream);
     }
+
     public override void Serialize(Span<byte> buffer)
     {
         if (buffer.Length < TotalLength)
@@ -259,7 +273,8 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
 
 internal sealed class MaxDataCapsule : Capsule
 {
-    public const long CapsuleCode = 0x190B4D3D;
+    public const long s_code = 0x190B4D3D;
+    public override long Code => s_code;
 
     public long MaxData { get; }
     private static readonly byte[] s_capsuleCodeEncodedAsVariableLengthInteger = [0x99, 0xB, 0x4D, 0x3D];
@@ -272,10 +287,12 @@ internal sealed class MaxDataCapsule : Capsule
     {
         MaxData = maxData;
     }
+
     public override void ProcessReceived(WebTransportSession session)
     {
         session.DataSentLimitProvidedByPeer = MaxData;
     }
+
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
     public static MaxDataCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
@@ -288,6 +305,7 @@ internal sealed class MaxDataCapsule : Capsule
 
         return new MaxDataCapsule(maxData);
     }
+
     public override void Serialize(Span<byte> buffer)
     {
         if (buffer.Length < TotalLength)

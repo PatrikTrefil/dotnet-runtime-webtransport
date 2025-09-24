@@ -20,6 +20,7 @@ internal sealed class CapsuleSender
 
         _capsuleStream = capsuleStream;
     }
+
     /// <summary>
     /// Sends the capsule over the stream provided in the constructor and flushes the stream.
     /// </summary>
@@ -28,6 +29,14 @@ internal sealed class CapsuleSender
     /// <param name="cancellationToken"></param>
     public async Task SendCapsuleAsync(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)
     {
+        if (NetEventSource.Log.IsEnabled())
+        {
+            string logMessage = $"Sending capsule of type 0x{capsule.Code:X}";
+            if (completeWrites) logMessage += " and closing the stream";
+
+            NetEventSource.SendCapsuleAsyncStarted(this, logMessage);
+        }
+
         ArgumentNullException.ThrowIfNull(capsule);
 
         await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -39,6 +48,8 @@ internal sealed class CapsuleSender
         {
             _semaphore.Release();
         }
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCapsuleAsyncCompleted(this, "Capsule sent");
     }
 
     private async Task SendCapsuleAsyncCore(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)

@@ -36,8 +36,8 @@ internal sealed class CapsuleConsumer : IDisposable
     private async Task<long> ReadVariableLengthInteger()
     {
         int bytesParsed;
-        long capsuleType;
-        while (!VariableLengthIntegerHelper.TryRead(_buffer.ActiveSpan, out capsuleType, out bytesParsed))
+        long capsuleCode;
+        while (!VariableLengthIntegerHelper.TryRead(_buffer.ActiveSpan, out capsuleCode, out bytesParsed))
         {
             _buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
             int bytesRead = await _capsuleStream.ReadAsync(_buffer.AvailableMemory).ConfigureAwait(false);
@@ -51,29 +51,39 @@ internal sealed class CapsuleConsumer : IDisposable
         }
 
         _buffer.Discard(bytesParsed);
-        return capsuleType;
+        return capsuleCode;
     }
 
     /// <summary>
     /// Processes the next capsule in the provided capsule stream.
-    /// If an unknown capsule type is received, the capsule is dropped and the call ends.
+    /// If a capsule with unknown capsule code is received, the capsule is dropped and the call ends.
     /// </summary>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed object.</exception>
     /// <exception cref="EndOfStreamException">When the capsule stream is cleanly terminated.</exception>
+    /// <exception cref="CapsuleProtocolException">If the next capsule value is invalid.</exception>
     public async Task ProcessNextCapsule()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         Capsule? capsule = await DeserializeCapsule().ConfigureAwait(false);
 
-        capsule?.ProcessReceived(_session);
+        if (capsule != null)
+        {
+            capsule.ProcessReceived(_session);
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Capsule processed");
+        } else
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Unknown capsule dropped");
+        }
     }
 
     private async Task<Capsule?> DeserializeCapsule()
     {
-        long capsuleType = await ReadVariableLengthInteger().ConfigureAwait(false);
+        long capsuleCode = await ReadVariableLengthInteger().ConfigureAwait(false);
 
         long capsuleLength = await ReadVariableLengthInteger().ConfigureAwait(false);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProcessingStarted(this, $"Starting deserialization and processing of received capsule with code 0x{capsuleCode:X} with length {capsuleLength}.");
 
         if (capsuleLength > s_maxCapsuleSize)
         {
@@ -90,7 +100,7 @@ internal sealed class CapsuleConsumer : IDisposable
             _buffer.Commit(bytesReadCapsuleValue);
         }
 
-        Capsule? capsule = DeserializeCapsuleValue(capsuleType, _buffer.ActiveMemory.Slice(0, capsuleLengthInt));
+        Capsule? capsule = DeserializeCapsuleValue(capsuleCode, _buffer.ActiveMemory.Slice(0, capsuleLengthInt));
 
         _buffer.Discard(capsuleLengthInt);
 
@@ -98,20 +108,21 @@ internal sealed class CapsuleConsumer : IDisposable
     }
 
     /// <summary>
-    /// Deserializes a capsule from the provided capsule type and buffer.
+    /// Deserializes a capsule from the provided <paramref name="capsuleBuffer"/>.
     /// </summary>
-    /// <param name="capsuleType">Code of the capsule type</param>
+    /// <param name="capsuleCode">Code of the capsule type</param>
     /// <param name="capsuleBuffer">Buffer that contains the data deserialize. There must be no extra data.</param>
-    /// <returns></returns>
-    private static Capsule? DeserializeCapsuleValue(long capsuleType, ReadOnlyMemory<byte> capsuleBuffer)
+    /// <returns>Deserialized capsule or null if the <paramref name="capsuleCode"/> is unknown.</returns>
+    /// <exception cref="CapsuleProtocolException">If the capsule value is invalid.</exception>
+    private static Capsule? DeserializeCapsuleValue(long capsuleCode, ReadOnlyMemory<byte> capsuleBuffer)
     {
-        return capsuleType switch
+        return capsuleCode switch
         {
-            CloseSessionCapsule.CapsuleCode => CloseSessionCapsule.Deserialize(capsuleBuffer),
-            DrainSessionCapsule.CapsuleCode => DrainSessionCapsule.Deserialize(capsuleBuffer),
-            MaxBidirectionalStreamsCapsule.CapsuleCode => MaxBidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
-            MaxUnidirectionalStreamsCapsule.CapsuleCode => MaxUnidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
-            MaxDataCapsule.CapsuleCode => MaxDataCapsule.Deserialize(capsuleBuffer),
+            CloseSessionCapsule.s_code => CloseSessionCapsule.Deserialize(capsuleBuffer),
+            DrainSessionCapsule.s_code => DrainSessionCapsule.Deserialize(capsuleBuffer),
+            MaxBidirectionalStreamsCapsule.s_code => MaxBidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
+            MaxUnidirectionalStreamsCapsule.s_code => MaxUnidirectionalStreamsCapsule.Deserialize(capsuleBuffer),
+            MaxDataCapsule.s_code => MaxDataCapsule.Deserialize(capsuleBuffer),
             _ => null, // Unknown capsules are silently dropped https://datatracker.ietf.org/doc/html/rfc9297#section-3.2-7
         };
     }
