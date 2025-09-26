@@ -274,6 +274,20 @@ namespace System.Net.Http
             }
         }
 
+        private async Task FinishedUsingConnectStream(QuicStream connectStream)
+        {
+            Http3RequestStream? value;
+            lock (SyncObj)
+            {
+                _activeRequests.TryGetValue(connectStream, out value);
+            }
+
+            if (value != null)
+            {
+                await value.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
         public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, WaitForHttp3ConnectionActivity waitForConnectionActivity, bool streamAvailable, CancellationToken cancellationToken)
         {
             Http3ExtendedConnectManager? extendedconnectManager = null;
@@ -294,19 +308,7 @@ namespace System.Net.Http
                 }
                 string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
 
-                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(async (connectStream) =>
-                {
-                    Http3RequestStream? value;
-                    lock (SyncObj)
-                    {
-                        _activeRequests.TryGetValue(connectStream, out value);
-                    }
-
-                    if (value != null)
-                    {
-                        await value.DisposeAsync().ConfigureAwait(false);
-                    }
-                }));
+                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(FinishedUsingConnectStream));
 
                 try
                 {
@@ -319,7 +321,8 @@ namespace System.Net.Http
                 try
                 {
                     extendedconnectManager.BeforeExtendedConnectRequest();
-                } catch (Exception e)
+                }
+                catch (Exception e)
                 {
                     throw new HttpRequestException(HttpRequestError.ExtendedConnectRequestValidationFailed, SR.net_extended_connect_request_validation_failed, e);
                 }
