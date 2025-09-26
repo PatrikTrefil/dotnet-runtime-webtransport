@@ -274,7 +274,7 @@ namespace System.Net.Http
             }
         }
 
-        private async Task FinishedUsingConnectStream(QuicStream connectStream)
+        private async Task FinishedUsingConnectStreamAsync(QuicStream connectStream)
         {
             Http3RequestStream? value;
             lock (SyncObj)
@@ -301,14 +301,14 @@ namespace System.Net.Http
                     throw exception;
                 }
 
-                request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Func<Func<QuicStream, Task>, Http3ExtendedConnectManager>? valueFactory);
+                request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory? valueFactory);
                 if (valueFactory == null)
                 {
                     throw new HttpRequestException(HttpRequestError.MissingExtendedConnectManager, SR.net_missing_extended_connect_manager);
                 }
                 string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
 
-                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(FinishedUsingConnectStream));
+                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(FinishedUsingConnectStreamAsync));
 
                 try
                 {

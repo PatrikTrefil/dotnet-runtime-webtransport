@@ -3,10 +3,8 @@
 
 using System.Net.Quic;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Collections.Generic;
 using System.Runtime.Versioning;
-using System.Diagnostics;
 
 namespace System.Net.Http;
 
@@ -16,9 +14,16 @@ namespace System.Net.Http;
 internal abstract class Http3ExtendedConnectManager
 {
     /// <summary>
-    /// Used to identify the <see cref="HttpRequestOptions"/> entry that contains an instance of <see cref="Http3ExtendedConnectManager"/>.
+    /// Represents a factory method that creates an instance of <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
-    public static readonly HttpRequestOptionsKey<Func<Func<QuicStream, Task>, Http3ExtendedConnectManager>> RequestOptionsKey = new("ExtendedConnectManager");
+    /// <param name="finishedUsingConnectStreamCallback">A callback function that should be invoked when the CONNECT stream is no longer in use.</param>
+    /// <returns>A new instance of <see cref="Http3ExtendedConnectManager"/>.</returns>
+    public delegate Http3ExtendedConnectManager Http3ExtendedConnectManagerValueFactory(Func<QuicStream, Task> finishedUsingConnectStreamCallback);
+
+    /// <summary>
+    /// Used to identify the <see cref="HttpRequestOptions"/> entry that contains an instance of <see cref="Http3ExtendedConnectManagerValueFactory"/>.
+    /// </summary>
+    public static readonly HttpRequestOptionsKey<Http3ExtendedConnectManagerValueFactory> RequestOptionsKey = new("ExtendedConnectManager");
 
     public Http3ExtendedConnectManager() { }
 
