@@ -274,6 +274,19 @@ namespace System.Net.Http
             }
         }
 
+        private async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
+        {
+            while (!TryReserveStream())
+            {
+                await WaitForAvailableStreamsAsync().ConfigureAwait(false);
+            }
+            QuicConnection? conn = _connection;
+
+            ObjectDisposedException.ThrowIf(conn == null, this);
+
+            return await conn.OpenOutboundStreamAsync(type, cancellationToken).ConfigureAwait(false);
+        }
+
         private async Task FinishedUsingConnectStreamAsync(QuicStream connectStream)
         {
             Http3RequestStream? value;
@@ -308,7 +321,17 @@ namespace System.Net.Http
                 }
                 string protocol = request.Headers.Protocol!; // protocol != null, because IsExtendedConnectRequest is true
 
-                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(protocol, (_) => valueFactory(FinishedUsingConnectStreamAsync));
+                extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(
+                    protocol,
+                    (_) => valueFactory(
+                        new Http3ExtendedConnectManagerCreationOptions
+                        {
+                            FinishedUsingOutboundStream = ReleaseStream,
+                            FinishedUsingConnectStreamCallbackAsync = FinishedUsingConnectStreamAsync,
+                            OpenOutboundStreamAsync = OpenOutboundStreamAsync
+                        }
+                    )
+                );
 
                 try
                 {

@@ -21,7 +21,6 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     // For this scenario we need to remember to call the graceful shutdown handler right after the session is created.
     // To check if the graceful shutdown handler needs to be called we use this boolean variable.
     private bool _wasGoAwayReceived;
-    private readonly Func<QuicStream, Task> _finishedUsingStreamCallback;
     private object SyncObjSessionCounts { get; } = new();
     private object SyncObjDictionary => _idSessionAndChannelsDict;
     private readonly Dictionary<long, DictionaryItem> _idSessionAndChannelsDict = new();
@@ -30,12 +29,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     private bool _isSettingsValidationDone;
     private Exception? _validationException;
 
-    public MsQuicWebTransportExtendedConnectManager(Func<QuicStream, Task> finishedUsingConnectStreamCallback) : base()
-    {
-        Debug.Assert(finishedUsingConnectStreamCallback != null);
-
-        _finishedUsingStreamCallback = finishedUsingConnectStreamCallback;
-    }
+    public MsQuicWebTransportExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options) : base(options) { }
 
     public override async Task GoAwayReceivedAsync()
     {
@@ -119,7 +113,6 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         sessionAndChannels.Session = new MsQuicWebTransportSession(
             connectStream.Id,
             this,
-            quicConnection,
             connectStream,
             connectStreamBuffer,
             sessionAndChannels.PendingUnidirectionalStreams,
@@ -191,7 +184,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             if (!wasWriteSuccessful)
             {
                 stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
-                _ = _finishedUsingStreamCallback(stream);
+                 FinishedUsingConnectStreamCallbackAsync(stream);
             }
         }
     }
@@ -269,7 +262,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _openSessionsCount--;
             }
 
-            _finishedUsingStreamCallback(connectStream);
+            FinishedUsingConnectStreamCallbackAsync(connectStream);
 
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Removed session with CONNECT stream {connectStream.Id}.");
         }
@@ -299,7 +292,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
         if (quicStream != null)
         {
-            _finishedUsingStreamCallback(quicStream);
+            FinishedUsingConnectStreamCallbackAsync(quicStream);
         }
     }
 

@@ -398,7 +398,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 /// </summary>
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
-    private readonly QuicConnection _connection;
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
@@ -417,7 +416,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     internal MsQuicWebTransportSession(
         long id,
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager,
-        QuicConnection connection,
         QuicStream connectStream,
         byte[] controlStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
@@ -426,13 +424,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         string? subprotocol) : base(id, gracefulShutdownHandler, subprotocol)
     {
         ArgumentNullException.ThrowIfNull(wtExtendedConnectManager);
-        ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(connectStream);
         ArgumentNullException.ThrowIfNull(controlStreamBuffer);
         ArgumentNullException.ThrowIfNull(pendingUnidirectionalStreams);
         ArgumentNullException.ThrowIfNull(pendingBidirectionalStreams);
 
-        _connection = connection;
         _connectStream = connectStream;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
@@ -443,7 +439,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         if (NetEventSource.Log.IsEnabled())
         {
-            NetEventSource.Associate(this, _connection);
             NetEventSource.Associate(this, _connectStream);
             NetEventSource.Associate(this, _wtExtendedConnectManager);
             NetEventSource.Associate(this, _capsuleConsumer);
@@ -671,8 +666,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         MsQuicWebTransportStream wtStream;
         try
         {
-            QuicStream quicStream = await _connection.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
-            wtStream = new(type, quicStream);
+            QuicStream quicStream = await _wtExtendedConnectManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
+            wtStream = new(type, quicStream, FinishedUsingOutboundStream);
             await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
             _openStreams.Add(wtStream);
         }
@@ -694,6 +689,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
             _ => throw new ArgumentOutOfRangeException(paramName, streamType, "Invalid stream type.")
         };
+    }
+
+    private void FinishedUsingOutboundStream()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        _wtExtendedConnectManager.FinishedUsingOutboundStream();
     }
 
     public override async Task CloseAsync(CancellationToken cancellationToken = default)

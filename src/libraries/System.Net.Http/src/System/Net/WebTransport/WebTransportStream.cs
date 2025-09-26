@@ -87,7 +87,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private readonly TaskCompletionSource _tcsReadsClosed = new();
     private readonly TaskCompletionSource _tcsWritesClosed = new();
 
-    public MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream) : base(type)
+    public MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, Action? finishedUsingQuicStreamCallback) : base(type)
     {
         ArgumentNullException.ThrowIfNull(quicStream);
 
@@ -99,22 +99,53 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             NetEventSource.Associate(this, quicStream);
         }
 
-        InitTcs(quicStream);
+        if (finishedUsingQuicStreamCallback != null)
+        {
+            CallFinishedUsingQuicStreamCallbackWhenStreamIsClosed(finishedUsingQuicStreamCallback);
+        }
+
+        InitTaskCompletionSources();
     }
 
+    /// <summary>
+    /// Create an inbound stream.
+    /// </summary>
     public MsQuicWebTransportStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream)
-        : this(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream) { }
+        : this(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, null) { }
 
-    public MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream)
-        : this(type, quicStream, quicStream) { }
+    /// <summary>
+    /// Create an outbound stream.
+    /// </summary>
+    public MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, Action finishedUsingQuicStreamCallback)
+        : this(type, quicStream, quicStream, finishedUsingQuicStreamCallback) { }
 
-    private void InitTcs(QuicStream quicStream)
+    private void CallFinishedUsingQuicStreamCallbackWhenStreamIsClosed(Action finishedUsingQuicStreamCallback)
     {
         Task.Run(async () =>
         {
             try
             {
-                await quicStream.ReadsClosed.ConfigureAwait(false);
+                await _quicStream.ReadsClosed.ConfigureAwait(false);
+            }
+            catch (Exception) { }
+
+            try
+            {
+                await _quicStream.WritesClosed.ConfigureAwait(false);
+            }
+            catch (Exception) { }
+
+            finishedUsingQuicStreamCallback();
+        });
+    }
+
+    private void InitTaskCompletionSources()
+    {
+        Task.Run(async () =>
+        {
+            try
+            {
+                await _quicStream.ReadsClosed.ConfigureAwait(false);
                 _tcsReadsClosed.SetResult();
             }
             catch (QuicException ex)
@@ -126,7 +157,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         {
             try
             {
-                await quicStream.WritesClosed.ConfigureAwait(false);
+                await _quicStream.WritesClosed.ConfigureAwait(false);
                 _tcsWritesClosed.SetResult();
             }
             catch (QuicException ex)

@@ -5,8 +5,31 @@ using System.Net.Quic;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Runtime.Versioning;
+using System.Diagnostics;
+using System.Threading;
 
 namespace System.Net.Http;
+
+[SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
+[SupportedOSPlatform("windows")]
+internal sealed record class Http3ExtendedConnectManagerCreationOptions
+{
+    /// <summary>
+    /// Call to open an outbound an outbound stream using the <see cref="QuicConnection"/> associated with the HTTP/3 connection associated with the <see cref="Http3ExtendedConnectManager"/>.
+    /// </summary>
+    public required Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsync { get; init; }
+
+    /// <summary>
+    /// A callback function that should be invoked when the CONNECT stream is no longer in use.
+    /// </summary>
+    public required Func<QuicStream, Task> FinishedUsingConnectStreamCallbackAsync { get; init; }
+
+    /// <summary>
+    /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
+    /// </summary>
+    public required Action FinishedUsingOutboundStream { get; init; }
+}
 
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
@@ -16,16 +39,38 @@ internal abstract class Http3ExtendedConnectManager
     /// <summary>
     /// Represents a factory method that creates an instance of <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
-    /// <param name="finishedUsingConnectStreamCallback">A callback function that should be invoked when the CONNECT stream is no longer in use.</param>
     /// <returns>A new instance of <see cref="Http3ExtendedConnectManager"/>.</returns>
-    public delegate Http3ExtendedConnectManager Http3ExtendedConnectManagerValueFactory(Func<QuicStream, Task> finishedUsingConnectStreamCallback);
+    public delegate Http3ExtendedConnectManager Http3ExtendedConnectManagerValueFactory(Http3ExtendedConnectManagerCreationOptions options);
 
     /// <summary>
     /// Used to identify the <see cref="HttpRequestOptions"/> entry that contains an instance of <see cref="Http3ExtendedConnectManagerValueFactory"/>.
     /// </summary>
     public static readonly HttpRequestOptionsKey<Http3ExtendedConnectManagerValueFactory> RequestOptionsKey = new("ExtendedConnectManager");
 
-    public Http3ExtendedConnectManager() { }
+    /// <summary>
+    /// Call to open an outbound an outbound stream using the <see cref="QuicConnection"/> associated with the HTTP/3 connection associated with the <see cref="Http3ExtendedConnectManager"/>.
+    /// </summary>
+    protected Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsyncFunc { get; }
+
+    /// <summary>
+    /// A callback function that should be invoked when the CONNECT stream is no longer in use.
+    /// </summary>
+    protected Func<QuicStream, Task> FinishedUsingConnectStreamCallbackAsync { get; }
+
+    /// <summary>
+    /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsyncFunc"/>.
+    /// </summary>
+    protected Action FinishedUsingOutboundStreamFunc { get; }
+
+
+    public Http3ExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options)
+    {
+        Debug.Assert(options != null);
+
+        OpenOutboundStreamAsyncFunc = options.OpenOutboundStreamAsync;
+        FinishedUsingConnectStreamCallbackAsync = options.FinishedUsingConnectStreamCallbackAsync;
+        FinishedUsingOutboundStreamFunc = options.FinishedUsingOutboundStream;
+    }
 
     /// <summary>
     /// This method is called when the HTTP library receives a GOAWAY frame.
@@ -85,4 +130,32 @@ internal abstract class Http3ExtendedConnectManager
     /// </summary>
     /// <param name="quicStream">The stream used for the CONNECT request.</param>
     public abstract void AfterFailedExtendedConnectRequest(QuicStream? quicStream);
+
+    /// <summary>
+    /// Creates an outbound unidirectional or bidirectional <see cref="QuicStream"/> using
+    /// the <see cref="QuicConnection"/> associated with the HTTP/3 connection that is associated with this <see cref="Http3ExtendedConnectManager"/>.
+    /// </summary>
+    /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <exception cref="InvalidOperationException">When the underlying HTTP/3 connection has been disposed.</exception>
+    public async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await OpenOutboundStreamAsyncFunc(type, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new InvalidOperationException("The HTTP/3 connection has been disposed.");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
+    /// </summary>
+    public void FinishedUsingOutboundStream() => FinishedUsingOutboundStreamFunc();
 }
