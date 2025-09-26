@@ -43,7 +43,7 @@ public static class ClientWebTransportSession
         };
         requestMessage.Options.Set(
             Http3ExtendedConnectManager.RequestOptionsKey,
-            (Func<QuicStream, Task> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
+            static (Func<QuicStream, Task> finishedUsingConnectStreamCallback) => new MsQuicWebTransportExtendedConnectManager(finishedUsingConnectStreamCallback)
             );
         requestMessage.Headers.Protocol = "webtransport";
         if (options.AvailableSubProtocols != null)
