@@ -16,7 +16,7 @@ public enum WebTransportError
     /// <summary>
     /// The connection was aborted by the peer. This error is associated with an application error code and an application error message.
     /// </summary>
-    SessionClosed = 2,
+    SessionClosedByPeer = 2,
     /// <summary>
     /// The read or write direction of the stream was aborted by the peer. This error is associated with an application error code.
     /// </summary>

@@ -263,6 +263,7 @@
     <Compile Include="WebTransport\WebTransportServerSession.cs" />
     <Compile Include="WebTransport\VariableLengthIntegerStreamHelper.cs" />
     <Compile Include="WebTransport\ErrorCodeRemapping.cs" />
+    <Compile Include="WebTransport\WebTransportSessionTestHelper.cs" />
 
     <Compile Include="WebTransport\Unit\WebTransportTestBase.cs" />
     <Compile Include="WebTransport\Unit\WebTransportSessionCreationOptionsTests.cs" />

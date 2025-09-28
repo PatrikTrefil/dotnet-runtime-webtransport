@@ -959,7 +959,10 @@ namespace System.Net.WebTransport
     {
         None = 0,
         Open,
-        Closed,
+        ClosedRemotely,
+        ClosedLocally,
+        AbortedLocally,
+        AbortedRemotely
     }
     public enum WebTransportStreamType
     {
@@ -1000,7 +1003,7 @@ namespace System.Net.WebTransport
         public long? CloseStatusCode { get { throw null; } }
         public string? CloseStatusDescription { get { throw null; } }
         public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public abstract System.Threading.Tasks.Task CloseAsync(System.Threading.CancellationToken cancellationToken = default);
+        public abstract void CloseAsync();
         public System.Threading.Tasks.Task CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public abstract System.Threading.Tasks.Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
         public abstract System.Threading.Tasks.Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default);
@@ -1010,11 +1013,9 @@ namespace System.Net.WebTransport
     {
         Success = 0,
         InternalError = 1,
-        SessionClosed = 2,
+        SessionClosedByPeer = 2,
         StreamAborted = 3,
         TransportLayerError = 4,
-        SessionRefused = 5,
-        OperationAborted = 6,
         CallbackError = 7,
         UnsupportedProtocol = 8,
         HeaderError = 9

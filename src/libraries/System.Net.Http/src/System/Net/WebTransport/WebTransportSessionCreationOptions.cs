@@ -16,7 +16,7 @@ public sealed class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The default handler calls <see cref="WebTransportSession.CloseAsync(CancellationToken)"/>.
+    /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
     /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>

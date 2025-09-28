@@ -64,16 +64,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         {
             WebTransportSession session;
             await using (session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client)) { }
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SetDataSentLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.RequestCloseAsync());
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync());
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => session.CloseAsync(0, ""));
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<ObjectDisposedException>(session, null);
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);

@@ -10,18 +10,20 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 internal sealed class WebTransportServerSession : IAsyncDisposable
 {
-    private static byte[] s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = [0x40, 0x54];
+    private static readonly byte[] s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = [0x40, 0x54];
 
-    private static byte[] s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger = [0x40, 0x41];
+    private static readonly byte[] s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger = [0x40, 0x41];
     public long SessionId => ConnectStream.Id;
     public Http3LoopbackConnection Connection { get; init; }
     public QuicStream ConnectStream { get; init; }
 
-    public ValueTask DisposeAsync() => Connection.DisposeAsync();
+    /// <summary>
+    /// Dispose the CONNECT stream.
+    /// </summary>
+    public async ValueTask DisposeAsync() => await ConnectStream.DisposeAsync();
 
     public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType streamType)
     {
-
         QuicStream clientInitatedStream = await Connection.AcceptQuicStreamAsync();
 
         byte[] expectedStreamTypeOrSignalValueValue = streamType switch

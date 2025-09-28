@@ -154,9 +154,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
 
@@ -188,9 +188,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
 
@@ -221,9 +221,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
 
@@ -269,9 +269,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
@@ -315,9 +315,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
 
@@ -396,9 +396,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedLocally, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
@@ -470,9 +470,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.AbortedLocally, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
             barrier.SignalAndWait();
         });
@@ -505,9 +505,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.AbortedLocally, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
             barrier.SignalAndWait();
         });
@@ -538,9 +538,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.ClosedLocally, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
@@ -609,11 +609,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Signal the session creation is completed
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedRemotely, session.State);
             Assert.Null(session.CloseStatusCode);
             Assert.Null(session.CloseStatusDescription);
+
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError));
 
             barrier.SignalAndWait();
         });
@@ -624,7 +626,43 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            await serverSession.DisposeAsync(); // This will close the underlying QUIC connection, which will result in the CONNECT stream being closed
+            await serverSession.Connection.CloseAsync(0); // This will close the underlying QUIC connection, which will result in the CONNECT stream being closed
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [ConditionalFact]
+    public async Task ClientClosesSessionWhenConnectStreamIsAborted()
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            Assert.Equal(WebTransportSessionState.AbortedRemotely, session.State);
+            Assert.Null(session.CloseStatusCode);
+            Assert.Null(session.CloseStatusDescription);
+
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            serverSession.ConnectStream.Abort(QuicAbortDirection.Both, 0);
 
             barrier.SignalAndWait();
         });
@@ -643,19 +681,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await session.CloseAsync();
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            // All operations should throw WebTransportException
-            await Assert.ThrowsAsync<WebTransportException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.SetDataSentLimitForPeerAsync(1));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.RequestCloseAsync());
-            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync(1, ""));
-            await Assert.ThrowsAsync<WebTransportException>(() => session.CloseAsync());
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<InvalidOperationException>(session, null);
 
             barrier.SignalAndWait();
         });

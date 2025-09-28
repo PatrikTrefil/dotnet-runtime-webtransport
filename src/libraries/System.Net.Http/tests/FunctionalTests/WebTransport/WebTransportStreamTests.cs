@@ -552,13 +552,13 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    async Task AssertAllOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    private async Task AssertAllOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
     {
         await AssertReadOperationsOnStreamThrowAsync(stream, exceptionValidator);
         await AssertWriteOperationsOnStreamThrowAsync(stream, exceptionValidator);
     }
 
-    async Task AssertWriteOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    private async Task AssertWriteOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
     {
         TException[] exceptions = [
             await Assert.ThrowsAsync<TException>(() => stream.WriteAsync(new byte[1]).AsTask()),
@@ -571,7 +571,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         }
     }
 
-    async Task AssertReadOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
+    private async Task AssertReadOperationsOnStreamThrowAsync<TException>(Stream stream, Action<TException>? exceptionValidator) where TException : Exception
     {
         TException[] exceptions = [
             await Assert.ThrowsAsync<TException>(() => stream.ReadAsync(new byte[1]).AsTask()),
@@ -589,28 +589,28 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         }
     }
 
-    async Task AssertReadOperationsAndReadsClosedOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    private async Task AssertReadOperationsAndReadsClosedOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
     {
         TException ex = await Assert.ThrowsAsync<TException>(() => stream.ReadsClosed);
         exceptionValidator?.Invoke(ex);
         await AssertReadOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
     }
 
-    async Task AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    private async Task AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<TException>(QuicStream stream, Action<TException>? exceptionValidator) where TException: Exception
     {
         TException ex = await Assert.ThrowsAsync<TException>(() => stream.WritesClosed);
         exceptionValidator?.Invoke(ex);
         await AssertWriteOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
     }
 
-    async Task AssertReadOperationsAndReadsClosedOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    private async Task AssertReadOperationsAndReadsClosedOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
     {
         TException ex = await Assert.ThrowsAsync<TException>(() => stream.ReadsClosed);
         exceptionValidator?.Invoke(ex);
         await AssertReadOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
     }
 
-    async Task AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
+    private async Task AssertWriteOperationsAndWritesClosedOnStreamThrowAsync<TException>(WebTransportStream stream, Action<TException>? exceptionValidator) where TException: Exception
     {
         TException ex = await Assert.ThrowsAsync<TException>(() => stream.WritesClosed);
         exceptionValidator?.Invoke(ex);

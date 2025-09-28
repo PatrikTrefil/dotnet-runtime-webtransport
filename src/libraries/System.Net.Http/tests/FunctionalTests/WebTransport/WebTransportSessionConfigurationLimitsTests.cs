@@ -475,9 +475,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
             barrier.SignalAndWait();
         });
@@ -510,9 +510,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, 10000);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, 10000);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
             barrier.SignalAndWait();
         });
@@ -544,9 +544,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.Closed, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.Closed, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
             barrier.SignalAndWait();
         });
