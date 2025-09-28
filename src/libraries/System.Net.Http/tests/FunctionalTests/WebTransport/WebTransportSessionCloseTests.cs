@@ -154,7 +154,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
@@ -188,7 +188,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal("", session.CloseStatusDescription);
@@ -208,8 +208,53 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    //[Fact]
+    //public async Task ServerGracefullyClosesConnectStreamReadSideResultsInAllOtherStreamsBeingClosed()
+    //{
+    //    using Barrier barrier = new(2);
+
+    //    Task clientTask = Task.Run(async () =>
+    //    {
+    //        await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+    //        using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+    //        using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+    //        using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+    //        using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+    //        SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+    //        Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
+    //        Assert.Null(session.CloseStatusDescription);
+    //        Assert.Null(session.CloseStatusCode);
+
+    //        await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
+    //        await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
+    //        await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
+    //        await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+
+    //        barrier.SignalAndWait();
+    //    });
+
+    //    Task serverTask = Task.Run(async () =>
+    //    {
+    //        await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+    //        using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+    //        using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+    //        using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+    //        using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+    //        serverSession.ConnectStream.Abort(QuicAbortDirection.Read, 0);
+
+    //        barrier.SignalAndWait();
+    //    });
+
+
+    //    await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    //}
+
     [Fact]
-    public async Task ServerGracefullyClosesConnectStreamResultsInAllOtherStreamsBeingClosed()
+    public async Task ServerGracefullyClosesConnectStreamWriteSideResultsInAllOtherStreamsBeingClosed()
     {
         using Barrier barrier = new(2);
 
@@ -221,7 +266,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal("", session.CloseStatusDescription);
@@ -255,8 +300,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
     [Theory]
     [InlineData(QuicAbortDirection.Write)]
-    [InlineData(QuicAbortDirection.Read)]
     [InlineData(QuicAbortDirection.Both)]
+    [InlineData(QuicAbortDirection.Read)]
     public async Task ServerAbortivelyClosesConnectStreamResultsInAllOtherStreamsBeingClosed(QuicAbortDirection abortDirection)
     {
         using Barrier barrier = new(2);
@@ -269,9 +314,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
+            Assert.Equal(WebTransportSessionState.AbortedRemotely, session.State);
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
@@ -315,7 +360,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.ClosedRemotely, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
@@ -679,7 +724,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            await session.CloseAsync();
+            session.CloseAsync();
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 

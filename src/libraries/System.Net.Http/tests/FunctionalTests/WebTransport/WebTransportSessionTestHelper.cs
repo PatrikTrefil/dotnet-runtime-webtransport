@@ -20,7 +20,7 @@ internal static class WebTransportSessionTestHelper
             await Assert.ThrowsAsync<TException>(() => session.SetDataSentLimitForPeerAsync(1)),
             await Assert.ThrowsAsync<TException>(() => session.RequestCloseAsync()),
             await Assert.ThrowsAsync<TException>(() => session.CloseAsync(1, "")),
-            await Assert.ThrowsAsync<TException>(() => session.CloseAsync()),
+            Assert.Throws<TException>(session.CloseAsync),
         ];
 
         foreach (TException ex in exceptions)
