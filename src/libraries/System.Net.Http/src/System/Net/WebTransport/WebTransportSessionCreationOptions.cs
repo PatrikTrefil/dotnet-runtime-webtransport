@@ -16,6 +16,10 @@ public sealed class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
+    /// The function may be invoked multiple times if the peer sends both the GOAWAY frame and the DRAIN_WEBTRANSPORT_SESSION capsule.
+    /// The function is invoked only when the session is in state <see cref="WebTransportSessionState.Open"/>, but the session
+    /// could be closed during the execution of the function.
+    ///
     /// The default handler calls <see cref="WebTransportSession.Close()"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
     /// The function should never throw. If it throws, the session is closed immediately.
