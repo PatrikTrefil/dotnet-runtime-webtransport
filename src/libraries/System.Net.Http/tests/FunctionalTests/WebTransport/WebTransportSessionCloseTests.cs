@@ -742,4 +742,34 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task InvalidOperationExceptionIsThrownWhenSessionIsClosedDuringAcceptInboundStream(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            Task acceptStreamTask = session.AcceptInboundStreamAsync(streamType);
+
+            session.Close();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await acceptStreamTask);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
 }
