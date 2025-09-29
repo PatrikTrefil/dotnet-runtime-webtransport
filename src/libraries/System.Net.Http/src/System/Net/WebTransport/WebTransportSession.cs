@@ -18,7 +18,6 @@ using System.Runtime.CompilerServices;
 
 // TODO: separate out error messages to resx file
 // TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
-// TODO: create ThrowIfInvalidState method to check if the session is open and not disposed
 // TODO: accept/open stream should be valuetasks because quic accept/open ops are value tasks
 // TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
 
@@ -183,9 +182,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         get;
         internal set
         {
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
-
             ThrowIfInvalidState();
+
+            VariableLengthIntegerValidator.ThrowIfInvalid(value);
 
             field = value;
         }
@@ -399,6 +398,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     }
 }
 
+// TODO: create method CloseSession(WebTransportSessionState state, long? closeState, string? closeDescription) that will mark channels as complete with exception from ThrowIfInvalidState
+// TODO: write test for the scenario above
+
 /// <summary>
 /// Implementation that uses System.Net.Quic and HTTP/3 from System.Net.Http
 /// </summary>
@@ -594,6 +596,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         ThrowIfInvalidState();
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
+
         MaxDataCapsule capsule = new(limit);
 
         await _capsuleSender.SendCapsuleAsync(capsule, completeWrites: false, cancellationToken).ConfigureAwait(false);
@@ -612,7 +615,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private async Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
-        // TODO: check if QuicStream.AcceptInboudStreamAsync actually throws ChannelClosedException
         if (NetEventSource.Log.IsEnabled()) NetEventSource.AcceptInboundStreamAsyncCoreStarted(this);
 
         Debug.Assert(!_isDisposed);
@@ -648,6 +650,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         ThrowIfInvalidState();
+
         QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
 
         return await OpenOutboundStreamAsyncCore(type, quicStreamType, cancellationToken).ConfigureAwait(false);
