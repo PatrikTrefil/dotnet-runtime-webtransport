@@ -21,13 +21,13 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
 
     public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
-        (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
-        (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken),
-        (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken),
-        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken),
-        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken),
-        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken),
-        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken),
+        (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
         (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
         (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
         ];
@@ -79,9 +79,9 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.SetDataSentLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
 
             barrier.SignalAndWait();
         });

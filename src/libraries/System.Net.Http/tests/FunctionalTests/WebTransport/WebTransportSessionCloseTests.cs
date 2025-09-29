@@ -754,7 +754,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            Task acceptStreamTask = session.AcceptInboundStreamAsync(streamType);
+            ValueTask<WebTransportStream> acceptStreamTask = session.AcceptInboundStreamAsync(streamType);
 
             session.Close();
 

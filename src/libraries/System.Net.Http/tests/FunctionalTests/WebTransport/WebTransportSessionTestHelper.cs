@@ -11,13 +11,13 @@ internal static class WebTransportSessionTestHelper
     public static async Task AssertAllOperationsOnSessionThrowAsync<TException>(WebTransportSession session, Action<TException>? exceptionValidator) where TException : Exception
     {
         TException[] exceptions = [
-            await Assert.ThrowsAsync<TException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional)),
-            await Assert.ThrowsAsync<TException>(() => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional)),
-            await Assert.ThrowsAsync<TException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional)),
-            await Assert.ThrowsAsync<TException>(() => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional)),
-            await Assert.ThrowsAsync<TException>(() => session.SetUnidirectionalStreamCountLimitForPeerAsync(1)),
-            await Assert.ThrowsAsync<TException>(() => session.SetBidirectionalStreamCountLimitForPeerAsync(1)),
-            await Assert.ThrowsAsync<TException>(() => session.SetDataSentLimitForPeerAsync(1)),
+            await Assert.ThrowsAsync<TException>(async () => await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional)),
+            await Assert.ThrowsAsync<TException>(async () => await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional)),
+            await Assert.ThrowsAsync<TException>(async () => await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional)),
+            await Assert.ThrowsAsync<TException>(async () => await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional)),
+            await Assert.ThrowsAsync<TException>(async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(1)),
+            await Assert.ThrowsAsync<TException>(async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(1)),
+            await Assert.ThrowsAsync<TException>(async () => await session.SetDataSentLimitForPeerAsync(1)),
             await Assert.ThrowsAsync<TException>(() => session.RequestCloseAsync()),
             await Assert.ThrowsAsync<TException>(() => session.CloseAsync(1, "")),
             Assert.Throws<TException>(session.Close),

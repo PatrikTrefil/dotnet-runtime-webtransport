@@ -19,7 +19,6 @@ using System.Runtime.CompilerServices;
 // TODO: separate out error messages to resx file
 // TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
 // TODO: do parameter validation first and then check state
-// TODO: accept/open stream should be valuetasks because quic accept/open ops are value tasks
 // TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
 
 namespace System.Net.WebTransport;
@@ -107,7 +106,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    public abstract Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
+    public abstract ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
     /// <summary>
@@ -145,7 +144,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    public abstract Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
+    public abstract ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by this endpoint.
@@ -189,7 +188,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    public abstract Task SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
+    public abstract ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule, the
@@ -338,14 +337,14 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or when you can not create more streams because of the peer's unidirectional stream count limit.<seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    public abstract Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    public abstract ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    public abstract Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    public abstract ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     public async ValueTask DisposeAsync()
     {
@@ -614,7 +613,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncCompleted(this);
     }
 
-    public override async Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
+    public override async ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -631,7 +630,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             ).ConfigureAwait(false);
     }
 
-    public override async Task SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
+    public override async ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -667,7 +666,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    public override async Task SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
+    public override async ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -684,7 +683,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             ).ConfigureAwait(false);
     }
 
-    public override async Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    public override async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -757,7 +756,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    public override async Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    public override async ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
