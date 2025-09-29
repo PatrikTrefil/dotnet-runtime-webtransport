@@ -16,12 +16,12 @@ public sealed class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
+    /// The default handler calls <see cref="WebTransportSession.Close()"/>.
     /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
     /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
-    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.CloseAsync(); return Task.CompletedTask; };
+    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
     /// <summary>
     /// List of protocols that may be used in the session in order of preference.
     /// The selected protocol will be available in <see cref="WebTransportSession.SubProtocol"/>.

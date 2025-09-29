@@ -8,10 +8,13 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// Sends capsules over a provided QUIC stream.
+/// </summary>
+/// <remarks>This class is not thread-safe.</remarks>
 internal sealed class CapsuleSender
 {
     private readonly QuicStream _capsuleStream;
-    private readonly SemaphoreSlim _semaphore = new(1);
 
     public CapsuleSender(QuicStream capsuleStream)
     {
@@ -26,27 +29,17 @@ internal sealed class CapsuleSender
     /// <param name="capsule">Capsule to send.</param>
     /// <param name="completeWrites">If true, the FIN flag is sent.</param>
     /// <param name="cancellationToken"></param>
+    /// <exception cref="QuicException">When a transport layer exception occurs.</exception>
     public async Task SendCapsuleAsync(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled())
         {
-            string logMessage = $"Sending capsule of type 0x{capsule.Code:X}";
-            if (completeWrites) logMessage += " and closing the stream";
-
-            NetEventSource.SendCapsuleAsyncStarted(this, logMessage);
+            NetEventSource.SendCapsuleAsyncStarted(this, $"Sending capsule of type 0x{capsule.Code:X} (completeWrites: {completeWrites})");
         }
 
         ArgumentNullException.ThrowIfNull(capsule);
 
-        await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            await SendCapsuleAsyncCore(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        await SendCapsuleAsyncCore(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
 
         if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCapsuleAsyncCompleted(this, "Capsule sent");
     }
