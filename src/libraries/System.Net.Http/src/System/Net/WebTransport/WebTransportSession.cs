@@ -32,14 +32,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _encoding = Encoding.UTF8;
     private bool _isDisposed;
-    // TODO: move this to the derived class
-    // TODO: once moved - add information to docstring that it's also used to sync access to _openStreams
-    /// <summary>
-    /// Lock this object when working with <see cref="State"/>, <see cref="CloseStatusCode"/>,
-    /// and <see cref="CloseStatusDescription"/>.
-    /// </summary>
-    [CLSCompliant(false)]
-    protected internal readonly object _stateLock = new();
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
@@ -75,21 +67,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
 
-    public WebTransportSessionState State
-    {
-        get
-        {
-            lock (_stateLock) { return field; }
-        }
-        protected set
-        {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {field} to {value}");
-
-            Debug.Assert(Monitor.IsEntered(_stateLock));
-
-            field = value;
-        }
-    }
+    public abstract WebTransportSessionState State { get; protected set; }
 
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#streamcapacitycallback
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundunidirectionalstreams
@@ -131,7 +109,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     public abstract Task SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
-    // TODO: move the properties implementation to the derived class and add Debug.Assert(_semaphore.CurrentCount == 0) to the setters
     // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
@@ -220,19 +197,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// When the session is closed cleanly using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    public long? CloseStatusCode
-    {
-        get
-        {
-            lock (_stateLock) { return field; }
-        }
-        protected set
-        {
-            Debug.Assert(Monitor.IsEntered(_stateLock));
-
-            field = value;
-        }
-    }
+    public abstract long? CloseStatusCode { get; protected set; }
 
     /// <summary>
     /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule,
@@ -241,19 +206,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The description may be up to 1024 bytes long in UTF-8 encoding.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    public string? CloseStatusDescription
-    {
-        get
-        {
-            lock (_stateLock) { return field; }
-        }
-        protected set
-        {
-            Debug.Assert(Monitor.IsEntered(_stateLock));
-
-            field = value;
-        }
-    }
+    public abstract string? CloseStatusDescription { get; protected set; }
 
     protected Exception? GetExceptionForObjectState()
     {
@@ -364,8 +317,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.6.1"/>
     internal void ReceiveDrain()
     {
-        Debug.Assert(State == WebTransportSessionState.Open);
-        GracefulShutdownHandler();
+        if (State == WebTransportSessionState.Open)
+        {
+            GracefulShutdownHandler();
+        }
     }
 
     /// <summary>
@@ -376,6 +331,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     internal abstract void ReceiveClose(uint closeStatus, string statusDescription);
 
+    // TODO: this should throw if the maximum has been reached
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
@@ -384,13 +340,20 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
     public abstract Task<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
-    // TODO: maybe this should throw if the maximum has been reached?
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
     public abstract Task<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        await DisposeAsyncCore(disposing: true).ConfigureAwait(false);
+        GC.SuppressFinalize(this);
+    }
 
     protected virtual ValueTask DisposeAsyncCore(bool disposing)
     {
@@ -399,28 +362,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         if (!_isDisposed)
         {
             _isDisposed = true;
-
-            if (disposing)
-            {
-                lock (_stateLock)
-                {
-                    if (State == WebTransportSessionState.Open)
-                    {
-                        State = WebTransportSessionState.ClosedLocally;
-                    }
-                }
-            }
         }
 
         return ValueTask.CompletedTask;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
-
-        await DisposeAsyncCore(disposing: true).ConfigureAwait(false);
-        GC.SuppressFinalize(this);
     }
 }
 
@@ -430,6 +374,11 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 /// </summary>
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
+    /// <summary>
+    /// Lock this object when working with <see cref="WebTransportSession.State"/>, <see cref="WebTransportSession.CloseStatusCode"/>,
+    /// ,<see cref="WebTransportSession.CloseStatusDescription"/> or <see cref="_openStreams"/>.
+    /// </summary>
+    private object SyncObj { get; } = new();
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
@@ -484,10 +433,53 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         VariableLengthIntegerHelper.TryWrite(buffer, id, out int bytesWritten);
         _idEncodedAsVariableLengthInteger = buffer.AsMemory().Slice(0, bytesWritten);
     }
+    public override string? CloseStatusDescription
+    {
+        get
+        {
+            lock (SyncObj) { return field; }
+        }
+        protected set
+        {
+            Debug.Assert(Monitor.IsEntered(SyncObj));
+
+            field = value;
+        }
+    }
+
+    public override long? CloseStatusCode
+    {
+        get
+        {
+            lock (SyncObj) { return field; }
+        }
+        protected set
+        {
+            Debug.Assert(Monitor.IsEntered(SyncObj));
+
+            field = value;
+        }
+    }
+
+    public override WebTransportSessionState State
+    {
+        get
+        {
+            lock (SyncObj) { return field; }
+        }
+        protected set
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {field} to {value}");
+
+            Debug.Assert(Monitor.IsEntered(SyncObj));
+
+            field = value;
+        }
+    }
 
     internal void Init()
     {
-        lock (_stateLock)
+        lock (SyncObj)
         {
             State = WebTransportSessionState.Open;
         }
@@ -506,7 +498,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed. Aborting read side...");
 
-        lock (_stateLock)
+        lock (SyncObj)
         {
             if (State == WebTransportSessionState.Open)
             {
@@ -543,7 +535,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-            lock (_stateLock)
+            lock (SyncObj)
             {
                 if (State == WebTransportSessionState.Open)
                 {
@@ -574,7 +566,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private void MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
     {
-        Debug.Assert(Monitor.IsEntered(_stateLock));
+        Debug.Assert(Monitor.IsEntered(SyncObj));
         Debug.Assert(State == WebTransportSessionState.Open);
         Debug.Assert(
             state
@@ -600,7 +592,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncStarted(this);
 
-        lock (_stateLock)
+        lock (SyncObj)
         {
             ThrowIfInvalidState();
 
@@ -748,7 +740,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private async Task TryAddToOpenStreamsAsync(MsQuicWebTransportStream stream)
     {
         Exception? ex;
-        lock (_stateLock)
+        lock (SyncObj)
         {
             ex = GetExceptionForObjectState();
             if (ex == null)
@@ -844,7 +836,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (_stateLock)
+        lock (SyncObj)
         {
             ThrowIfInvalidState();
             MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.ClosedLocally, null, null);
@@ -909,7 +901,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     internal override void ReceiveClose(uint closeStatus, string statusDescription)
     {
-        lock (_stateLock)
+        lock (SyncObj)
         {
             if (State != WebTransportSessionState.Open)
             {
@@ -925,7 +917,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-        lock (_stateLock)
+        lock (SyncObj)
         {
             ThrowIfInvalidState();
 
@@ -949,7 +941,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     internal void CloseOpenStreamsAndConnectStream(Http3ErrorCode httpErrorCode)
     {
-        lock (_stateLock)
+        lock (SyncObj)
         {
             foreach (MsQuicWebTransportStream item in _openStreams)
             {
@@ -964,6 +956,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"{nameof(_isDisposed)}={_isDisposed}");
+
         if (!_isDisposed)
         {
             _isDisposed = true;
@@ -971,7 +965,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             if (disposing)
             {
                 List<MsQuicWebTransportStream> openStreams;
-                lock (_stateLock)
+                lock (SyncObj)
                 {
                     if (State == WebTransportSessionState.Open)
                     {
