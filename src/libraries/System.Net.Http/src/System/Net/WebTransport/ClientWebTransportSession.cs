@@ -6,6 +6,7 @@ using System.Threading;
 using System.Net.Http;
 using System.Net.Quic;
 using System.Collections.Generic;
+using System.Runtime.Versioning;
 
 namespace System.Net.WebTransport;
 
@@ -14,12 +15,23 @@ public static class ClientWebTransportSession
     private static readonly Lazy<HttpMessageInvoker> s_sharedHttpMessageInvoker = new(() => new HttpClient(), true);
 
     /// <summary>
-    /// Create a WebTransport session.
+    /// Gets a value that indicates whether WebTransport is supported for client scenarios on the current machine.
     /// </summary>
-    /// <exception cref="ArgumentException">When <paramref name="uri"/>  does not use https scheme</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> is null</exception>
+    /// <value>
+    /// <c>true</c> if <see cref="QuicConnection.IsSupported"/> returns true; otherwise, <c>false</c>.
+    /// </value>
+    [SupportedOSPlatformGuard("windows")]
+    [SupportedOSPlatformGuard("linux")]
+    [SupportedOSPlatformGuard("osx")]
+    public static bool IsSupported => QuicConnection.IsSupported;
+
+    /// <summary>
+    /// Create a WebTransport session using HTTP/3.
+    /// </summary>
+    /// <exception cref="ArgumentException">When <paramref name="uri"/>  does not use https scheme.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> is <c>null</c>.</exception>
     /// <exception cref="WebTransportException">When the creation of the session fails.</exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public static async Task<WebTransportSession> ConnectAsync(Uri uri, HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(uri);

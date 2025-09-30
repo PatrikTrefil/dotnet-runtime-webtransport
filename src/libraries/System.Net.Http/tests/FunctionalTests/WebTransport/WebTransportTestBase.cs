@@ -12,7 +12,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 public abstract class WebTransportTestBase : HttpClientHandlerTestBase
 {
     protected override Version UseVersion => HttpVersion.Version30;
-    public static bool IsWebTransportSupported => WebTransportSession.IsSupported;
+    public static bool IsWebTransportSupported => ClientWebTransportSession.IsSupported;
     public virtual int TestTimeoutInMilliseconds => 200_000;
 
     internal readonly Http3LoopbackServer _httpServer;

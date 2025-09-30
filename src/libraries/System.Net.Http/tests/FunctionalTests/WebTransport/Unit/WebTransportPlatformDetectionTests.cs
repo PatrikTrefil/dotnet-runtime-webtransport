@@ -29,7 +29,7 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
     [PlatformSpecific(TestPlatforms.Windows)]
     public void SupportedWindowsPlatforms_IsSupportedIsTrue()
     {
-        Assert.True(WebTransportSession.IsSupported);
+        Assert.True(ClientWebTransportSession.IsSupported);
     }
 
 
@@ -38,6 +38,6 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
     public void SupportedLinuxPlatforms_IsSupportedIsTrue()
     {
         _output.WriteLine($"Running on {PlatformDetection.GetDistroVersionString()}");
-        Assert.True(WebTransportSession.IsSupported);
+        Assert.True(ClientWebTransportSession.IsSupported);
     }
 }

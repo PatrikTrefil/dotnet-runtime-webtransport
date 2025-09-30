@@ -8,10 +8,7 @@ using System.Text;
 using System.Net.Http;
 using System.Net.Quic;
 using System.Threading.Channels;
-using System.Collections.Concurrent;
-using System.Runtime.Versioning;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using ChannelItem = (System.Net.ArrayBuffer ArrayBuffer, System.Net.Quic.QuicStream QuicStream);
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -19,7 +16,6 @@ using System.Runtime.CompilerServices;
 // TODO: separate out error messages to resx file
 // TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
 // TODO: do parameter validation first and then check state
-// TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
 
 namespace System.Net.WebTransport;
 
@@ -27,9 +23,10 @@ namespace System.Net.WebTransport;
 /// Represents a WebTransport session.
 /// </summary>
 /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-1.2-3.2.1"/>
+/// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12"/>
 public abstract partial class WebTransportSession : IAsyncDisposable
 {
-    private static readonly Encoding _encoding = Encoding.UTF8;
+    private static readonly Encoding _utf8Encoding = Encoding.UTF8;
     private bool _isDisposed;
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
@@ -46,11 +43,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         GracefulShutdownHandler = () => gracefulShutdownHandler(this);
     }
 
-    [SupportedOSPlatformGuard("windows")]
-    [SupportedOSPlatformGuard("linux")]
-    [SupportedOSPlatformGuard("osx")]
-    public static bool IsSupported => QuicConnection.IsSupported;
-
     internal Func<Task> GracefulShutdownHandler { get; }
 
     /// <summary>
@@ -66,10 +58,13 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
 
+    /// <summary>
+    /// The current state of the WebTransport session.
+    /// </summary>
     public abstract WebTransportSessionState State { get; protected set; }
 
-    // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#streamcapacitycallback
-    // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundunidirectionalstreams
+    #region Session configuration
+
     /// <summary>
     /// A count of the cumulative number of unidirectional streams that can be opened
     /// over the lifetime of the session by this endpoint.
@@ -77,23 +72,14 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitProvidedByPeer
-    {
-        get;
-        internal set
-        {
-            ThrowIfInvalidState();
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
-            field = value;
-        }
-    }
+    public long UnidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// A count of the cumulative number of unidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// The value must be in the range [0, 2^62).
-    /// Change of the value during the lifetime of the session is currently not supported.
     /// </summary>
+    /// <remarks>The value may be updated using <see cref="SetUnidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long UnidirectionalStreamCountLimitForPeer { get; protected set; }
 
@@ -101,14 +87,14 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Set a new value of <see cref="UnidirectionalStreamCountLimitForPeer"/> and send it to the peer.
     /// </summary>
     /// <param name="limit">The new value for <see cref="UnidirectionalStreamCountLimitForPeer"/></param>
-    /// <param name="cancellationToken"></param>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
-    // TODO: use https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-options#maxinboundbidirectionalstreams
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
     /// over the lifetime of the session by this endpoint.
@@ -116,22 +102,14 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitProvidedByPeer
-    {
-        get;
-        internal set
-        {
-            ThrowIfInvalidState();
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
-            field = value;
-        }
-    }
+    public long BidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// The value must be in the range [0, 2^62).
     /// </summary>
+    /// <remarks>The value may be updated using <see cref="SetBidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public long BidirectionalStreamCountLimitForPeer { get; protected set; }
 
@@ -139,11 +117,12 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Set a new value of <see cref="BidirectionalStreamCountLimitForPeer"/> and send it to the peer.
     /// </summary>
     /// <param name="limit">The new value for <see cref="BidirectionalStreamCountLimitForPeer"/></param>
-    /// <param name="cancellationToken"></param>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -154,18 +133,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long DataSentLimitProvidedByPeer
-    {
-        get;
-        internal set
-        {
-            ThrowIfInvalidState();
-
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
-
-            field = value;
-        }
-    }
+    public long DataSentLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by the remote endpoint.
@@ -174,8 +142,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
+    /// <remarks>The value may be updated using <see cref="SetDataSentLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public long DataSentLimitForPeer { get; protected set; }
 
@@ -183,27 +150,35 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Set a new value of <see cref="DataSentLimitForPeer"/> and send it to peer.
     /// </summary>
     /// <param name="limit">The new value for <see cref="DataSentLimitForPeer"/></param>
-    /// <param name="cancellationToken"></param>
-    /// <exception cref="ObjectDisposedException">When calling setter on a disposed session.</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public abstract ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
+    #endregion
+
     /// <summary>
-    /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule, the
-    /// value is the "Application Error Code" part of the capsule.
-    /// When the session is closed cleanly using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
+    /// The status code provided when closing the session.
     /// </summary>
+    /// <value>
+    /// </value>
+    /// When the session has been closed using <see cref="CloseAsync(long, string, CancellationToken)"/>,
+    /// this property contains the close status code.
+    /// Otherwise the value is <c>null</c>.
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public abstract long? CloseStatusCode { get; protected set; }
 
     /// <summary>
-    /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule,
-    /// this property contains the "Application Error Message" part of the capsule.
-    /// When the session has been closed cleanly by peer using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
-    /// The description may be up to 1024 bytes long in UTF-8 encoding.
+    /// The status description provided when closing the session.
     /// </summary>
+    /// <value>
+    /// When the session has been closed using <see cref="CloseAsync(long, string, CancellationToken)"/>,
+    /// this property contains the close status description.
+    /// The description may be up to 1024 bytes long in UTF-8 encoding.
+    /// Otherwise the value is <c>null</c>.
+    /// </value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public abstract string? CloseStatusDescription { get; protected set; }
 
@@ -246,37 +221,35 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Request a graceful close of the session. The peer is expected to attempt to gracefully terminate the session as soon as possible.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     public abstract Task RequestCloseAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public abstract void Close();
 
     /// <summary>
     /// Gracefully close the session.
     /// </summary>
-    /// <remarks>
-    /// The session is closed using a CLOSE_WEBTRANSPORT_SESSION capsule.
-    /// </remarks>
     /// <param name="closeStatus">Reason code sent in the capsule.</param>
     /// <param name="statusDescription">
     /// Message sent in the capsule. The message will be encoded to UTF-8 without BOM.
     /// The maximum length of the message after the encoding is 1024 bytes.
-    /// If null is provided, the message will be empty.
     /// </param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="statusDescription"/> is null</exception>
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="closeStatus"/> is not in range [0, 2^32)</exception>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/>.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     public async Task CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
     {
         ThrowIfInvalidState();
@@ -286,7 +259,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(closeStatus), "The value has to be in range [0, 2^32)");
         }
 
-        byte[] statusDescriptionUtf8 = _encoding.GetBytes(statusDescription);
+        ArgumentNullException.ThrowIfNull(statusDescription);
+
+        byte[] statusDescriptionUtf8 = _utf8Encoding.GetBytes(statusDescription);
 
         if (statusDescriptionUtf8.Length > 1024)
         {
@@ -303,11 +278,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="statusDescription">
     /// Message sent in the capsule. The message is expected to be encoded to UTF-8 without BOM.
     /// The maximum length of the message after the encoding is 1024 bytes.
-    /// If null is provided, the message will be empty.
     /// </param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     protected abstract Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -325,25 +299,29 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// This method should be called when peer initiates session close operation.
     /// </summary>
-    /// <param name="closeStatus">error code associated with the close operation</param>
-    /// <param name="statusDescription">error reason associatied with the close operation</param>
+    /// <param name="closeStatus">Error code associated with the close operation.</param>
+    /// <param name="statusDescription">Error reason associatied with the close operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     internal abstract void ReceiveClose(uint closeStatus, string statusDescription);
 
-    // TODO: this should throw if the maximum has been reached
+    // TODO: implement throw if the maximum has been reached
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or when you can not create more streams because of the peer's unidirectional stream count limit.<seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
-    /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
+    /// <exception cref="WebTransportException">
+    /// When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or
+    /// when you can not create more streams because of the peer's stream count limit has been reached
+    /// (<see cref="UnidirectionalStreamCountLimitProvidedByPeer"/>, <see cref="BidirectionalStreamCountLimitProvidedByPeer"/>).
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
+    /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public abstract ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed session.</exception>
+    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public abstract ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     public async ValueTask DisposeAsync()
@@ -369,7 +347,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
 
 /// <summary>
-/// Implementation that uses System.Net.Quic and HTTP/3 from System.Net.Http
+/// Implementation that uses <see cref="Quic"/> and <see cref="Http"/> for HTTP/3.
 /// </summary>
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
@@ -378,6 +356,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// ,<see cref="WebTransportSession.CloseStatusDescription"/> or <see cref="_openStreams"/>.
     /// </summary>
     private object SyncObj { get; } = new();
+    private bool _isDisposed;
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
@@ -393,9 +372,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
 
-    private bool _isDisposed { get; set; }
-
-    /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
         long id,
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager,
@@ -646,6 +623,23 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             ).ConfigureAwait(false);
     }
 
+    public override async ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        ThrowIfInvalidState();
+        VariableLengthIntegerValidator.ThrowIfInvalid(limit);
+
+        MaxDataCapsule capsule = new(limit);
+
+        await SendCapsuleAsync(
+            capsule,
+            static (session, capsule) => session.DataSentLimitForPeer = capsule.MaxData,
+            completeWrites: false,
+            cancellationToken
+            ).ConfigureAwait(false);
+    }
+
     private async Task SendCapsuleAsync<TCapsule>(TCapsule capsule, Action<MsQuicWebTransportSession, TCapsule> stateUpdate, bool completeWrites, CancellationToken cancellationToken) where TCapsule : Capsule
     {
         await _forPeerConfigurationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -664,23 +658,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             _forPeerConfigurationSemaphore.Release();
         }
-    }
-
-    public override async ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
-
-        ThrowIfInvalidState();
-        VariableLengthIntegerValidator.ThrowIfInvalid(limit);
-
-        MaxDataCapsule capsule = new(limit);
-
-        await SendCapsuleAsync(
-            capsule,
-            static (session, capsule) => session.DataSentLimitForPeer = capsule.MaxData,
-            completeWrites: false,
-            cancellationToken
-            ).ConfigureAwait(false);
     }
 
     public override async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
@@ -722,9 +699,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = new MsQuicWebTransportStream(type, channelItem.ArrayBuffer, channelItem.QuicStream);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream);
 
-            await TryAddToOpenStreamsAsync(wtStream).ConfigureAwait(false);
+            _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
+
+            AddToOpenStreamsOtherwiseDisposeStream(wtStream);
         }
         finally
         {
@@ -736,23 +715,21 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         return wtStream;
     }
 
-    private async Task TryAddToOpenStreamsAsync(MsQuicWebTransportStream stream)
+    private void AddToOpenStreamsOtherwiseDisposeStream(MsQuicWebTransportStream stream)
     {
-        Exception? ex;
-        lock (SyncObj)
+        try
         {
-            ex = GetExceptionForObjectState();
-            if (ex == null)
+            lock (SyncObj)
             {
+                ThrowIfInvalidState();
                 _openStreams.Add(stream);
             }
         }
-
-        if (ex != null)
+        catch (Exception)
         {
             stream.AbortQuicStream(QuicAbortDirection.Both, Http3ErrorCode.WebtransportSessionGone);
-            await stream.DisposeAsync().ConfigureAwait(false); // TODO: should we await this?
-            throw ex;
+            stream.DisposeAsync().AsTask();
+            throw;
         }
     }
 
@@ -779,7 +756,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             try
             {
                 QuicStream quicStream = await _wtExtendedConnectManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
-                wtStream = new(type, quicStream, FinishedUsingOutboundStream);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -802,7 +779,9 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 throw;
             }
 
-            await TryAddToOpenStreamsAsync(wtStream).ConfigureAwait(false);
+            _ = CleanUpWebTransportStreamWhenClosed(wtStream, OutboundStreamCleanup);
+
+            AddToOpenStreamsOtherwiseDisposeStream(wtStream);
         }
         finally
         {
@@ -823,12 +802,49 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             _ => throw new ArgumentOutOfRangeException(paramName, streamType, "Invalid stream type.")
         };
     }
+    private static Task CleanUpWebTransportStreamWhenClosed(MsQuicWebTransportStream stream, Action<MsQuicWebTransportStream> cleanUpAction)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                await stream.ReadsClosed.ConfigureAwait(false);
+            }
+            catch (Exception) { }
 
-    private void FinishedUsingOutboundStream()
+            try
+            {
+                await stream.WritesClosed.ConfigureAwait(false);
+            }
+            catch (Exception) { }
+
+            cleanUpAction(stream);
+        });
+    }
+
+    private void OutboundStreamCleanup(MsQuicWebTransportStream stream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
+        StreamCleanup(stream);
         _wtExtendedConnectManager.FinishedUsingOutboundStream();
+    }
+
+    private void InboundStreamCleanup(MsQuicWebTransportStream stream)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        StreamCleanup(stream);
+    }
+
+    private void StreamCleanup(MsQuicWebTransportStream stream)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        lock (SyncObj)
+        {
+            _openStreams.Remove(stream);
+        }
     }
 
     public override void Close()

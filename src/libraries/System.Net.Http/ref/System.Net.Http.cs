@@ -979,15 +979,15 @@ namespace System.Net.WebTransport
     }
     public static class ClientWebTransportSession
     {
+        [Runtime.Versioning.SupportedOSPlatformGuard("windows")]
+        [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
+        [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
+        public static bool IsSupported { get { throw null; } }
         public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
     }
     public abstract partial class WebTransportSession : IAsyncDisposable
     {
         internal WebTransportSession() { }
-        [Runtime.Versioning.SupportedOSPlatformGuard("windows")]
-        [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
-        [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
-        public static bool IsSupported { get { throw null; } }
         public long Id { get { throw null; } }
         public string? SubProtocol { get { throw null; } }
         public WebTransportSessionState State { get { throw null; } }
