@@ -14,8 +14,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 // TODO: separate out error messages to resx file
-// TODO: move parameter validation to the base class and keep the core methods in the derived class (is this a good idea?) If not, then CloseAsync needs a refactor
-// TODO: do parameter validation first and then check state
 
 namespace System.Net.WebTransport;
 
@@ -46,8 +44,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     internal Func<Task> GracefulShutdownHandler { get; }
 
     /// <summary>
-    /// The identifier of the session. The identifier is the same as the identifier of the CONNECT stream that initiated the session.
-    /// The value is constant for the lifetime of the session. It is a 62-bit unsigned integer.
+    /// The identifier of the session.
     /// </summary>
     public long Id { get; }
 
@@ -55,6 +52,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The application-layer protocol used in this session. The value is constant for the lifetime of the session.
     /// <c>null</c> indicates that no subprotocol was negotiated.
     /// </summary>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-2-9"/>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-application-protocol-negoti"/>
     public string? SubProtocol { get; }
 
@@ -282,6 +280,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     protected abstract Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -315,14 +314,34 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
-    public abstract ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    public async ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        ThrowIfInvalidState();
+
+        return await OpenOutboundStreamAsyncCore(type, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc cref="OpenOutboundStreamAsync(WebTransportStreamType, CancellationToken)"/>
+    protected abstract Task<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
-    public abstract ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    public async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        ThrowIfInvalidState();
+
+        return await AcceptInboundStreamAsyncCore(type, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc cref="AcceptInboundStreamAsync(WebTransportStreamType, CancellationToken)"/>
+    protected abstract Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     public async ValueTask DisposeAsync()
     {
@@ -660,16 +679,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    public override async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
-
-        ThrowIfInvalidState();
-
-        return await AcceptInboundStreamAsyncCore(type, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default)
+    protected override async Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.AcceptInboundStreamAsyncCoreStarted(this);
 
@@ -733,22 +743,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    public override async ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
-
-        ThrowIfInvalidState();
-
-        QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
-
-        return await OpenOutboundStreamAsyncCore(type, quicStreamType, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, QuicStreamType quicStreamType, CancellationToken cancellationToken = default)
+    protected override async Task<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.OpenOutboundStreamCoreStarted(this);
 
-        Debug.Assert(!_isDisposed);
+        QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
 
         MsQuicWebTransportStream wtStream;
         try
