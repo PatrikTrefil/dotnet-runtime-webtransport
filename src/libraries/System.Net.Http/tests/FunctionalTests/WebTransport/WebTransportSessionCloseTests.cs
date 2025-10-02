@@ -420,7 +420,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientClosesSessionAndAllStreamsAfterReceivingDrainSessionCapsuleWhenDefaultHandlerIsUsed()
     {
         using Barrier barrier = new(2);
@@ -466,7 +466,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingDrainSessionCapsule()
     {
         using Barrier barrier = new(2);
@@ -565,7 +565,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientClosesSessionAfterReceivingGoAwayFrameWhenDefaultHandlerIsUsed()
     {
         using Barrier barrier = new(2);
@@ -601,7 +601,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientCallsProvidedGracefulShutdownHandlerAfterReceivingGoAwayFrame()
     {
         using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 1);
@@ -636,7 +636,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientClosesSessionWhenQuicConnectionIsClosed()
     {
         using Barrier barrier = new(2);
@@ -672,7 +672,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task ClientClosesSessionWhenConnectStreamIsAborted()
     {
         using Barrier barrier = new(2);

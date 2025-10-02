@@ -36,7 +36,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
     public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
 
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ConnectionEstablishmentWithValidHandshakeSucceeds()
     {
         Task serverTask = Task.Run(async () =>
@@ -53,7 +53,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
     }
 
 
-    [ConditionalFact(nameof(IsWebTransportSupported))]
+    [Fact]
     public async Task ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
     {
         Task serverTask = Task.Run(async () =>
