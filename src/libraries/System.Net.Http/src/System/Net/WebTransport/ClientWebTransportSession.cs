@@ -98,7 +98,7 @@ public static class ClientWebTransportSession
             options.GracefulShutdownHandler,
             selectedSubprotocol);
 
-        await SetInitialOptions(session, options, cancellationToken).ConfigureAwait(false);
+        await SetInitialOptionsForPeerAsync(session, options, cancellationToken).ConfigureAwait(false);
 
         return session;
     }
@@ -135,7 +135,7 @@ public static class ClientWebTransportSession
         return selectedSubprotocol;
     }
 
-    private static async Task SetInitialOptions(WebTransportSession session, WebTransportSessionCreationOptions options, CancellationToken cancellationToken)
+    private static async Task SetInitialOptionsForPeerAsync(WebTransportSession session, WebTransportSessionCreationOptions options, CancellationToken cancellationToken)
     {
         if (options.InitialUnidirectionalStreamCountLimitForPeer > 0)
         {
