@@ -372,7 +372,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
 
-    // TODO: this should not take the extended connect manager as a parameter (consider a server scenario) - we could create an interface that clients/servers have to implement
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
         long id,
