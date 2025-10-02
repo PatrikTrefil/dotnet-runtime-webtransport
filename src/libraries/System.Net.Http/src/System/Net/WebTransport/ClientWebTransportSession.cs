@@ -87,7 +87,7 @@ public static class ClientWebTransportSession
         }
         catch (Exception)
         {
-            wtExtendedConnectManager.TryRemoveSession(extendedConnectContent.ConnectStream); // TODO: add test for this path
+            wtExtendedConnectManager.FinishedUsingConnectStream(extendedConnectContent.ConnectStream); // TODO: add test for this path
             throw;
         }
 

@@ -13,7 +13,7 @@ using System.Collections.Generic;
 namespace System.Net.WebTransport;
 
 
-internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedConnectManager
+internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedConnectManager, IMsQuicWebTransportSessionConnectionManager
 {
     private long _maxSessionsCount;
     private long _openSessionsCount;
@@ -184,7 +184,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             if (!wasWriteSuccessful)
             {
                 stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
-                 FinishedUsingConnectStreamCallbackAsync(stream);
+                FinishedUsingConnectStreamCallbackAsync(stream);
             }
         }
     }
@@ -236,7 +236,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     /// This method may be called multiple times for the same stream and is thread-safe.
     /// </summary>
     /// <param name="connectStream">CONNECT stream of the session to remove.</param>
-    public void TryRemoveSession(QuicStream connectStream)
+    public void FinishedUsingConnectStream(QuicStream connectStream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 

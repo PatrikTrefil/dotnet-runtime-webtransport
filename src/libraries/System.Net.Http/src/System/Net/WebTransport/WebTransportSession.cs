@@ -347,7 +347,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
 
 /// <summary>
-/// Implementation that uses <see cref="Quic"/> and <see cref="Http"/> for HTTP/3.
+/// Implementation of a WebTransport session that uses <see cref="Quic"/>.
 /// </summary>
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
@@ -364,7 +364,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private List<MsQuicWebTransportStream> _openStreams = [];
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
-    private readonly MsQuicWebTransportExtendedConnectManager _wtExtendedConnectManager;
+    private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
     /// <summary>
     /// Used to synchronize sending of capsules using <see cref="_capsuleSender"/> and access to configuration
     /// properties for peer (<see cref="WebTransportSession.BidirectionalStreamCountLimitForPeer"/>,
@@ -372,10 +372,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
 
+    // TODO: this should not take the extended connect manager as a parameter (consider a server scenario) - we could create an interface that clients/servers have to implement
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
         long id,
-        MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager,
+        IMsQuicWebTransportSessionConnectionManager connectionManager,
         QuicStream connectStream,
         byte[] controlStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
@@ -383,7 +384,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         Func<WebTransportSession, Task> gracefulShutdownHandler,
         string? subprotocol) : base(id, gracefulShutdownHandler, subprotocol)
     {
-        ArgumentNullException.ThrowIfNull(wtExtendedConnectManager);
+        ArgumentNullException.ThrowIfNull(connectionManager);
         ArgumentNullException.ThrowIfNull(connectStream);
         ArgumentNullException.ThrowIfNull(controlStreamBuffer);
         ArgumentNullException.ThrowIfNull(pendingUnidirectionalStreams);
@@ -392,7 +393,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _connectStream = connectStream;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
-        _wtExtendedConnectManager = wtExtendedConnectManager;
+        _connectionManager = connectionManager;
         _capsuleConsumer = new CapsuleConsumer(connectStream, controlStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
 
@@ -400,7 +401,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (NetEventSource.Log.IsEnabled())
         {
             NetEventSource.Associate(this, _connectStream);
-            NetEventSource.Associate(this, _wtExtendedConnectManager);
+            NetEventSource.Associate(this, _connectionManager);
             NetEventSource.Associate(this, _capsuleConsumer);
             NetEventSource.Associate(this, _capsuleSender);
         }
@@ -537,7 +538,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
         }
 
-        _wtExtendedConnectManager.TryRemoveSession(_connectStream);
+        _connectionManager.FinishedUsingConnectStream(_connectStream);
     }
 
     private void MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
@@ -755,7 +756,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             try
             {
-                QuicStream quicStream = await _wtExtendedConnectManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
+                QuicStream quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
                 wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
             }
@@ -827,7 +828,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         StreamCleanup(stream);
-        _wtExtendedConnectManager.FinishedUsingOutboundStream();
+        _connectionManager.FinishedUsingOutboundStream();
     }
 
     private void InboundStreamCleanup(MsQuicWebTransportStream stream)
@@ -1004,7 +1005,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 _pendingBidirectionalStreams = null;
                 _pendingUnidirectionalStreams = null;
 
-                _wtExtendedConnectManager.TryRemoveSession(_connectStream);
+                _connectionManager.FinishedUsingConnectStream(_connectStream);
             }
         }
 
