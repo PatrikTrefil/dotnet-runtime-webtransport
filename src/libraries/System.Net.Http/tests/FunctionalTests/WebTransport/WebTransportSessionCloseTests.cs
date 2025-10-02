@@ -41,7 +41,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     private static readonly long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
     private const long s_minValidVariableLengthIntegerValue = 0;
 
-    private const string invalidUtf8String = "abc\uD801\uD802d";  // TODO: create test that this gets replaced by a fallback char
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = new TheoryData<long> {
         s_minValidVariableLengthIntegerValue - 1,
         s_maxValidVariableLengthIntegerValue + 1,
@@ -115,6 +114,47 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Fact]
+    public async Task SessionCloseAsyncWithNonAsciiCharacterGetsCorrentlyEncoded()
+    {
+        using Barrier barrier = new(2);
+        const string invalidUtf8String = "abc\uD801\uD802d";
+        const string expectedApplicationErrorMessage = "abc��d";
+        const long expectedApplicationErrorCode = 1;
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+
+            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+
+            Memory<byte> errorCodeBuffer = new byte[4];
+            await serverSession.ConnectStream.ReadExactlyAsync(errorCodeBuffer);
+            uint receivedApplicationErrorCode = BinaryPrimitives.ReadUInt32BigEndian(errorCodeBuffer.Span);
+
+            Memory<byte> messageBuffer = new byte[capsuleValueLength - sizeof(uint)];
+            await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
+
+            Assert.Equal(s_closeSessionCapsuleCode, capsuleCode);
+            Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
+            Assert.Equal(sizeof(uint) + messageBuffer.Length, capsuleValueLength);
+            Assert.Equal(expectedApplicationErrorMessage, Encoding.UTF8.GetString(messageBuffer.ToArray()));
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await session.CloseAsync(expectedApplicationErrorCode, invalidUtf8String);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
