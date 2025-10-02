@@ -2,10 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
-using System.Threading;
 using System.Runtime.CompilerServices;
-
-// TODO: the links to WT over HTTP/3 sections should be present only on the derived class. The rest should link to the WT overview doc
 
 namespace System.Net.WebTransport;
 
@@ -16,24 +13,26 @@ public sealed class WebTransportSessionCreationOptions
     /// but is should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
-    /// The function may be invoked multiple times if the peer sends both the GOAWAY frame and the DRAIN_WEBTRANSPORT_SESSION capsule.
+    /// The function may be invoked multiple times.
     /// The function is invoked only when the session is in state <see cref="WebTransportSessionState.Open"/>, but the session
     /// could be closed during the execution of the function.
     ///
     /// The default handler calls <see cref="WebTransportSession.Close()"/>.
-    /// This handler is called when an HTTP GOAWAY frame is received or the DRAIN_WEBTRANSPORT_SESSION capsule is received.
+    /// This handler is called when the peer invokes <see cref="WebTransportSession.RequestCloseAsync(Threading.CancellationToken)"/>
     /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
     public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
+
     /// <summary>
     /// List of protocols that may be used in the session in order of preference.
-    /// The selected protocol will be available in <see cref="WebTransportSession.SubProtocol"/>.
+    /// The protocol selected by the server will be available in <see cref="WebTransportSession.SubProtocol"/>.
     /// </summary>
     /// <remarks>
     /// Note that the server may choose not to use any of the provided protocols. In that case <see cref="WebTransportSession.SubProtocol"/> will be null.
     /// The value must be serializable as a list of tokens according to RFC 8941.
     /// </remarks>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-2-9"/>
     /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-token"/>
     /// <exception cref="ArgumentException">When the provided value is not serializable as a list of tokens according to RFC 8941.</exception>
     public string[]? AvailableSubProtocols
@@ -65,9 +64,13 @@ public sealed class WebTransportSessionCreationOptions
     }
 
     /// <summary>
+    /// The initial value of the maximum number of unidirectional streams that the peer can create in this session.
+    /// The value is communicated to the peer during the session establishment and is then stored in <see cref="WebTransportSession.UnidirectionalStreamCountLimitForPeer"/>.
+    /// </summary>
+    /// <value>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
-    /// </summary>
+    /// </value>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
     public long InitialUnidirectionalStreamCountLimitForPeer
@@ -81,9 +84,13 @@ public sealed class WebTransportSessionCreationOptions
     }
 
     /// <summary>
+    /// The initial value of the maximum number of bidirectional streams that the peer can create in this session.
+    /// The value is communicated to the peer during the session establishment and is then stored in <see cref="WebTransportSession.BidirectionalStreamCountLimitForPeer"/>.
+    /// </summary>
+    /// <value>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
-    /// </summary>
+    /// </value>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
     public long InitialBidirectionalStreamCountLimitForPeer
@@ -97,9 +104,13 @@ public sealed class WebTransportSessionCreationOptions
     }
 
     /// <summary>
+    /// The initial value of the maximum amount of data (in bytes) that the peer can send in this session.
+    /// The value is communicated to the peer during the session establishment and is then stored in <see cref="WebTransportSession.DataSentLimitForPeer"/>.
+    /// </summary>
+    /// <value>
     /// Default value is zero.
     /// The value must be in the range [0, 2^62).
-    /// </summary>
+    /// </value>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
     public long InitialDataSentLimitForPeer
