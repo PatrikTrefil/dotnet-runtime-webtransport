@@ -228,6 +228,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             }
         }
     }
+
     private void ValidateAndProcessServerSettingsCore(Dictionary<long, long> serverSettings)
     {
         bool maxSessionsSettingRetrievalSuccess = serverSettings.TryGetValue((long)Http3SettingType.WebTransportMaxSessions, out long value);
