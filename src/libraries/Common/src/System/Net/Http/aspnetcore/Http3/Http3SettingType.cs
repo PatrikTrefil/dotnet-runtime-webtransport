@@ -43,11 +43,32 @@ namespace System.Net.Http
         EnableConnect = 0x8,
 
         /// <summary>
-        /// The SETTINGS_WEBTRANSPORT_MAX_SESSIONS
+        /// SETTINGS_WEBTRANSPORT_MAX_SESSIONS
         /// Indicates that the specified HTTP/3 endpoint is WebTransport-capable and the number of concurrent sessions it is willing to receive.
         /// </summary>
         /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-2"/>
         WebTransportMaxSessions = 0xc671706a,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI
+        /// Indicates the initial value for the unidirectional max stream limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
+        WebTransportInitialMaxUnidirectionalStreamsPerSession = 0x2b64,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI
+        /// Indicates the initial value for the bidirectional max stream limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
+        WebTransportInitialMaxBidirectionalStreamsPerSession = 0x2b65,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA
+        /// Indicates the initial value for the session data limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-12.2.1"/>
+        WebTransportInitialMaxDataPerSession = 0x2b61,
 
         /// <summary>
         /// H3_DATAGRAM, default is 0 (off)
