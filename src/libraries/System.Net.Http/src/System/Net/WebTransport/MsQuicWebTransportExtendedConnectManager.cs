@@ -212,6 +212,10 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             catch (Exception e)
             {
                 _validationException = e;
+                throw;
+            }
+            finally
+            {
                 _isSettingsValidationDone = true;
             }
         }
