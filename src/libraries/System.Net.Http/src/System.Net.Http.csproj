@@ -169,6 +169,7 @@
 
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
     <Compile Include="System\Net\WebTransport\WebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSession.cs" />
     <Compile Include="System\Net\WebTransport\IMsQuicWebTransportSessionConnectionManager.cs" />
     <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportSessionCreationOptions.cs" />
