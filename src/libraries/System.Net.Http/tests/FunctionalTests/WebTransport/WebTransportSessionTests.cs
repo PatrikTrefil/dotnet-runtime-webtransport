@@ -11,6 +11,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: write test when server opens a stream for a non-existing session and then client opens a session with that id (implementation easy if we can predict the session id, otherwise we have to do manual session establishment)
 // TODO: write test when a CONNECT request fails (e.g. timeout) and then check if the connection is closed by client (it should because it is not used)
+// TODO: write test where client tries to open a WebTransportSession to a server that doesn't support WT over HTTP/3
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
