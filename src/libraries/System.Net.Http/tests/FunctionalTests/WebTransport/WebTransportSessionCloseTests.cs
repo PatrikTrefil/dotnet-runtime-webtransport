@@ -60,7 +60,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         return data;
     }
 
-
     private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
     {
         try
@@ -207,51 +206,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
-
-    //[Fact]
-    //public async Task ServerGracefullyClosesConnectStreamReadSideResultsInAllOtherStreamsBeingClosed()
-    //{
-    //    using Barrier barrier = new(2);
-
-    //    Task clientTask = Task.Run(async () =>
-    //    {
-    //        await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-    //        using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-    //        using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-    //        using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-    //        using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
-
-    //        SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
-
-    //        Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
-    //        Assert.Null(session.CloseStatusDescription);
-    //        Assert.Null(session.CloseStatusCode);
-
-    //        await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-    //        await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-    //        await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-    //        await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
-
-    //        barrier.SignalAndWait();
-    //    });
-
-    //    Task serverTask = Task.Run(async () =>
-    //    {
-    //        await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
-
-    //        using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-    //        using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-    //        using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-    //        using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-
-    //        serverSession.ConnectStream.Abort(QuicAbortDirection.Read, 0);
-
-    //        barrier.SignalAndWait();
-    //    });
-
-
-    //    await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
-    //}
 
     [Fact]
     public async Task ServerGracefullyClosesConnectStreamWriteSideResultsInAllOtherStreamsBeingClosed()
