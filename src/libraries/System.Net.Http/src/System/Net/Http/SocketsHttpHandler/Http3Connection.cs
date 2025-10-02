@@ -335,7 +335,7 @@ namespace System.Net.Http
 
                 try
                 {
-                    extendedconnectManager.ValidateServerSettings(NonHttpSettings);
+                    extendedconnectManager.ValidateAndProcessServerSettings(NonHttpSettings);
                 }
                 catch (Exception e)
                 {

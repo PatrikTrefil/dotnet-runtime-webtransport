@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using ChannelItem = (System.Net.ArrayBuffer ArrayBuffer, System.Net.Quic.QuicStream QuicStream);
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 
 namespace System.Net.WebTransport;
 
@@ -17,6 +18,9 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 {
     private long _maxSessionsCount;
     private long _openSessionsCount;
+    private long _initialMaxUnidirectionalStreamsPerSession;
+    private long _initialMaxBidirectionalStreamsPerSession;
+    private long _initialMaxDataPerSession;
     // Under specific circumstances it's possible that the WebTransportSession object is created after a GOAWAY was received.
     // For this scenario we need to remember to call the graceful shutdown handler right after the session is created.
     // To check if the graceful shutdown handler needs to be called we use this boolean variable.
@@ -83,6 +87,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
+        Debug.Assert(_isSettingsValidationDone == true);
 
         // It's possible that a there are already pending streams for the session we are creating
         DictionaryItem? dictionaryItem;
@@ -105,7 +110,6 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             }
         }
 
-
         SessionAndChannels sessionAndChannels = (SessionAndChannels)dictionaryItem;
 
         Debug.Assert(sessionAndChannels.Session == null, "Session object should only be created once per CONNECT stream");
@@ -118,7 +122,12 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             sessionAndChannels.PendingUnidirectionalStreams,
             sessionAndChannels.PendingBidirectionalStreams,
             gracefulShutdownHandler,
-            subprotocol);
+            subprotocol)
+        {
+            DataSentLimitProvidedByPeer = _initialMaxDataPerSession,
+            UnidirectionalStreamCountLimitProvidedByPeer = _initialMaxUnidirectionalStreamsPerSession,
+            BidirectionalStreamCountLimitProvidedByPeer = _initialMaxBidirectionalStreamsPerSession
+        };
 
         sessionAndChannels.Session.Init();
 
@@ -189,7 +198,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    public override void ValidateServerSettings(Dictionary<long, long> serverSettings)
+    public override void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -207,7 +216,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
             try
             {
-                ValidateServerSettingsCore(serverSettings);
+                ValidateAndProcessServerSettingsCore(serverSettings);
             }
             catch (Exception e)
             {
@@ -220,7 +229,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             }
         }
     }
-    private void ValidateServerSettingsCore(Dictionary<long, long> serverSettings)
+    private void ValidateAndProcessServerSettingsCore(Dictionary<long, long> serverSettings)
     {
         bool maxSessionsSettingRetrievalSuccess = serverSettings.TryGetValue((long)Http3SettingType.WebTransportMaxSessions, out long value);
 
@@ -229,10 +238,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             throw new WebTransportException(WebTransportError.HeaderError, "Server does not support WebTransport over HTTP/3");
         }
 
-        lock (SyncObjSessionCounts)
-        {
-            _maxSessionsCount = value;
-        }
+        _initialMaxUnidirectionalStreamsPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, 0);
+        _initialMaxBidirectionalStreamsPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, 0);
+        _initialMaxDataPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxDataPerSession, 0);
+
+        _maxSessionsCount = value;
     }
 
     /// <summary>

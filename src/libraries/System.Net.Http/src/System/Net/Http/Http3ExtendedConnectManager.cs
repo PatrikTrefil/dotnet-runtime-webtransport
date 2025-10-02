@@ -115,7 +115,7 @@ internal abstract class Http3ExtendedConnectManager
     /// </remarks>
     /// <param name="serverSettings">Server settings received in the HTTP SETTINGS frame.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#frame-settings"/>
-    public abstract void ValidateServerSettings(Dictionary<long, long> serverSettings);
+    public abstract void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings);
 
     /// <summary>
     /// This method is called by the HTTP library when an extended CONNECT request is being made using an HTTP/3 connection.
