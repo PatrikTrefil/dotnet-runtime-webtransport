@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using System.Threading;
 using ChannelItem = (System.Net.ArrayBuffer ArrayBuffer, System.Net.Quic.QuicStream QuicStream);
 using System.Collections.Generic;
-using System.Net.Http.Headers;
 
 namespace System.Net.WebTransport;
 
