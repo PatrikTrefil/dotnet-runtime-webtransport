@@ -94,12 +94,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await serverSession.ConnectStream.ReadExactlyAsync(errorCodeBuffer);
             uint receivedApplicationErrorCode = BinaryPrimitives.ReadUInt32BigEndian(errorCodeBuffer.Span);
 
-            Memory<byte> messageBuffer = new byte[expectedApplicationErrorMessage.Length];
+            Memory<byte> messageBuffer = new byte[capsuleValueLength - sizeof(uint)];
             await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
 
             Assert.Equal(s_closeSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
-            Assert.Equal(sizeof(uint) + messageBuffer.Length, capsuleValueLength);
             Assert.Equal(expectedApplicationErrorMessage, messageBuffer);
 
             barrier.SignalAndWait();
