@@ -157,6 +157,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
         buffer.Discard(bytesRead);
 
+        StreamReceivedForSessionAsync(streamType, buffer, stream, sessionId);
+    }
+
+    private void StreamReceivedForSessionAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream, long sessionId)
+    {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Stream received for session {sessionId}");
 
         lock (SyncObjDictionary)
