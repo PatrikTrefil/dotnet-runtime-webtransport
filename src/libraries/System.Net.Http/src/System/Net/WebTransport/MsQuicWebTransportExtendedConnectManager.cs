@@ -320,7 +320,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     private sealed class SessionAndChannels : DictionaryItem
     {
-        // TODO: move to WebTransportCreationOptions
+        // TODO: give the user the option to configure these values
         private const int s_maxPendingUnidirectionalStreams = 10;
         private const int s_maxPendingBidirectionalStreams = 10;
         public MsQuicWebTransportSession? Session { get; set; }
