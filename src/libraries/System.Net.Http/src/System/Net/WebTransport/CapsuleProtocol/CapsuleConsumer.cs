@@ -127,18 +127,32 @@ internal sealed class CapsuleConsumer : IDisposable
         };
     }
 
-    public async Task SkipExactlyAsync(long minimumBytes)
+    public async Task SkipExactlyAsync(long bytesToSkip)
     {
-        long totalBytesRead = 0;
-        int bytesToReadInOneIteration = 2048;
-        while (minimumBytes - totalBytesRead >= bytesToReadInOneIteration)
+        int bytesToDiscard = Math.Min(
+            bytesToSkip <= int.MaxValue ? (int)bytesToSkip : int.MaxValue,
+            _buffer.ActiveLength
+            );
+
+        _buffer.Discard(bytesToDiscard);
+        bytesToSkip -= bytesToDiscard;
+
+        if (bytesToSkip == 0)
         {
-            _buffer.EnsureAvailableSpace(bytesToReadInOneIteration);
-            await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory).ConfigureAwait(false);
-            totalBytesRead += bytesToReadInOneIteration;
+            return;
         }
-        int remainingBytes = (int)(minimumBytes - totalBytesRead);
-        await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory.Slice(0, remainingBytes)).ConfigureAwait(false);
+
+        // At this point the _buffer is empty
+
+        int bytesToReadInOneIteration = 2048;
+        _buffer.EnsureAvailableSpace(bytesToReadInOneIteration);
+        while (bytesToSkip >= bytesToReadInOneIteration)
+        {
+            await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory).ConfigureAwait(false);
+            bytesToSkip -= bytesToReadInOneIteration;
+        }
+
+        await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory.Slice(0, (int)bytesToSkip)).ConfigureAwait(false);
     }
 
     public void Dispose()
