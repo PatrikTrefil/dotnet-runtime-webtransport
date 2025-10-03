@@ -147,11 +147,9 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             if (State == WebTransportSessionState.Open)
             {
                 MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.AbortedRemotely, null, null);
+                CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
             }
         }
-
-        // close the other side of the CONNECT stream
-        _connectStream.Abort(QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
     }
 
     private async Task ProcessIncomingCapsules()
@@ -199,10 +197,10 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     {
                         Debug.Fail("Unexpected exception from capsule processing.");
                     }
+
+                    CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
                 }
             }
-
-            CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
         }
 
         _connectionManager.FinishedUsingConnectStream(_connectStream);
@@ -232,7 +230,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _pendingBidirectionalStreams?.Writer.TryComplete(ex);
     }
 
-    private async ValueTask CloseBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
+    private async ValueTask CloseSessionBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncStarted(this);
 
@@ -505,10 +503,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.ClosedLocally, null, null);
         }
 
-        CloseBySendingFin();
+        CloseOpenStreams(Http3ErrorCode.WebtransportSessionGone);
+        CloseSessionBySendingFinOnConnectStream();
     }
 
-    private void CloseBySendingFin()
+    private void CloseSessionBySendingFinOnConnectStream()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncStarted(this);
 
@@ -531,7 +530,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        await CloseBySendingCloseCapsuleAsync((uint)closeStatus, statusDescription, cancellationToken).ConfigureAwait(false);
+        await CloseSessionBySendingCloseCapsuleAsync((uint)closeStatus, statusDescription, cancellationToken).ConfigureAwait(false);
     }
 
     public override async Task RequestCloseAsync(CancellationToken cancellationToken = default)
@@ -583,26 +582,33 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         lock (SyncObj)
         {
             ThrowIfInvalidState();
+        }
 
-            if (ex is QuicException qex)
+        if (ex is QuicException qex)
+        {
+            if (qex.QuicError == QuicError.TransportError)
             {
-                if (qex.QuicError == QuicError.TransportError)
-                {
-                    throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", ex);
-                }
-                else if (qex.QuicError == QuicError.OperationAborted)
-                {
-                    throw new InvalidOperationException("The session has been closed.", ex);
-                }
-                else if (qex.QuicError is QuicError.StreamAborted or QuicError.ConnectionAborted)
-                {
-                    throw new WebTransportException(WebTransportError.SessionClosedByPeer, "The session was abortively closed by peer.", ex);
-                }
+                throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", ex);
+            }
+            else if (qex.QuicError == QuicError.OperationAborted)
+            {
+                throw new InvalidOperationException("The session has been closed.", ex);
+            }
+            else if (qex.QuicError is QuicError.StreamAborted or QuicError.ConnectionAborted)
+            {
+                throw new WebTransportException(WebTransportError.SessionClosedByPeer, "The session was abortively closed by peer.", ex);
             }
         }
     }
 
     internal void CloseOpenStreamsAndConnectStream(Http3ErrorCode httpErrorCode)
+    {
+        CloseOpenStreams(httpErrorCode);
+
+        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+    }
+
+    private void CloseOpenStreams(Http3ErrorCode httpErrorCode)
     {
         lock (SyncObj)
         {
@@ -613,8 +619,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
             _openStreams = [];
         }
-
-        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
     }
 
     protected override async ValueTask DisposeAsyncCore(bool disposing)
