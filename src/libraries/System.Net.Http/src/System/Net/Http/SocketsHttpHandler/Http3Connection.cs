@@ -647,6 +647,7 @@ namespace System.Net.Http
         /// </summary>
         private async Task AcceptStreamsAsync()
         {
+            bool isShutDownDetected = false;
             try
             {
                 while (true)
@@ -657,17 +658,21 @@ namespace System.Net.Http
                     {
                         if (ShuttingDown)
                         {
-                            return;
+                            isShutDownDetected = true;
+                            if (_activeRequests.Count == 0)
+                            {
+                                return;
+                            }
                         }
 
-                        // No cancellation token is needed here; we expect the operation to cancel itself when _connection is disposed.
+                        // No cancellation token is needed here; we expect the operation to cancel itself when connection shutdown is detected.
                         streamTask = _connection!.AcceptInboundStreamAsync(CancellationToken.None);
                     }
 
                     QuicStream stream = await streamTask.ConfigureAwait(false);
 
                     // This process is cleaned up when _connection is disposed, and errors are observed via Abort().
-                    _ = ProcessServerStreamAsync(stream);
+                    _ = ProcessServerStreamAsync(stream, isShutDownDetected);
                 }
             }
             catch (QuicException ex) when (ex.QuicError == QuicError.OperationAborted)
@@ -690,7 +695,7 @@ namespace System.Net.Http
         /// <summary>
         /// Routes a stream to an appropriate stream-type-specific processor
         /// </summary>
-        private async Task ProcessServerStreamAsync(QuicStream stream)
+        private async Task ProcessServerStreamAsync(QuicStream stream, bool doNotAcceptHttpStreams)
         {
             ArrayBuffer buffer = default;
             bool handedOverToExtendedConnectManager = false;
@@ -744,6 +749,12 @@ namespace System.Net.Http
                     switch (streamType)
                     {
                         case (long)Http3StreamType.Control:
+                            if (doNotAcceptHttpStreams)
+                            {
+                                buffer.Dispose();
+                                await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
+                                return;
+                            }
                             if (!stream.CanRead || stream.CanWrite)
                             {
                                 throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
@@ -761,6 +772,12 @@ namespace System.Net.Http
                             await ProcessServerControlStreamAsync(stream, bufferCopy).ConfigureAwait(false);
                             return;
                         case (long)Http3StreamType.QPackDecoder:
+                            if (doNotAcceptHttpStreams)
+                            {
+                                buffer.Dispose();
+                                await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
+                                return;
+                            }
                             if (!stream.CanRead || stream.CanWrite)
                             {
                                 throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
@@ -776,6 +793,12 @@ namespace System.Net.Http
                             await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
                             return;
                         case (long)Http3StreamType.QPackEncoder:
+                            if (doNotAcceptHttpStreams)
+                            {
+                                buffer.Dispose();
+                                await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
+                                return;
+                            }
                             if (!stream.CanRead || stream.CanWrite)
                             {
                                 throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
@@ -792,6 +815,12 @@ namespace System.Net.Http
                             await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
                             return;
                         case (long)Http3StreamType.Push:
+                            if (doNotAcceptHttpStreams)
+                            {
+                                buffer.Dispose();
+                                await stream.CopyToAsync(Stream.Null).ConfigureAwait(false);
+                                return;
+                            }
                             // We don't support push streams.
                             // Because no maximum push stream ID was negotiated via a MAX_PUSH_ID frame, server should not have sent this. Abort the connection with H3_ID_ERROR.
                             throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.IdError);
