@@ -1016,6 +1016,8 @@ namespace System.Net.WebTransport
         SessionClosedByPeer = 2,
         StreamAborted = 3,
         TransportLayerError = 4,
+        SessionRefused = 5,
+        OperationAborted = 6,
         CallbackError = 7,
         UnsupportedProtocol = 8,
         HeaderError = 9
