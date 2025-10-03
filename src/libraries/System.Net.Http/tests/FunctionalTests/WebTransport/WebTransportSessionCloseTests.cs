@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Net.Quic;
 using System.Numerics;
+using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
