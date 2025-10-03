@@ -499,6 +499,131 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Fact]
+    public async Task SessionIsUsableAfterDrainCapsuleIsReceivedAndProcessed()
+    {
+        using Barrier barrier = new(2);
+        using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 2);
+
+        byte expectedByte = 10;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(2); return Task.CompletedTask; } }
+                );
+
+            await wasHandlerCalledSemaphore.WaitAsync();
+
+            await using WebTransportStream outboundStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+
+            outboundStream.WriteByte(expectedByte);
+
+            await using WebTransportStream inboundStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+
+            int receivedByte = await inboundStream.ReadByteAsync();
+
+            Assert.Equal(expectedByte, receivedByte);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+
+            await wasHandlerCalledSemaphore.WaitAsync();
+
+            using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+
+            int receivedByteInboudStream = await inboundStream.ReadByteAsync();
+
+            using QuicStream outboundStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+
+            outboundStream.WriteByte(expectedByte);
+
+            Assert.Equal(expectedByte, receivedByteInboudStream);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    private async Task SessionIsUsableAfterGoawayIsReceivedAndProcessed()
+    {
+        using Barrier barrier = new(2);
+        using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 2);
+
+        byte expectedByte = 10;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(2); return Task.CompletedTask; } }
+                );
+
+            barrier.SignalAndWait();
+
+            await wasHandlerCalledSemaphore.WaitAsync();
+
+            await using WebTransportStream outboundStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+
+            outboundStream.WriteByte(expectedByte);
+
+            // Opening two streams because Http3Connection checks for connection shutdown after every stream accept
+            await using WebTransportStream inboundStream1 = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+
+            int receivedByte1 = await inboundStream1.ReadByteAsync();
+
+            await using WebTransportStream inboundStream2 = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+
+            int receivedByte2 = await inboundStream2.ReadByteAsync();
+
+            Assert.Equal(expectedByte, receivedByte1);
+            Assert.Equal(expectedByte, receivedByte2);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+
+            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
+
+            await wasHandlerCalledSemaphore.WaitAsync();
+
+            using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+
+            int receivedByteInboudStream = await inboundStream.ReadByteAsync();
+
+            using QuicStream outboundStream1 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+
+            outboundStream1.WriteByte(expectedByte);
+
+            using QuicStream outboundStream2 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+
+            outboundStream2.WriteByte(expectedByte);
+
+            Assert.Equal(expectedByte, receivedByteInboudStream);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
     public async Task ReceiveDrainCapsuleWithInvalidValueClosesSession()
     {
         using Barrier barrier = new(2);

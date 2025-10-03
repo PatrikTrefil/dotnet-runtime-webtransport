@@ -289,7 +289,7 @@ namespace System.Net.Test.Common
             return request;
         }
 
-        public async Task ShutdownAsync(bool failCurrentRequest = false)
+        public async Task ShutdownAsync(bool failCurrentRequest = false, bool waitForClientDisconnectAndRejectNewStreams = true)
         {
             try
             {
@@ -314,7 +314,10 @@ namespace System.Net.Test.Common
                 return;
             }
 
-            await WaitForClientDisconnectAsync().ConfigureAwait(false);
+            if (waitForClientDisconnectAndRejectNewStreams)
+            {
+                await WaitForClientDisconnectAsync().ConfigureAwait(false);
+            }
         }
 
         // Wait for the client to close the connection, e.g. after we send a GOAWAY, or after the HttpClient is disposed.
