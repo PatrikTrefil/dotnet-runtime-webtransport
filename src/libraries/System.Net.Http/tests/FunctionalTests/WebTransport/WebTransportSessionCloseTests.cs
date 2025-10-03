@@ -717,7 +717,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            _ = serverSession.Connection.ShutdownAsync(); // don't await, because it requires the client to disconnect, which requires a closing WebTransport handshake
+            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
             Assert.Equal(-1, serverSession.ConnectStream.ReadByte()); // assert the reading side is closed
 
@@ -754,7 +754,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            _ = serverSession.Connection.ShutdownAsync(); // don't await, it will complete only after the client closes the connection completely
+            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
             barrier.SignalAndWait(); // Wait for the handler to be called
         });
