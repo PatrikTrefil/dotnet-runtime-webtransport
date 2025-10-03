@@ -56,17 +56,22 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ClientOpensStream(WebTransportStreamType streamType)
     {
+        using Barrier barrier = new(2); // TODO: remove once we have RESET_STREAM_AT support
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
@@ -77,16 +82,22 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ServerOpensStream(WebTransportStreamType streamType)
     {
+        using Barrier barrier = new(2); // TODO: remove once we have RESET_STREAM_AT support
+
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
