@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Threading;
 using System.IO;
+using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -490,7 +491,13 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxDataCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
-            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            try
+            {
+                serverSession.ConnectStream.Write(new byte[invalidLength]);
+            } catch (QuicException ex) when (ex.QuicError == QuicError.StreamAborted)
+            {
+                // The client may have already detected the invalid capsule and aborted the stream
+            }
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
@@ -525,7 +532,13 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxUnidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
-            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            try
+            {
+                serverSession.ConnectStream.Write(new byte[invalidLength]);
+            } catch (QuicException ex) when (ex.QuicError == QuicError.StreamAborted)
+            {
+                // The client may have already detected the invalid capsule and aborted the stream
+            }
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
@@ -559,7 +572,13 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxBidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
-            serverSession.ConnectStream.Write(new byte[invalidLength]);
+            try
+            {
+                serverSession.ConnectStream.Write(new byte[invalidLength]);
+            } catch (QuicException ex) when (ex.QuicError == QuicError.StreamAborted)
+            {
+                // The client may have already detected the invalid capsule and aborted the stream
+            }
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
