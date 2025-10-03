@@ -508,7 +508,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.AbortedLocally, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
@@ -543,7 +543,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
             // Wait for session to be closed due to invalid capsule
-            SpinWait.SpinUntil(() => session.State == WebTransportSessionState.AbortedLocally, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 

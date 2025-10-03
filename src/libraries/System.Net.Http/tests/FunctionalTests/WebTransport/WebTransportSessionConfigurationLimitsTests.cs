@@ -310,9 +310,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer, TestTimeoutInMilliseconds);
-            SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer, TestTimeoutInMilliseconds);
-            SpinWait.SpinUntil(() => expectedDataSentLimit == session.DataSentLimitProvidedByPeer, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => expectedUnidirectionalStreamCountLimit == session.UnidirectionalStreamCountLimitProvidedByPeer || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => expectedBidirectionalStreamCountLimit == session.BidirectionalStreamCountLimitProvidedByPeer || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => expectedDataSentLimit == session.DataSentLimitProvidedByPeer || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedUnidirectionalStreamCountLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
             Assert.Equal(expectedBidirectionalStreamCountLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
@@ -347,7 +347,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.UnidirectionalStreamCountLimitProvidedByPeer == expectedLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.UnidirectionalStreamCountLimitProvidedByPeer);
 
@@ -378,7 +378,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
 
@@ -409,7 +409,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == expectedLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(expectedLimit, session.DataSentLimitProvidedByPeer);
 
@@ -443,7 +443,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
             // Assert the valid capsule after the unknown one is received
-            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit, TestTimeoutInMilliseconds);
+            SpinWait.SpinUntil(() => session.BidirectionalStreamCountLimitProvidedByPeer == expectedLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
             Assert.Equal(expectedLimit, session.BidirectionalStreamCountLimitProvidedByPeer);
 
             barrier.SignalAndWait();
@@ -455,7 +455,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_unknownCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleValueSize);
-            serverSession.ConnectStream.Write(new byte[capsuleValueSize]);
+            await serverSession.ConnectStream.WriteAsync(new byte[capsuleValueSize]);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
             await serverSession.ConnectStream.FlushAsync();
 
