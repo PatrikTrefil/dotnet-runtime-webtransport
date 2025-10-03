@@ -21,7 +21,7 @@ public abstract class WebTransportTestBase : HttpClientHandlerTestBase
 
     public WebTransportTestBase(ITestOutputHelper output) : base(output)
     {
-        _httpServer = CreateHttp3LoopbackServer();
+        _httpServer = CreateHttp3LoopbackServer(new Http3Options { QuicConnectionIdleTimeout = TimeSpan.FromHours(1) });
         _webTransportServer = new WebTransportLoopbackServer(_httpServer);
         _client = CreateHttpClient();
     }

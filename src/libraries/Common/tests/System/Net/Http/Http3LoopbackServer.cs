@@ -35,6 +35,7 @@ namespace System.Net.Test.Common
                 {
                     var serverOptions = new QuicServerConnectionOptions()
                     {
+                        IdleTimeout = options.QuicConnectionIdleTimeout,
                         DefaultStreamErrorCode = Http3LoopbackConnection.H3_REQUEST_CANCELLED,
                         DefaultCloseErrorCode = Http3LoopbackConnection.H3_NO_ERROR,
                         MaxInboundBidirectionalStreams = options.MaxInboundBidirectionalStreams,
@@ -143,6 +144,7 @@ namespace System.Net.Test.Common
     }
     public class Http3Options : GenericLoopbackOptions
     {
+        public TimeSpan QuicConnectionIdleTimeout { get; set; }
         public int MaxInboundUnidirectionalStreams { get; set; }
 
         public int MaxInboundBidirectionalStreams { get; set; }
