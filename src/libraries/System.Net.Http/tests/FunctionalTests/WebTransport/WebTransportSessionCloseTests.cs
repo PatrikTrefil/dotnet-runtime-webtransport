@@ -847,7 +847,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<InvalidOperationException>(session, null);
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError));
 
             barrier.SignalAndWait();
         });
@@ -865,7 +865,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task InvalidOperationExceptionIsThrownWhenSessionIsClosedDuringAcceptInboundStream(WebTransportStreamType streamType)
+    public async Task ThrowsWhenSessionIsClosedDuringAcceptInboundStream(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
 
@@ -877,7 +877,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             session.Close();
 
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await acceptStreamTask);
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await acceptStreamTask);
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
 
             barrier.SignalAndWait();
         });

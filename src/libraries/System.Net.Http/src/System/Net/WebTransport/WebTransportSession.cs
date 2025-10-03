@@ -184,7 +184,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         switch (state)
         {
             case WebTransportSessionState.ClosedLocally:
-                return new InvalidOperationException("The session was closed locally.");
+                return new WebTransportException(WebTransportError.OperationAborted, "Operation was aborted");
             case WebTransportSessionState.ClosedRemotely:
                 return new WebTransportException(WebTransportError.SessionClosedByPeer, CloseStatusCode, CloseStatusDescription, "The session was closed remotely.");
             case WebTransportSessionState.AbortedLocally:
