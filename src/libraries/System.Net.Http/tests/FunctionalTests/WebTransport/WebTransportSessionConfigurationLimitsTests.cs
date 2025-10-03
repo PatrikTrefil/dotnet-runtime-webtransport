@@ -622,6 +622,4 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
-    // TODO: write tests for subprotocol
-    // TODO: write tests that check that the limits really apply
 }
