@@ -13,7 +13,6 @@ using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write a test that makes gracefulshutdownhandler ignore the goaway and then check if we can do operations
 // TODO: write test for gracefulshutdown that throws
 // TODO: write test for the scenario: client opens a session and then closes it and then server tries to open a stream for the closed session
 // TODO: write test for when a session is closed the session's streams are closed with the correct error code (might already be covered or maybe just needs to modify existing test)
