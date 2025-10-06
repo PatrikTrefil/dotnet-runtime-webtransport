@@ -88,33 +88,31 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         Debug.Assert(_isSettingsValidationDone == true);
 
+        long sessionId = connectStream.Id;
+
         // It's possible that a there are already pending streams for the session we are creating
-        DictionaryItem? dictionaryItem;
+        SessionAndChannels sessionAndChannels;
         bool shouldCallGracefulShutdownHandler = false;
         lock (SyncObjDictionary)
         {
-            if (!_idSessionAndChannelsDict.TryGetValue(connectStream.Id, out dictionaryItem))
+            if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
             {
-                dictionaryItem = new SessionAndChannels();
-                _idSessionAndChannelsDict[connectStream.Id] = dictionaryItem;
+                sessionAndChannels = new SessionAndChannels();
+                _idSessionAndChannelsDict[sessionId] = sessionAndChannels;
                 shouldCallGracefulShutdownHandler = _wasGoAwayReceived;
             }
             else
             {
                 Debug.Assert(dictionaryItem != null);
-                if (dictionaryItem is SessionAndChannels sessionAndChannelsForCheck)
-                {
-                    Debug.Assert(sessionAndChannelsForCheck.Session == null, "Quic streams should have unique IDs per connection");
-                }
+                Debug.Assert(dictionaryItem is SessionAndChannels);
+                sessionAndChannels = (SessionAndChannels)dictionaryItem;
             }
         }
-
-        SessionAndChannels sessionAndChannels = (SessionAndChannels)dictionaryItem;
 
         Debug.Assert(sessionAndChannels.Session == null, "Session object should only be created once per CONNECT stream");
 
         sessionAndChannels.Session = new MsQuicWebTransportSession(
-            connectStream.Id,
+            sessionId,
             this,
             connectStream,
             connectStreamBuffer,
@@ -260,16 +258,17 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         bool wasRemovalSuccessful;
+        long sessionId = connectStream.Id;
         lock (SyncObjDictionary)
         {
-            _idSessionAndChannelsDict.TryGetValue(connectStream.Id, out DictionaryItem? dictionaryItem);
+            _idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem);
             if (dictionaryItem is Tombstone or null)
             {
                 wasRemovalSuccessful = false;
             }
             else
             {
-                _idSessionAndChannelsDict[connectStream.Id] = Tombstone.Instance;
+                _idSessionAndChannelsDict[sessionId] = Tombstone.Instance;
                 wasRemovalSuccessful = true;
             }
         }
@@ -283,7 +282,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
             FinishedUsingConnectStreamCallbackAsync(connectStream);
 
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Removed session with CONNECT stream {connectStream.Id}.");
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Removed session with ID {sessionId}.");
         }
     }
 
