@@ -359,102 +359,101 @@ namespace System.Net.Http
 
             try
             {
+                Exception? exception = null;
+                QuicConnection? conn = _connection;
                 try
                 {
-                    Exception? exception = null;
-                    QuicConnection? conn = _connection;
-                    try
+                    if (conn != null)
                     {
-                        if (conn != null)
+                        // We found a connection in the pool, but it did not have available streams, OpenOutboundStreamAsync() is expected to wait.
+                        if (!waitForConnectionActivity.Started && !streamAvailable)
                         {
-                            // We found a connection in the pool, but it did not have available streams, OpenOutboundStreamAsync() is expected to wait.
-                            if (!waitForConnectionActivity.Started && !streamAvailable)
-                            {
-                                waitForConnectionActivity.Start();
-                            }
+                            waitForConnectionActivity.Start();
+                        }
 
-                            quicStream = await conn.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cancellationToken).ConfigureAwait(false);
+                        quicStream = await conn.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cancellationToken).ConfigureAwait(false);
 
-                            requestStream = new Http3RequestStream(request, this, quicStream);
-                            lock (SyncObj)
+                        requestStream = new Http3RequestStream(request, this, quicStream);
+                        lock (SyncObj)
+                        {
+                            if (_activeRequests.Count == 0)
                             {
-                                if (_activeRequests.Count == 0)
-                                {
-                                    MarkConnectionAsNotIdle();
-                                }
-                                _activeRequests.Add(quicStream, requestStream);
+                                MarkConnectionAsNotIdle();
                             }
+                            _activeRequests.Add(quicStream, requestStream);
                         }
                     }
-                    // Swallow any exceptions caused by the connection being closed locally or even disposed due to a race.
-                    // Since quicStream will stay `null`, the code below will throw appropriate exception to retry the request.
-                    catch (ObjectDisposedException e)
-                    {
-                        exception = e;
-                    }
-                    catch (QuicException e) when (e.QuicError != QuicError.OperationAborted)
-                    {
-                        exception = e;
-                    }
-                    finally
-                    {
-                        waitForConnectionActivity.Stop(request, Pool, exception);
-                    }
-
-                    if (quicStream == null)
-                    {
-                        throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_request_aborted, null, RequestRetryType.RetryOnConnectionFailure);
-                    }
-
-                    requestStream!.StreamId = quicStream.Id;
-
-                    bool goAway;
-                    lock (SyncObj)
-                    {
-                        goAway = _firstRejectedStreamId != -1 && requestStream.StreamId >= _firstRejectedStreamId;
-                    }
-
-                    if (goAway)
-                    {
-                        throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_request_aborted, null, RequestRetryType.RetryOnConnectionFailure);
-                    }
-
-                    waitForConnectionActivity.AssertActivityNotRunning();
-                    if (ConnectionSetupActivity is not null) ConnectionSetupDistributedTracing.AddConnectionLinkToRequestActivity(ConnectionSetupActivity);
-                    if (NetEventSource.Log.IsEnabled()) Trace($"Sending request: {request}");
-
-                    Task<HttpResponseMessage> responseTask = requestStream.SendAsync(cancellationToken);
-
-                    // null out requestStream to avoid disposing in finally block. It is now in charge of disposing itself.
-                    requestStream = null;
-
-                    HttpResponseMessage response = await responseTask.ConfigureAwait(false);
-
-                    if (request.IsExtendedConnectRequest && response.IsSuccessStatusCode)
-                    {
-                        Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
-                        extendedConnectContent.QuicConnection = conn!;
-                        bool success = ProtocolExtendedConnectManagers.TryGetValue(request.Headers.Protocol!, out Http3ExtendedConnectManager? extendedConnectManager);
-                        Debug.Assert(success, "The extended connect manager should have been already created");
-                        Debug.Assert(extendedConnectManager != null, "The extended connect manager should not be null");
-                        extendedConnectContent.ExtendedConnectManager = extendedConnectManager!;
-                        Debug.Assert(extendedConnectContent.ConnectStream != null, "The connect stream should have already been set");
-                        Debug.Assert(extendedConnectContent.ConnectStreamBuffer != null, "The connect stream buffer should have already been set");
-                    }
-
-                    return response;
                 }
-                catch (Exception)
+                // Swallow any exceptions caused by the connection being closed locally or even disposed due to a race.
+                // Since quicStream will stay `null`, the code below will throw appropriate exception to retry the request.
+                catch (ObjectDisposedException e)
                 {
-                    extendedconnectManager?.AfterFailedExtendedConnectRequest(quicStream);
-                    throw;
+                    exception = e;
                 }
+                catch (QuicException e) when (e.QuicError != QuicError.OperationAborted)
+                {
+                    exception = e;
+                }
+                finally
+                {
+                    waitForConnectionActivity.Stop(request, Pool, exception);
+                }
+
+                if (quicStream == null)
+                {
+                    throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_request_aborted, null, RequestRetryType.RetryOnConnectionFailure);
+                }
+
+                requestStream!.StreamId = quicStream.Id;
+
+                bool goAway;
+                lock (SyncObj)
+                {
+                    goAway = _firstRejectedStreamId != -1 && requestStream.StreamId >= _firstRejectedStreamId;
+                }
+
+                if (goAway)
+                {
+                    throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_request_aborted, null, RequestRetryType.RetryOnConnectionFailure);
+                }
+
+                waitForConnectionActivity.AssertActivityNotRunning();
+                if (ConnectionSetupActivity is not null) ConnectionSetupDistributedTracing.AddConnectionLinkToRequestActivity(ConnectionSetupActivity);
+                if (NetEventSource.Log.IsEnabled()) Trace($"Sending request: {request}");
+
+                Task<HttpResponseMessage> responseTask = requestStream.SendAsync(cancellationToken);
+
+                // null out requestStream to avoid disposing in finally block. It is now in charge of disposing itself.
+                requestStream = null;
+
+                HttpResponseMessage response = await responseTask.ConfigureAwait(false);
+
+                if (request.IsExtendedConnectRequest && response.IsSuccessStatusCode)
+                {
+                    Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
+                    extendedConnectContent.QuicConnection = conn!;
+                    bool success = ProtocolExtendedConnectManagers.TryGetValue(request.Headers.Protocol!, out Http3ExtendedConnectManager? extendedConnectManager);
+                    Debug.Assert(success, "The extended connect manager should have been already created");
+                    Debug.Assert(extendedConnectManager != null, "The extended connect manager should not be null");
+                    extendedConnectContent.ExtendedConnectManager = extendedConnectManager!;
+                    Debug.Assert(extendedConnectContent.ConnectStream != null, "The connect stream should have already been set");
+                    Debug.Assert(extendedConnectContent.ConnectStreamBuffer != null, "The connect stream buffer should have already been set");
+                }
+
+                return response;
             }
-            catch (QuicException ex) when (ex.QuicError == QuicError.OperationAborted)
+            catch (Exception ex)
             {
-                // This will happen if we aborted _connection somewhere and we have pending OpenOutboundStreamAsync call.
-                // note that _abortException may be null if we closed the connection in response to a GOAWAY frame
-                throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_client_execution_error, _abortException, RequestRetryType.RetryOnConnectionFailure);
+                extendedconnectManager?.AfterFailedExtendedConnectRequest(quicStream);
+
+                if (ex is QuicException qex && qex.QuicError == QuicError.OperationAborted)
+                {
+                    // This will happen if we aborted _connection somewhere and we have pending OpenOutboundStreamAsync call.
+                    // note that _abortException may be null if we closed the connection in response to a GOAWAY frame
+                    throw new HttpRequestException(HttpRequestError.Unknown, SR.net_http_client_execution_error, _abortException, RequestRetryType.RetryOnConnectionFailure);
+                }
+
+                throw;
             }
             finally
             {
