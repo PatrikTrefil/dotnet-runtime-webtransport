@@ -78,9 +78,9 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
 
             barrier.SignalAndWait();
         });

@@ -177,7 +177,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.CloseAsync(applicationErrorCode, applicationErrorMessage));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("closeStatus", () => session.CloseAsync(applicationErrorCode, applicationErrorMessage));
 
             barrier.SignalAndWait();
         });
