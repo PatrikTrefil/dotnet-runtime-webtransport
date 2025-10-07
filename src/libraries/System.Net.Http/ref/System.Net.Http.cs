@@ -947,7 +947,7 @@ namespace System.Net.Http.Metrics
 
 namespace System.Net.WebTransport
 {
-    public abstract partial class WebTransportStream : System.IO.Stream, IDisposable
+    public abstract partial class WebTransportStream : System.IO.Stream
     {
         protected internal WebTransportStream() { }
         public abstract long StreamId { get; }
