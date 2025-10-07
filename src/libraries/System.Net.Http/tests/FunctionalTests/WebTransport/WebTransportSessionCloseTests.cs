@@ -258,10 +258,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
@@ -281,10 +281,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             serverSession.ConnectStream.CompleteWrites();
 
@@ -306,10 +306,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
@@ -329,10 +329,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             serverSession.ConnectStream.Abort(abortDirection, 0);
 
@@ -352,10 +352,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
@@ -375,10 +375,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
@@ -433,10 +433,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
 
-            using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
-            using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
+            await using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            await using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
@@ -456,10 +456,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             WriteDrainCapsule(serverSession.ConnectStream);
 
@@ -539,11 +539,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await wasHandlerCalledSemaphore.WaitAsync();
 
-            using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             int receivedByteInboudStream = await inboundStream.ReadByteAsync();
 
-            using QuicStream outboundStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             outboundStream.WriteByte(expectedByte);
 
@@ -604,15 +604,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await wasHandlerCalledSemaphore.WaitAsync();
 
-            using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             int receivedByteInboudStream = await inboundStream.ReadByteAsync();
 
-            using QuicStream outboundStream1 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundStream1 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             outboundStream1.WriteByte(expectedByte);
 
-            using QuicStream outboundStream2 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream outboundStream2 = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             outboundStream2.WriteByte(expectedByte);
 
