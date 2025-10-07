@@ -12,26 +12,35 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 {
-    public const string s_protocolPseudoHeaderValue = "webtransport";
+    private const string s_protocolPseudoHeaderValue = "webtransport";
+    private const long s_defaultMaxSessionCount = VariableLengthIntegerHelper.MaxValue; // No limit by default
     private readonly Http3LoopbackServer _httpServer;
     private bool _disposedValue;
     private List<WebTransportServerSession> _sessions = new List<WebTransportServerSession>();
+    private readonly long _maxSessionCount;
 
     public Uri Address => _httpServer.Address;
 
-    public WebTransportLoopbackServer(Http3LoopbackServer httpServer)
+    public WebTransportLoopbackServer(Http3LoopbackServer httpServer, long maxSessionCount = s_defaultMaxSessionCount)
     {
         ArgumentNullException.ThrowIfNull(httpServer);
 
         _httpServer = httpServer;
+        _maxSessionCount = maxSessionCount;
     }
 
     public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync(string? subprotocolToRespondWith = null)
     {
         Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
-            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = _maxSessionCount }
             );
+
+        return await CreateWebTransportServerSessionAsync(connection, subprotocolToRespondWith);
+    }
+
+    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync(Http3LoopbackConnection connection, string? subprotocolToRespondWith = null)
+    {
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
         QuicStream controlStream = connection.CurrentStream.Stream;
         bool isValidOpeningHandshake = httpRequestData.Method == HttpMethod.Connect.ToString() && httpRequestData.GetSingleHeaderValue(":protocol") == s_protocolPseudoHeaderValue;
