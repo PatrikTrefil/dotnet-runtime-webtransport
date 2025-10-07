@@ -44,6 +44,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         VariableLengthIntegerHelper.MaxValue + 1,
     };
 
+    private static void WriteDrainCapsule(Stream stream)
+    {
+        VariableLengthIntegerStreamHelper.Write(stream, s_drainSessionCapsuleCode);
+        VariableLengthIntegerStreamHelper.Write(stream, 0);
+    }
+
     private static TheoryData<byte[], long> CreateCloseParameters()
     {
         TheoryData<byte[], long> data = new();
@@ -455,8 +461,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+            WriteDrainCapsule(serverSession.ConnectStream);
 
             barrier.SignalAndWait();
         });
@@ -487,8 +492,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+            WriteDrainCapsule(serverSession.ConnectStream);
 
             barrier.SignalAndWait();
         });
@@ -531,8 +535,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, 0);
+            WriteDrainCapsule(serverSession.ConnectStream);
 
             await wasHandlerCalledSemaphore.WaitAsync();
 
