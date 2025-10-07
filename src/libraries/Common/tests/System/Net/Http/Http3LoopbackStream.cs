@@ -53,7 +53,7 @@ namespace System.Net.Test.Common
         public async Task SendUnidirectionalStreamTypeAsync(long streamType)
         {
             var buffer = new byte[MaximumVarIntBytes];
-            int bytesWritten = EncodeHttpInteger(streamType, buffer);
+            int bytesWritten = VariableLengthIntegerHelper.EncodeVariableLengthInteger(streamType, buffer);
             await Stream.WriteAsync(buffer.AsMemory(0, bytesWritten)).ConfigureAwait(false);
         }
 
@@ -65,8 +65,8 @@ namespace System.Net.Test.Common
 
             foreach (Http3SettingsEntry setting in settingsEntries)
             {
-                bytesWritten += EncodeHttpInteger((long)setting.SettingId, buffer.AsSpan(bytesWritten));
-                bytesWritten += EncodeHttpInteger(setting.Value, buffer.AsSpan(bytesWritten));
+                bytesWritten += VariableLengthIntegerHelper.EncodeVariableLengthInteger((long)setting.SettingId, buffer.AsSpan(bytesWritten));
+                bytesWritten += VariableLengthIntegerHelper.EncodeVariableLengthInteger(setting.Value, buffer.AsSpan(bytesWritten));
             }
 
             await SendFrameAsync(SettingsFrame, buffer.AsMemory(0, bytesWritten)).ConfigureAwait(false);
@@ -143,7 +143,7 @@ namespace System.Net.Test.Common
             var buffer = new byte[QPackTestEncoder.MaxVarIntLength];
             int bytesWritten = 0;
 
-            bytesWritten += EncodeHttpInteger(firstInvalidStreamId, buffer);
+            bytesWritten += VariableLengthIntegerHelper.EncodeVariableLengthInteger(firstInvalidStreamId, buffer);
             await SendFrameAsync(GoAwayFrame, buffer.AsMemory(0, bytesWritten)).ConfigureAwait(false);
         }
 
@@ -153,8 +153,8 @@ namespace System.Net.Test.Common
 
             int bytesWritten = 0;
 
-            bytesWritten += EncodeHttpInteger(frameType, buffer.AsSpan(bytesWritten));
-            bytesWritten += EncodeHttpInteger(payloadLength, buffer.AsSpan(bytesWritten));
+            bytesWritten += VariableLengthIntegerHelper.EncodeVariableLengthInteger(frameType, buffer.AsSpan(bytesWritten));
+            bytesWritten += VariableLengthIntegerHelper.EncodeVariableLengthInteger(payloadLength, buffer.AsSpan(bytesWritten));
 
             await Stream.WriteAsync(buffer.AsMemory(0, bytesWritten)).ConfigureAwait(false);
         }
@@ -163,37 +163,6 @@ namespace System.Net.Test.Common
         {
             await SendFrameHeaderAsync(frameType, framePayload.Length).ConfigureAwait(false);
             await Stream.WriteAsync(framePayload).ConfigureAwait(false);
-        }
-
-        static int EncodeHttpInteger(long longToEncode, Span<byte> buffer)
-        {
-            Debug.Assert(longToEncode >= 0);
-            Debug.Assert(longToEncode <= VarIntMax);
-
-            const uint OneByteLimit = (1U << 6) - 1;
-            const uint TwoByteLimit = (1U << 14) - 1;
-            const uint FourByteLimit = (1U << 30) - 1;
-
-            if (longToEncode < OneByteLimit)
-            {
-                buffer[0] = (byte)longToEncode;
-                return 1;
-            }
-            else if (longToEncode < TwoByteLimit)
-            {
-                BinaryPrimitives.WriteUInt16BigEndian(buffer, (ushort)((uint)longToEncode | 0x4000u));
-                return 2;
-            }
-            else if (longToEncode < FourByteLimit)
-            {
-                BinaryPrimitives.WriteUInt32BigEndian(buffer, (uint)longToEncode | 0x80000000);
-                return 4;
-            }
-            else
-            {
-                BinaryPrimitives.WriteUInt64BigEndian(buffer, (ulong)longToEncode | 0xC000000000000000);
-                return 8;
-            }
         }
 
         public async Task<byte[]> ReadRequestBodyAsync(int minimumBytes = -1)
@@ -306,14 +275,14 @@ namespace System.Net.Test.Common
 
             while (settingsPayload.Length != 0)
             {
-                if (!TryDecodeHttpInteger(settingsPayload, out long settingId, out int bytesRead))
+                if (!VariableLengthIntegerHelper.TryDecodeVariableLengthInteger(settingsPayload, out long settingId, out int bytesRead))
                 {
                     throw new Exception("Unable to read setting ID; unexpected end of payload.");
                 }
 
                 settingsPayload = settingsPayload.Slice(bytesRead);
 
-                if (!TryDecodeHttpInteger(settingsPayload, out long settingValue, out bytesRead))
+                if (!VariableLengthIntegerHelper.TryDecodeVariableLengthInteger(settingsPayload, out long settingValue, out bytesRead))
                 {
                     throw new Exception($"Unable to read value for setting 0x{settingId:x}; unexpected end of payload.");
                 }
@@ -467,68 +436,11 @@ namespace System.Net.Test.Common
                 }
                 Debug.Assert(bytesRead == 1);
             }
-            while (!TryDecodeHttpInteger(buffer.AsSpan(0, bufferActiveLength), out integerValue, out bytesRead));
+            while (!VariableLengthIntegerHelper.TryDecodeVariableLengthInteger(buffer.AsSpan(0, bufferActiveLength), out integerValue, out bytesRead));
 
             Debug.Assert(bytesRead == bufferActiveLength);
 
             return integerValue;
-        }
-
-        static bool TryDecodeHttpInteger(ReadOnlySpan<byte> buffer, out long value, out int bytesRead)
-        {
-            const byte LengthMask = 0xC0;
-            const byte LengthOneByte = 0x00;
-            const byte LengthTwoByte = 0x40;
-            const byte LengthFourByte = 0x80;
-            const byte LengthEightByte = 0xC0;
-
-            const uint TwoByteSubtract = 0x4000;
-            const uint FourByteSubtract = 0x80000000;
-            const ulong EightByteSubtract = 0xC000000000000000;
-
-            if (buffer.Length != 0)
-            {
-                byte firstByte = buffer[0];
-
-                switch (firstByte & LengthMask)
-                {
-                    case LengthOneByte:
-                        value = firstByte;
-                        bytesRead = 1;
-                        return true;
-                    case LengthTwoByte:
-                        if (BinaryPrimitives.TryReadUInt16BigEndian(buffer, out ushort serializedShort))
-                        {
-                            value = serializedShort - TwoByteSubtract;
-                            bytesRead = 2;
-                            return true;
-                        }
-                        break;
-                    case LengthFourByte:
-                        if (BinaryPrimitives.TryReadUInt32BigEndian(buffer, out uint serializedInt))
-                        {
-                            value = serializedInt - FourByteSubtract;
-                            bytesRead = 4;
-                            return true;
-                        }
-                        break;
-                    default: // LengthEightByte
-                        Debug.Assert((firstByte & LengthMask) == LengthEightByte);
-                        if (BinaryPrimitives.TryReadUInt64BigEndian(buffer, out ulong serializedLong))
-                        {
-                            value = (long)(serializedLong - EightByteSubtract);
-                            Debug.Assert(value >= 0 && value <= VarIntMax, "Serialized values are within [0, 2^62).");
-
-                            bytesRead = 8;
-                            return true;
-                        }
-                        break;
-                }
-            }
-
-            value = 0;
-            bytesRead = 0;
-            return false;
         }
     }
 
