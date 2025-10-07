@@ -10,6 +10,7 @@ using System.Threading;
 using System.Net.Quic;
 using System.Numerics;
 using System.IO;
+using System.Net.Test.Common;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -38,12 +39,9 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
     public static readonly TheoryData<byte[], long> s_closeParameters = CreateCloseParameters();
 
-    private static readonly long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
-    private const long s_minValidVariableLengthIntegerValue = 0;
-
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = new TheoryData<long> {
-        s_minValidVariableLengthIntegerValue - 1,
-        s_maxValidVariableLengthIntegerValue + 1,
+        VariableLengthIntegerHelper.MinValue - 1,
+        VariableLengthIntegerHelper.MaxValue + 1,
     };
 
     private static TheoryData<byte[], long> CreateCloseParameters()

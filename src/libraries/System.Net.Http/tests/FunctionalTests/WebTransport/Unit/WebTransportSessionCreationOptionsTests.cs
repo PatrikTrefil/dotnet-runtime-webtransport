@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Linq;
-using System.Numerics;
+using System.Net.Test.Common;
 using Xunit;
 
 namespace System.Net.WebTransport.Unit.Tests;
@@ -10,11 +10,8 @@ namespace System.Net.WebTransport.Unit.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 {
-    private static readonly long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
-    private const long s_minValidVariableLengthIntegerValue = 0;
-
-    public static readonly TheoryData<long> s_validVariableLengthIntegers = [s_minValidVariableLengthIntegerValue, s_maxValidVariableLengthIntegerValue];
-    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
+    public static readonly TheoryData<long> s_validVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue, VariableLengthIntegerHelper.MaxValue];
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
 
     private const char nonasciiChar = (char)129;
 

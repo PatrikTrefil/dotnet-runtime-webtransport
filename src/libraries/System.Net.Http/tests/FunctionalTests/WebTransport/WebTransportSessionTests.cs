@@ -1,7 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Numerics;
+using System.Net.Test.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -16,10 +16,8 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
 {
-    private static long s_maxValidVariableLengthIntegerValue = (long)BigInteger.Pow(2, 62) - 1;
-    private const long s_minValidVariableLengthIntegerValue = 0;
 
-    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [s_minValidVariableLengthIntegerValue - 1, s_maxValidVariableLengthIntegerValue + 1];
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
 
     public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
         (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
