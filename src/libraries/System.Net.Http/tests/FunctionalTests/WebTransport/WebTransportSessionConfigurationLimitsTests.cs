@@ -74,7 +74,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -108,7 +108,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -142,7 +142,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
@@ -185,7 +185,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -210,7 +210,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -235,7 +235,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         });
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -253,7 +253,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             // Unidirectional Stream Count Limit Capsule
             var (capsuleCode1, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
@@ -324,7 +324,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
@@ -357,7 +357,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -388,7 +388,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -419,7 +419,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
 
@@ -452,7 +452,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_unknownCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleValueSize);
@@ -487,7 +487,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxDataCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
@@ -528,7 +528,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxUnidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
@@ -568,7 +568,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxBidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
@@ -615,7 +615,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });

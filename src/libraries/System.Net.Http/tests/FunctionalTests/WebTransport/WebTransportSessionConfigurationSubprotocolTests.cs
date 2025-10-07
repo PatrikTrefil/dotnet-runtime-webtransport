@@ -44,7 +44,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(expectedSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(expectedSubprotocol);
 
             barrier.SignalAndWait();
         });
@@ -73,7 +73,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -102,7 +102,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(s_notOfferedSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(s_notOfferedSubprotocol);
 
             barrier.SignalAndWait();
         });
@@ -132,7 +132,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(s_invalidSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(s_invalidSubprotocol);
 
             barrier.SignalAndWait();
         });

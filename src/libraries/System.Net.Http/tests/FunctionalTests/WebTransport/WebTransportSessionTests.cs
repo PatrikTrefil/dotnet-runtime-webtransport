@@ -39,7 +39,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
     {
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -56,7 +56,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
     {
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -87,7 +87,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -116,7 +116,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });

@@ -29,7 +29,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
         _maxSessionCount = maxSessionCount;
     }
 
-    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync(string? subprotocolToRespondWith = null)
+    public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(string? subprotocolToRespondWith = null)
     {
         Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
