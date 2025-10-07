@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
+// TODO: document the behavior in conceptual docs - same as table in https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-overview#platform-dependencies
+
 /// <summary>
 /// Represents a WebTransport stream.
 /// </summary>
@@ -18,11 +20,14 @@ namespace System.Net.WebTransport;
 public abstract class WebTransportStream : Stream
 {
     /// <summary>
-    /// The stream ID of this stream.
-    /// It is a 62-bit unsigned integer.
+    /// The identifier of this stream.
     /// </summary>
+    /// <value>It is a 62-bit unsigned integer.</value>
     public abstract long StreamId { get; }
 
+    /// <summary>
+    /// Gets the stream type.
+    /// </summary>
     public WebTransportStreamType Type { get; }
 
     protected internal WebTransportStream(WebTransportStreamType type)
@@ -161,8 +166,18 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     public override bool CanWrite => !_isDisposed && _quicStream.CanWrite;
 
+    /// <summary>
+    /// Gets the length of the data available on the stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <value>A long value representing the length of the stream in bytes.</value>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Length => throw new NotSupportedException();
 
+    /// <summary>
+    /// Gets or sets the position within the current stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <value>The current position within the stream.</value>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Position
     {
         get => throw new NotSupportedException();
@@ -245,8 +260,20 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <summary>
+    /// Sets the current position of the stream to the given value. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <param name="offset">A byte offset relative to the <paramref name="origin"/> parameter.</param>
+    /// <param name="origin">A value of type <see cref="SeekOrigin"/> indicating the reference point used to obtain the new position.</param>
+    /// <returns>The new position within the current stream.</returns>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
+    /// <summary>
+    /// Sets the length of the stream. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <param name="value">The desired length of the current stream in bytes.</param>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
     public override void Write(byte[] buffer, int offset, int count)
