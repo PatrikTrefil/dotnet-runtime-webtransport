@@ -250,6 +250,8 @@
              Link="ProductionCode\Common\System\Net\Http\Http3SettingsEntry.cs" />
     <Compile Include="$(CommonTestPath)System\Net\Http\Http3SettingType.cs"
              Link="ProductionCode\Common\System\Net\Http\Http3SettingsType.cs" />
+    <Compile Include="$(CommonTestPath)System\Net\Http\Http3ErrorCode.cs"
+             Link="ProductionCode\Common\System\Net\Http\Http3ErrorCode.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">

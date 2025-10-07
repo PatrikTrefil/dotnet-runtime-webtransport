@@ -8,13 +8,12 @@ using System.Buffers.Binary;
 using System.Text;
 using System.Threading;
 using System.Net.Quic;
-using System.Numerics;
 using System.IO;
+using System.Collections.Generic;
 using System.Net.Test.Common;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test for gracefulshutdown that throws
 // TODO: write test for the scenario: client opens a session and then closes it and then server tries to open a stream for the closed session
 // TODO: write test for when a session is closed the session's streams are closed with the correct error code (might already be covered or maybe just needs to modify existing test)
 // TODO: write test for opening more streams than can be pending
@@ -720,6 +719,134 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
             Assert.Equal(-1, serverSession.ConnectStream.ReadByte()); // assert the reading side is closed
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task SessionIsClosedIfDefaultShutdownHandlerThrowsWhenGoawayIsReceived()
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => Task.CompletedTask });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { throw new Exception(); } }
+                );
+
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
+            Assert.Null(session.CloseStatusDescription);
+            Assert.Null(session.CloseStatusCode);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession backgroundSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection);
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
+
+            QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            List<QuicException> exceptions = new();
+            exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.WritesClosed));
+
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.WritesClosed));
+
+
+            foreach (QuicException ex in exceptions)
+            {
+                Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+                Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, ex.ApplicationErrorCode);
+            }
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task SessionIsClosedIfDefaultShutdownHandlerThrowsWhenDrainIsReceived()
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => Task.CompletedTask });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
+                _webTransportServer.Address,
+                _client,
+                new WebTransportSessionCreationOptions { GracefulShutdownHandler = (_) => { throw new Exception(); } }
+                );
+
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
+            Assert.Null(session.CloseStatusDescription);
+            Assert.Null(session.CloseStatusCode);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession backgroundSession = await _webTransportServer.CreateWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection);
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            WriteDrainCapsule(serverSession.ConnectStream);
+
+            QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            List<QuicException> exceptions = new();
+            exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.WritesClosed));
+
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.WritesClosed));
+
+
+            foreach (QuicException ex in exceptions)
+            {
+                Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+                Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, ex.ApplicationErrorCode);
+            }
 
             barrier.SignalAndWait();
         });
