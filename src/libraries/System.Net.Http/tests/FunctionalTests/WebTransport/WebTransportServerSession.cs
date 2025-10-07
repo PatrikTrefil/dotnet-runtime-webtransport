@@ -22,15 +22,20 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync() => await ConnectStream.DisposeAsync();
 
-    public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType streamType)
+    /// <summary>
+    /// Accept the next incoming stream from the underlying QUIC connection and assert that it is a WebTransport stream of the expected type for addressed to this instance of <see cref="WebTransportServerSession"/>.
+    /// </summary>
+    /// <remarks>The implementation is not thread-safe.</remarks>
+    /// <param name="expectedStreamTypeOfIncomingStream">The expected stream type.</param>
+    public async Task<QuicStream> AcceptStreamFromServerAsync(WebTransportStreamType expectedStreamTypeOfIncomingStream)
     {
         QuicStream clientInitatedStream = await Connection.AcceptQuicStreamAsync();
 
-        byte[] expectedStreamTypeOrSignalValueValue = streamType switch
+        byte[] expectedStreamTypeOrSignalValueValue = expectedStreamTypeOfIncomingStream switch
         {
             WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
             WebTransportStreamType.Bidirectional => s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger,
-            _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
+            _ => throw new ArgumentException("Unknown stream type", nameof(expectedStreamTypeOfIncomingStream))
         };
 
         byte[] receivedStreamTypeOrSignalValue = new byte[expectedStreamTypeOrSignalValueValue.Length];
