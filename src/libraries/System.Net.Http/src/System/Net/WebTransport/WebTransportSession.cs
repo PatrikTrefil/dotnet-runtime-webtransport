@@ -19,6 +19,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _utf8Encoding = Encoding.UTF8;
     private bool _isDisposed;
+    protected readonly Func<Task> gracefulShutdownHandler;
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
@@ -31,10 +32,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         Id = id;
 
         SubProtocol = subProtocol;
-        GracefulShutdownHandler = () => gracefulShutdownHandler(this);
+        this.gracefulShutdownHandler = () => gracefulShutdownHandler(this);
     }
-
-    internal Func<Task> GracefulShutdownHandler { get; }
 
     /// <summary>
     /// The identifier of the session.
@@ -275,18 +274,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     protected abstract Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// This method should be called when peer initiates session drain operation.
-    /// </summary>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.6.1"/>
-    internal void ReceiveDrain()
-    {
-        if (State == WebTransportSessionState.Open)
-        {
-            GracefulShutdownHandler();
-        }
-    }
 
     /// <summary>
     /// This method should be called when peer initiates session close operation.

@@ -27,7 +27,7 @@ internal abstract class Capsule
     /// Processes the capsule received from the peer.
     /// </summary>
     /// <param name="session">WebTransport session which received the session.</param>
-    public abstract void ProcessReceived(WebTransportSession session);
+    public abstract void ProcessReceived(MsQuicWebTransportSession session);
 
     /// <summary>
     ///  Serializes the capsule to the provided <paramref name="buffer"/>.
@@ -61,7 +61,7 @@ internal sealed class CloseSessionCapsule : Capsule
         ApplicationErrorCode = applicationErrorCode;
         ApplicationErrorMessage = applicationErrorMessage;
     }
-    public override void ProcessReceived(WebTransportSession session)
+    public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         string applicationErrorMessageString = _encoding.GetString(ApplicationErrorMessage.Span);
         session.ReceiveClose(ApplicationErrorCode, applicationErrorMessageString);
@@ -131,7 +131,7 @@ internal sealed class DrainSessionCapsule : Capsule
 
     private DrainSessionCapsule() { }
 
-    public override void ProcessReceived(WebTransportSession session)
+    public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         session.ReceiveDrain();
     }
@@ -178,7 +178,7 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
         MaxBidirectionalStreams = maxBidirectionalStreams;
     }
 
-    public override void ProcessReceived(WebTransportSession session)
+    public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
     }
@@ -231,7 +231,7 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
         MaxUnidirectionalStreams = maxUnidirectionalStreams;
     }
 
-    public override void ProcessReceived(WebTransportSession session)
+    public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
     }
@@ -288,7 +288,7 @@ internal sealed class MaxDataCapsule : Capsule
         MaxData = maxData;
     }
 
-    public override void ProcessReceived(WebTransportSession session)
+    public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         session.DataSentLimitProvidedByPeer = MaxData;
     }

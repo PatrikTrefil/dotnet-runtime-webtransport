@@ -52,16 +52,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                         {
                             if (sessionAndChannels.Session != null)
                             {
-                                try
-                                {
-                                    await sessionAndChannels.Session.GracefulShutdownHandler.Invoke().ConfigureAwait(false);
-                                }
-                                catch (Exception e)
-                                {
-                                    if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
-
-                                    sessionAndChannels.Session.CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
-                                }
+                                await sessionAndChannels.Session.GracefulShutdown().ConfigureAwait(false);
                             }
                         }),
                     Tombstone => Task.CompletedTask,
@@ -130,7 +121,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         if (shouldCallGracefulShutdownHandler)
         {
-            _ = sessionAndChannels.Session.GracefulShutdownHandler();
+            _ = sessionAndChannels.Session.GracefulShutdown();
         }
 
         return sessionAndChannels.Session;
@@ -179,6 +170,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             if (dictionaryItem is Tombstone)
             {
                 stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+                stream.Dispose();
                 return;
             }
 
@@ -191,11 +183,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
             };
 
-            bool wasWriteSuccessful = channelForStreamType.Writer.TryWrite((buffer, stream));
-            if (!wasWriteSuccessful)
+            bool isChannelClosed = channelForStreamType.Writer.TryWrite((buffer, stream));
+            if (!isChannelClosed) // session is in the process of closing
             {
-                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
-                FinishedUsingConnectStreamCallbackAsync(stream);
+                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+                stream.Dispose();
             }
         }
     }
@@ -286,6 +278,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
+    // TODO: rename to ReserveSession
     public override void BeforeExtendedConnectRequest()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -328,7 +321,20 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         private const int s_maxPendingUnidirectionalStreams = 10;
         private const int s_maxPendingBidirectionalStreams = 10;
         public MsQuicWebTransportSession? Session { get; set; }
-        public Channel<ChannelItem> PendingUnidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(s_maxPendingUnidirectionalStreams);
-        public Channel<ChannelItem> PendingBidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(s_maxPendingBidirectionalStreams);
+        public Channel<ChannelItem> PendingUnidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(
+            new BoundedChannelOptions(s_maxPendingUnidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
+            ItemDropped
+            );
+        public Channel<ChannelItem> PendingBidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(
+            new BoundedChannelOptions(s_maxPendingBidirectionalStreams) {  FullMode = BoundedChannelFullMode.DropNewest },
+            ItemDropped
+            );
+
+        private static void ItemDropped(ChannelItem channelItem)
+        {
+            QuicStream stream = channelItem.QuicStream;
+            stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
+            stream.Dispose();
+        }
     }
 }

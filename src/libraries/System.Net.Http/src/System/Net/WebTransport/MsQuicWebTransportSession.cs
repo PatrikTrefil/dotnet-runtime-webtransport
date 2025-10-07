@@ -147,7 +147,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             if (State == WebTransportSessionState.Open)
             {
                 MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.AbortedRemotely, null, null);
-                CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
+                CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
             }
         }
     }
@@ -198,7 +198,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                         Debug.Fail("Unexpected exception from capsule processing.");
                     }
 
-                    CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
+                    CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
                 }
             }
         }
@@ -503,7 +503,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.ClosedLocally, null, null);
         }
 
-        CloseOpenStreams(Http3ErrorCode.WebtransportSessionGone);
+        CloseOpenStreamsAndCleanUpPendingChannels(Http3ErrorCode.WebtransportSessionGone);
         CloseSessionBySendingFinOnConnectStream();
     }
 
@@ -561,6 +561,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
+
     internal override void ReceiveClose(uint closeStatus, string statusDescription)
     {
         lock (SyncObj)
@@ -572,7 +573,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.ClosedRemotely, closeStatus, statusDescription);
         }
 
-        CloseOpenStreamsAndConnectStream(Http3ErrorCode.WebtransportSessionGone);
+        CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
     }
 
     private void CapsuleSenderExceptionHandler(Exception ex)
@@ -601,15 +602,55 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    internal void CloseOpenStreamsAndConnectStream(Http3ErrorCode httpErrorCode)
+    /// <summary>
+    /// Call when GOAWAY or DRAIN_WEBTRANSPORT_SESSION has been received.
+    /// </summary>
+    /// <remarks>Does not throw.</remarks>
+    internal async Task GracefulShutdown()
     {
-        CloseOpenStreams(httpErrorCode);
+        try
+        {
+            await gracefulShutdownHandler().ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
+
+            lock (SyncObj)
+            {
+                if (State == WebTransportSessionState.Open)
+                {
+                    MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.AbortedLocally, null, null);
+                }
+            }
+
+            CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
+        }
+    }
+
+    /// <summary>
+    /// This method should be called when peer initiates session drain operation.
+    /// </summary>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.6.1"/>
+    internal void ReceiveDrain()
+    {
+        if (State == WebTransportSessionState.Open)
+        {
+            _ = GracefulShutdown();
+        }
+    }
+
+    internal void CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode httpErrorCode)
+    {
+        CloseOpenStreamsAndCleanUpPendingChannels(httpErrorCode);
 
         _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
     }
 
-    private void CloseOpenStreams(Http3ErrorCode httpErrorCode)
+    private void CloseOpenStreamsAndCleanUpPendingChannels(Http3ErrorCode httpErrorCode)
     {
+        CloseAndDisposePendingStreams(httpErrorCode);
+
         lock (SyncObj)
         {
             foreach (MsQuicWebTransportStream item in _openStreams)
@@ -618,6 +659,24 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
 
             _openStreams = [];
+        }
+    }
+
+    private void CloseAndDisposePendingStreams(Http3ErrorCode httpErrorCode)
+    {
+        CloseAndDisposeAllStreamsInChannel(_pendingUnidirectionalStreams, httpErrorCode);
+        CloseAndDisposeAllStreamsInChannel(_pendingBidirectionalStreams, httpErrorCode);
+    }
+
+    private static void CloseAndDisposeAllStreamsInChannel(Channel<ChannelItem>? channel, Http3ErrorCode httpErrorCode)
+    {
+        Debug.Assert(!(channel?.Writer.TryComplete() ?? false));
+
+        while (channel?.Reader.TryRead(out ChannelItem item) ?? false)
+        {
+            item.ArrayBuffer.Dispose();
+            item.QuicStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+            item.QuicStream.Dispose();
         }
     }
 
@@ -642,6 +701,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     _openStreams = [];
                 }
 
+                _connectStream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+
                 List<Task> closeOpenWtStreamsTasks = new();
                 foreach (WebTransportStream wtStream in openStreams)
                 {
@@ -649,12 +710,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
                 await Task.WhenAll(closeOpenWtStreamsTasks).ConfigureAwait(false); // these tasks should always succeed - DisposeAsync never throws
 
-                _connectStream.Abort(QuicAbortDirection.Both, 0);
+                CloseAndDisposeAllStreamsInChannel(_pendingUnidirectionalStreams, Http3ErrorCode.WebtransportSessionGone);
+                CloseAndDisposeAllStreamsInChannel(_pendingBidirectionalStreams, Http3ErrorCode.WebtransportSessionGone);
+
+                _pendingUnidirectionalStreams = null;
+                _pendingBidirectionalStreams = null;
 
                 _capsuleConsumer.Dispose();
-
-                _pendingBidirectionalStreams = null;
-                _pendingUnidirectionalStreams = null;
 
                 _connectionManager.FinishedUsingConnectStream(_connectStream);
             }

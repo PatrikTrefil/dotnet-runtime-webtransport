@@ -14,12 +14,12 @@ internal sealed class CapsuleConsumer : IDisposable
 {
     private bool _isDisposed;
     private readonly Stream _capsuleStream;
-    private readonly WebTransportSession _session;
+    private readonly MsQuicWebTransportSession _session;
     // Don't make the _buffer readonly - mutable struct
     private ArrayBuffer _buffer;
     private const int s_maxCapsuleSize = 10_000; // Maximum possible capsule size of known capsule types in bytes
 
-    public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  WebTransportSession session)
+    public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  MsQuicWebTransportSession session)
     {
         ArgumentNullException.ThrowIfNull(capsuleStream);
         ArgumentNullException.ThrowIfNull(session);
