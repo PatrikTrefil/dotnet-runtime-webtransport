@@ -8,6 +8,7 @@ using Xunit;
 using Xunit.Abstractions;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -172,6 +173,45 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningTooManyStreamsFromServerWithoutAcceptanceResultsInNewStreamsBeingRejected(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+
+            (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
+
+            QuicException writesClosedEx = await Assert.ThrowsAsync<QuicException>(() => rejectedStream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, writesClosedEx.QuicError);
+            Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, writesClosedEx.ApplicationErrorCode);
+
+            if (streamType == WebTransportStreamType.Bidirectional)
+            {
+                QuicException readsClosedEx = await Assert.ThrowsAsync<QuicException>(() => rejectedStream.ReadsClosed);
+                Assert.Equal(QuicError.StreamAborted, readsClosedEx.QuicError);
+                Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, readsClosedEx.ApplicationErrorCode);
+            }
+
+            await Task.WhenAll(openStreams.Select(s => s.DisposeAsync().AsTask()));
 
             barrier.SignalAndWait();
         });
