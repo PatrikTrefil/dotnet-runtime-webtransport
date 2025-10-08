@@ -11,6 +11,7 @@ using System.Net.Quic;
 using System.IO;
 using System.Collections.Generic;
 using System.Net.Test.Common;
+using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -866,19 +867,21 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            await using QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream establishedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, WebTransportStreamType.Bidirectional);
+
+            QuicStream pendingStream = openStreams.First(stream => !stream.WritesClosed.IsCompleted); // Get one pending stream and assert it will be closed after the session is closed
 
             await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
-            await using QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional); // TODO: make this a pending stream - update in other tests too
-
             List<QuicException> exceptions = new();
             exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.ReadsClosed));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.WritesClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => establishedStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => establishedStream.WritesClosed));
 
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.ReadsClosed));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.WritesClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => pendingStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => pendingStream.WritesClosed));
 
 
             foreach (QuicException ex in exceptions)
@@ -930,19 +933,21 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            await using QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream establishedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, WebTransportStreamType.Bidirectional);
+
+            QuicStream pendingStream = openStreams.First(stream => !stream.WritesClosed.IsCompleted); // Get one pending stream and assert it will be closed after the session is closed
 
             WriteDrainCapsule(serverSession.ConnectStream);
 
-            await using QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-
             List<QuicException> exceptions = new();
             exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.ReadsClosed));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => oldStream.WritesClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => establishedStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => establishedStream.WritesClosed));
 
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.ReadsClosed));
-            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => newStream.WritesClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => pendingStream.ReadsClosed));
+            exceptions.Add(await Assert.ThrowsAsync<QuicException>(() => pendingStream.WritesClosed));
 
 
             foreach (QuicException ex in exceptions)
