@@ -10,6 +10,9 @@ using System.Threading;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+// TODO: add tests for when the client receives an invalid webtransport error code
+// TODO: add tests for cancellations of stream operations
+
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
@@ -56,7 +59,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ClientOpensStream(WebTransportStreamType streamType)
     {
-        using Barrier barrier = new(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new(2); 
 
         Task serverTask = Task.Run(async () =>
         {
@@ -82,7 +85,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ServerOpensStream(WebTransportStreamType streamType)
     {
-        using Barrier barrier = new(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new(2);
 
         Task serverTask = Task.Run(async () =>
         {
@@ -257,7 +260,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new Barrier(2);
 
         Task serverTask = Task.Run(async () =>
         {
@@ -293,7 +296,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ClientAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new Barrier(2);
 
         Task serverTask = Task.Run(async () =>
         {
@@ -329,7 +332,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamReadSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new Barrier(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -369,7 +372,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [MemberData(nameof(s_abortTestParameters))]
     public async Task ServerAbortsStreamWriteSideAbortsWithCorrectErrorCode(WebTransportStreamType streamType, long expectedWebTransportErrorCode)
     {
-        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new Barrier(2);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -410,7 +413,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
     {
-        using Barrier barrier = new Barrier(2); // TODO: remove once we have RESET_STREAM_AT support
+        using Barrier barrier = new Barrier(2);
 
         const long maxValidErrorCode = 0x52e5ac983162;
         const long invalidWebTransportErrorCode = maxValidErrorCode + 1;
@@ -627,8 +630,5 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         exceptionValidator?.Invoke(ex);
         await AssertWriteOperationsOnStreamThrowAsync((Stream)stream, exceptionValidator);
     }
-
-    // TODO: add tests for when the client receives an invalid webtransport error code
-    // TODO: add tests for cancellations of stream operations
 }
 

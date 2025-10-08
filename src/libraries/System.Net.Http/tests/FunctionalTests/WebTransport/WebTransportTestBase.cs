@@ -9,6 +9,8 @@ using System.Net.Http;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+// TODO: there are many synchronizations that will be redundant after we get RESET_STREAM_AT support - remove those once it is available
+
 public abstract class WebTransportTestBase : HttpClientHandlerTestBase
 {
     protected override Version UseVersion => HttpVersion.Version30;

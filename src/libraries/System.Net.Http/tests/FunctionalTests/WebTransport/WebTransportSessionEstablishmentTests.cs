@@ -20,6 +20,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 // TODO: add test for connection to a host that doesn't support WT over HTTP/3
 // TODO: add test for connection to a host that performs invalid WT handshake
 // TODO: add tests for establishing multiple connections over a simple HTTP connection
+// TODO: add tests for connecting to a server that does not support RESET_STREAM_AT (write the test but disable it for now)
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase, IAsyncDisposable
