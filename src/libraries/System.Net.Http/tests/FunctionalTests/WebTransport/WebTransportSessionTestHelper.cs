@@ -40,6 +40,12 @@ internal static class WebTransportSessionTestHelper
         }
     }
 
+    /// <summary>
+    /// Opens more streams than can be pending according to the internal limit.
+    /// </summary>
+    /// <param name="serverSession">Session in which to open the streams.</param>
+    /// <param name="streamType">Streams of which type to open.</param>
+    /// <returns>All streams there were opened during the process including the rejected stream and a reference to the rejected stream. There might be more than one rejected streams in the collection.</returns>
     public static async Task<(List<QuicStream> OpenStreams, QuicStream RejectedStream)> OpenMorePendingStreamsThanAllowed(WebTransportServerSession serverSession, WebTransportStreamType streamType)
     {
         QuicStream? rejectedStream = null;
