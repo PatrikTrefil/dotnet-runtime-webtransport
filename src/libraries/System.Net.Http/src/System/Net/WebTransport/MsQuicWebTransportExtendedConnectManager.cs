@@ -310,6 +310,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         QuicStream stream = channelItem.QuicStream;
         stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
         stream.Dispose();
+        channelItem.ArrayBuffer.Dispose();
     }
 
     private abstract class DictionaryItem { }
