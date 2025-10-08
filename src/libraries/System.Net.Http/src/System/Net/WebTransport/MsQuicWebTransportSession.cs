@@ -140,12 +140,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception) { }
 
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed. Aborting read side...");
 
         lock (SyncObj)
         {
             if (State == WebTransportSessionState.Open)
             {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed while session is open. Closing session...");
+
                 MarkSessionAsClosedAndClosePendingStreamsChannels(WebTransportSessionState.AbortedRemotely, null, null);
                 CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
             }
@@ -226,8 +227,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         Debug.Assert(ex != null);
 
-        _pendingUnidirectionalStreams?.Writer.TryComplete(ex);
-        _pendingBidirectionalStreams?.Writer.TryComplete(ex);
+        _pendingUnidirectionalStreams?.Writer.Complete(ex);
+        _pendingBidirectionalStreams?.Writer.Complete(ex);
     }
 
     private async ValueTask CloseSessionBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
@@ -608,6 +609,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <remarks>Does not throw.</remarks>
     internal async Task GracefulShutdown()
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
         try
         {
             await gracefulShutdownHandler().ConfigureAwait(false);
@@ -625,6 +628,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
 
             CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone);
+
+            _connectionManager.FinishedUsingConnectStream(_connectStream);
         }
     }
 
@@ -670,9 +675,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private static void CloseAndDisposeAllStreamsInChannel(Channel<ChannelItem>? channel, Http3ErrorCode httpErrorCode)
     {
-        Debug.Assert(!(channel?.Writer.TryComplete() ?? false));
+        if (channel is null) return;
 
-        while (channel?.Reader.TryRead(out ChannelItem item) ?? false)
+        Debug.Assert(!channel.Writer.TryComplete());
+
+        while (channel.Reader.TryRead(out ChannelItem item))
         {
             item.ArrayBuffer.Dispose();
             item.QuicStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
