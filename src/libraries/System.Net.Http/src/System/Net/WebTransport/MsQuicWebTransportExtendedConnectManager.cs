@@ -88,7 +88,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         {
             if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
             {
-                sessionAndChannels = new SessionAndChannels();
+                sessionAndChannels = new SessionAndChannels(ChannelItemDropped);
                 _idSessionAndChannelsDict[sessionId] = sessionAndChannels;
                 shouldCallGracefulShutdownHandler = _wasGoAwayReceived;
             }
@@ -159,7 +159,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             // The session object will then attached in the CreateSession method
             if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
             {
-                dictionaryItem = new SessionAndChannels();
+                dictionaryItem = new SessionAndChannels(ChannelItemDropped);
                 _idSessionAndChannelsDict[sessionId] = dictionaryItem;
             }
             else
@@ -183,12 +183,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
             };
 
-            bool isChannelClosed = channelForStreamType.Writer.TryWrite((buffer, stream));
-            if (!isChannelClosed) // session is in the process of closing
-            {
-                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
-                stream.Dispose();
-            }
+            bool wasWriteSuccessful = channelForStreamType.Writer.TryWrite((buffer, stream));
+            Debug.Assert(wasWriteSuccessful);
         }
     }
 
@@ -307,6 +303,15 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
+    private void ChannelItemDropped(ChannelItem channelItem)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Rejecting stream {channelItem.QuicStream}.");
+
+        QuicStream stream = channelItem.QuicStream;
+        stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
+        stream.Dispose();
+    }
+
     private abstract class DictionaryItem { }
 
     private sealed class Tombstone : DictionaryItem
@@ -317,24 +322,22 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     private sealed class SessionAndChannels : DictionaryItem
     {
-        // TODO: give the user the option to configure these values
-        private const int s_maxPendingUnidirectionalStreams = 10;
-        private const int s_maxPendingBidirectionalStreams = 10;
+        private const int s_maxPendingUnidirectionalStreams = 100;
+        private const int s_maxPendingBidirectionalStreams = 100;
         public MsQuicWebTransportSession? Session { get; set; }
-        public Channel<ChannelItem> PendingUnidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(
-            new BoundedChannelOptions(s_maxPendingUnidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
-            ItemDropped
-            );
-        public Channel<ChannelItem> PendingBidirectionalStreams { get; init; } = Channel.CreateBounded<ChannelItem>(
-            new BoundedChannelOptions(s_maxPendingBidirectionalStreams) {  FullMode = BoundedChannelFullMode.DropNewest },
-            ItemDropped
-            );
+        public Channel<ChannelItem> PendingUnidirectionalStreams { get; }
+        public Channel<ChannelItem> PendingBidirectionalStreams { get; }
 
-        private static void ItemDropped(ChannelItem channelItem)
+        public SessionAndChannels(Action<ChannelItem> channelItemDropped)
         {
-            QuicStream stream = channelItem.QuicStream;
-            stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
-            stream.Dispose();
-        }
+            PendingUnidirectionalStreams = Channel.CreateBounded<ChannelItem>(
+                new BoundedChannelOptions(s_maxPendingUnidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
+                channelItemDropped
+            );
+            PendingBidirectionalStreams = Channel.CreateBounded<ChannelItem>(
+                new BoundedChannelOptions(s_maxPendingBidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
+                channelItemDropped
+            );
+    }
     }
 }
