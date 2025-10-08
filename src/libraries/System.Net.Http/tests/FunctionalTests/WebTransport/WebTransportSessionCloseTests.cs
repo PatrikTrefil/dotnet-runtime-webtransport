@@ -15,9 +15,7 @@ using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test when we open more streams than QUIC limits allow
 // TODO: write test for the scenario: client opens a session and then closes it and then server tries to open a stream for the closed session
-// TODO: write test when there is a pending stream and then the session is closed - assert the pending streams are closed (both uni and bidir)
 // TODO: write test for when a session is closed the session's streams are closed with the correct error code (might already be covered or maybe just needs to modify existing test)
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
@@ -728,6 +726,110 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task ClientClosesReceivedStreamForClosedSession(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            barrier.SignalAndWait(); // Signal the session is closed
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection); // TODO: rename the method
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            WriteDrainCapsule(serverSession.ConnectStream);
+
+            barrier.SignalAndWait(); // Wait for the client to close the session
+
+            await using QuicStream stream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(async () => await stream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, ex.ApplicationErrorCode);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task ClientClosesPendingStreamsWhenSessionIsClosedByServer(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            // To make sure the pending streams are already processed by the client, we more than allowed and wait for one to be rejected.
+            // This is a deterministic way to ensure that all streams have been processed by the client
+
+            (List<QuicStream> pendingStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
+
+            QuicException writesClosedQex = await Assert.ThrowsAsync<QuicException>(async () => await rejectedStream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, writesClosedQex.QuicError);
+            Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, writesClosedQex.ApplicationErrorCode);
+
+            // Now we are sure that the pending streams are in the channel
+
+            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
+
+            foreach (QuicStream stream in pendingStreams)
+            {
+                if (stream == rejectedStream)
+                {
+                    continue;
+                }
+
+                QuicException writesClosedEx = await Assert.ThrowsAsync<QuicException>(async () => await stream.WritesClosed);
+                Assert.Equal(QuicError.StreamAborted, writesClosedEx.QuicError);
+                Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, writesClosedEx.ApplicationErrorCode);
+
+                if (streamType == WebTransportStreamType.Bidirectional)
+                {
+                    QuicException readsClosedEx = await Assert.ThrowsAsync<QuicException>(async () => await stream.ReadsClosed);
+                    Assert.Equal(QuicError.StreamAborted, readsClosedEx.QuicError);
+                    Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, readsClosedEx.ApplicationErrorCode);
+                }
+            }
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
     [Fact]
     public async Task SessionIsClosedIfDefaultShutdownHandlerThrowsWhenGoawayIsReceived()
     {
@@ -1029,9 +1131,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     {
         using Barrier barrier = new(2);
 
-        const int maximumNumberOfPendingStreamsPerSession = 100; // This value is configured in MsQuicWebTransportExtendedConnectManager
-        const int numberOfStreamsToOpen = maximumNumberOfPendingStreamsPerSession + 1;
-
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
@@ -1043,44 +1142,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
 
-            List<QuicStream> streams = new();
-            object lockObj = new();
-            byte[] receiveBuffer = new byte[1];
-            QuicStream? rejectedStream = null;
-            Exception? writesClosedEx = null;
-            SemaphoreSlim semaphore = new(0, 1);
+            (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
 
-            // One of the "open stream" operations has to fail - we don't know which one because they may be processed in any order by the client
-            for (int i = 0; i < numberOfStreamsToOpen; i++)
-            {
-                QuicStream stream = await serverSession.OpenStreamFromServerAsync(streamType);
-                streams.Add(stream);
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await stream.WritesClosed;
-                    }
-                    catch (Exception ex)
-                    {
-                        lock (lockObj)
-                        {
-                            if (rejectedStream == null)
-                            {
-                                rejectedStream = stream;
-                                writesClosedEx = ex;
-                                semaphore.Release();
-                            }
-                        }
-                    }
-                });
-            }
-
-            semaphore.Wait();
-
-            QuicException writesClosedQex = Assert.IsType<QuicException>(writesClosedEx);
-            Assert.Equal(QuicError.StreamAborted, writesClosedQex.QuicError);
-            Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, writesClosedQex.ApplicationErrorCode);
+            QuicException writesClosedEx = await Assert.ThrowsAsync<QuicException>(() => rejectedStream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, writesClosedEx.QuicError);
+            Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, writesClosedEx.ApplicationErrorCode);
 
             if (streamType == WebTransportStreamType.Bidirectional)
             {
@@ -1089,7 +1155,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, readsClosedEx.ApplicationErrorCode);
             }
 
-            await Task.WhenAll(streams.Select(s => s.DisposeAsync().AsTask()));
+            await Task.WhenAll(openStreams.Select(s => s.DisposeAsync().AsTask()));
 
             barrier.SignalAndWait();
         });

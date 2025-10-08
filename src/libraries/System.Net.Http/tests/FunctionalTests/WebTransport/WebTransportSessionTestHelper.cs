@@ -3,11 +3,22 @@
 
 using Xunit;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Net.Quic;
+using System.Threading;
+using System.Net.Test.Common;
+using System.Diagnostics;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
 internal static class WebTransportSessionTestHelper
 {
+    /// <summary>
+    /// Copy of the internal value from MsQuicWebTransportExtendedConnectManager that is used
+    /// to limit the number of pending uni/bidirectional streams per session.
+    /// </summary>
+    private const int s_maximumNumberOfPendingStreamsPerSession = 100;
+
     public static async Task AssertAllOperationsOnSessionThrowAsync<TException>(WebTransportSession session, Action<TException>? exceptionValidator) where TException : Exception
     {
         TException[] exceptions = [
@@ -27,5 +38,45 @@ internal static class WebTransportSessionTestHelper
         {
             exceptionValidator?.Invoke(ex);
         }
+    }
+
+    public static async Task<(List<QuicStream> OpenStreams, QuicStream RejectedStream)> OpenMorePendingStreamsThanAllowed(WebTransportServerSession serverSession, WebTransportStreamType streamType)
+    {
+        QuicStream? rejectedStream = null;
+        Exception? writesClosedRejectedStreamEx = null;
+        List<QuicStream> pendingStreams = [];
+        object lockObj = new();
+        byte[] receiveBuffer = new byte[1];
+        using SemaphoreSlim semaphore = new(0, 1);
+
+        // One of the "open stream" operations has to fail - we don't know which one because they may be processed in any order by the client
+        for (int i = 0; i < s_maximumNumberOfPendingStreamsPerSession + 1; i++)
+        {
+            QuicStream stream = await serverSession.OpenStreamFromServerAsync(streamType);
+            pendingStreams.Add(stream);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await stream.WritesClosed;
+                }
+                catch (Exception ex)
+                {
+                    lock (lockObj)
+                    {
+                        if (rejectedStream == null)
+                        {
+                            rejectedStream = stream;
+                            writesClosedRejectedStreamEx = ex;
+                            semaphore.Release();
+                        }
+                    }
+                }
+            });
+        }
+
+        semaphore.Wait();
+
+        return (pendingStreams, rejectedStream);
     }
 }

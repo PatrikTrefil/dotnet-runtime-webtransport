@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -123,6 +125,60 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningTooManyStreamsFromClientResultsInSuspension(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        int maximumNumberOfQuicStreamsPerConnection = streamType switch
+        {
+            WebTransportStreamType.Unidirectional => _http3Options.MaxInboundUnidirectionalStreams,
+            WebTransportStreamType.Bidirectional => _http3Options.MaxInboundBidirectionalStreams,
+            _ => throw new ArgumentException(nameof(streamType)),
+        };
+        int numberOfStreamsUsedForConnectionAndSessionSetup = streamType switch
+        {
+            WebTransportStreamType.Unidirectional => 1, // HTTP connection control stream
+            WebTransportStreamType.Bidirectional => 1, // WebTransport session CONNECT stream
+            _ => throw new ArgumentException(nameof(streamType)),
+        };
+
+        int maxNumberOfWebTransportStreamsThatCanBeOpen = maximumNumberOfQuicStreamsPerConnection
+            - numberOfStreamsUsedForConnectionAndSessionSetup;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+
+            List<WebTransportStream> streams = new();
+
+            for (int i = 0; i < maxNumberOfWebTransportStreamsThatCanBeOpen; i++)
+            {
+                streams.Add(await session.OpenOutboundStreamAsync(streamType));
+            }
+
+            CancellationTokenSource cts = new(5000);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await session.OpenOutboundStreamAsync(streamType, cts.Token)); // TODO: document this behavior in conceptual docs
+
+            await Task.WhenAll(streams.Select(s => s.DisposeAsync().AsTask()));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
     // TODO: add tests with multiple WT sessions
     // TODO: test that redirects don't connect
     // TODO: add test for connecting to a host that doesn't support WT
