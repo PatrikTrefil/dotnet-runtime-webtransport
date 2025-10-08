@@ -749,7 +749,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection); // TODO: rename the method
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
@@ -862,7 +862,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
@@ -926,7 +926,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-            await using WebTransportServerSession serverSession = await _webTransportServer.CreateWebTransportServerSessionAsync(backgroundSession.Connection);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 

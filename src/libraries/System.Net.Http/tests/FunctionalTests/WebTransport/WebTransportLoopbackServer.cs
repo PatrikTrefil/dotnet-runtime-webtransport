@@ -36,10 +36,10 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
             new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = _maxSessionCount }
             );
 
-        return await CreateWebTransportServerSessionAsync(connection, subprotocolToRespondWith);
+        return await AcceptWebTransportServerSessionAsync(connection, subprotocolToRespondWith);
     }
 
-    public async Task<WebTransportServerSession> CreateWebTransportServerSessionAsync(Http3LoopbackConnection connection, string? subprotocolToRespondWith = null)
+    public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(Http3LoopbackConnection connection, string? subprotocolToRespondWith = null)
     {
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
         QuicStream controlStream = connection.CurrentStream.Stream;
