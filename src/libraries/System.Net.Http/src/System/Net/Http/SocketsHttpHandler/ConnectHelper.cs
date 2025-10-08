@@ -120,9 +120,9 @@ namespace System.Net.Http
             {
                 return await QuicConnection.ConnectAsync(new QuicClientConnectionOptions()
                 {
-                    // TODO: user should be able to configure these limits
-                    MaxInboundBidirectionalStreams = 5, // Needed for WebTransport
-                    MaxInboundUnidirectionalStreams = 5, // Minimum is 3: https://www.rfc-editor.org/rfc/rfc9114.html#unidirectional-streams (1x control stream + 2x QPACK). Set to 100 if/when support for PUSH streams is added.
+                    // MaxInbound*Streams is set to a high value for WebTransport - if need be, we can give the user a way to configure this.
+                    MaxInboundBidirectionalStreams = 150,
+                    MaxInboundUnidirectionalStreams = 150, // Minimum is 3: https://www.rfc-editor.org/rfc/rfc9114.html#unidirectional-streams (1x control stream + 2x QPACK). Set to 100 if/when support for PUSH streams is added.
                     IdleTimeout = idleTimeout,
                     DefaultStreamErrorCode = (long)Http3ErrorCode.RequestCancelled,
                     DefaultCloseErrorCode = (long)Http3ErrorCode.NoError,
