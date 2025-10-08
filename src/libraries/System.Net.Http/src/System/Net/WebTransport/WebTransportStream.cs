@@ -309,8 +309,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         return base.WriteAsync(buffer, offset, count, cancellationToken);
     }
 
-    private static WebTransportException QuicExceptionHandler(QuicException quicException)
+    private WebTransportException QuicExceptionHandler(QuicException quicException)
     {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, quicException);
+
         if (quicException.QuicError == QuicError.StreamAborted)
         {
             long applicationErrorCode = (long)quicException.ApplicationErrorCode!; // can't be null if QuicError is StreamAborted
