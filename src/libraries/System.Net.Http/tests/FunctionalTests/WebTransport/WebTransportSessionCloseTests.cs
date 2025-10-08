@@ -765,11 +765,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
-            QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional); // TODO: make this a pending stream - update in other tests too
 
             List<QuicException> exceptions = new();
             exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
@@ -829,11 +829,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream oldStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             WriteDrainCapsule(serverSession.ConnectStream);
 
-            QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream newStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             List<QuicException> exceptions = new();
             exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
