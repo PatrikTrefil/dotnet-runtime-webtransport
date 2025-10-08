@@ -276,10 +276,22 @@ namespace System.Net.Http
 
         private async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
         {
-            while (!TryReserveStream())
+            if (!_pool.Settings.EnableMultipleHttp3Connections)
             {
-                await WaitForAvailableStreamsAsync().ConfigureAwait(false);
+                TryReserveStream();
             }
+            else
+            {
+                while (!TryReserveStream())
+                {
+                    bool isConnectionShuttingDown = await WaitForAvailableStreamsAsync().ConfigureAwait(false);
+                    if (isConnectionShuttingDown)
+                    {
+                        break; // opening of stream will fail below
+                    }
+                }
+            }
+
             QuicConnection? conn = _connection;
 
             ObjectDisposedException.ThrowIf(conn == null, this);
