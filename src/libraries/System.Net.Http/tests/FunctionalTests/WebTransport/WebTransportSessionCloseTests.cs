@@ -11,7 +11,6 @@ using System.Net.Quic;
 using System.IO;
 using System.Collections.Generic;
 using System.Net.Test.Common;
-using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
