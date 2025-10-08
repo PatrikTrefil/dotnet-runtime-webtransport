@@ -183,8 +183,14 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
             };
 
-            bool wasWriteSuccessful = channelForStreamType.Writer.TryWrite((buffer, stream));
-            Debug.Assert(wasWriteSuccessful);
+            // TODO: refactor this - pass only Reader to session and perform cleanup here in the extended connect manager (the extended connect manager is the owner)
+            bool isSessionShuttingDown = !channelForStreamType.Writer.TryWrite((buffer, stream));
+            if (isSessionShuttingDown)
+            {
+                buffer.Dispose();
+                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+                stream.Dispose();
+            }
         }
     }
 
