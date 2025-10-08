@@ -257,6 +257,7 @@
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
     <Compile Include="WebTransport\WebTransportTestBase.cs" />
     <Compile Include="WebTransport\WebTransportSessionTests.cs" />
+    <Compile Include="WebTransport\WebTransportSessionEstablishmentTests.cs" />
     <Compile Include="WebTransport\WebTransportStreamTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionCloseTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionConfigurationLimitsTests.cs" />

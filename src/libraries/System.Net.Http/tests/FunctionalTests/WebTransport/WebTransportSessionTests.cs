@@ -13,8 +13,7 @@ using System.Net.Quic;
 namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: write test when server opens a stream for a non-existing session and then client opens a session with that id (implementation easy if we can predict the session id, otherwise we have to do manual session establishment)
-// TODO: write test when a CONNECT request fails (e.g. timeout) and then check if the connection is closed by client (it should because it is not used)
-// TODO: write test where client tries to open a WebTransportSession to a server that doesn't support WT over HTTP/3
+// TODO: add tests with multiple WT sessions and try opening streams and sending data
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
@@ -35,24 +34,6 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         ];
 
     public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
-
-
-    [Fact]
-    public async Task ConnectionEstablishmentWithValidHandshakeSucceeds()
-    {
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-        });
-
-        Task clientTask = Task.Run(async () =>
-        {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
-        });
-
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
-    }
-
 
     [Fact]
     public async Task ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
@@ -218,13 +199,4 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
-
-    // TODO: add tests with multiple WT sessions
-    // TODO: test that redirects don't connect
-    // TODO: add test for connecting to a host that doesn't support WT
-    // TODO: add test for connection to a non-existent host
-    // TODO: add test for connection to a host that doesn't support HTTP/3
-    // TODO: add test for connection to a host that doesn't support WT over HTTP/3
-    // TODO: add test for connection to a host that performs invalid WT handshake
-    // TODO: add test that makes two extended CONNECT requests and they should both return the exact same exception object
 }
