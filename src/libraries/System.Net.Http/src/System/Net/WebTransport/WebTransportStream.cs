@@ -11,8 +11,6 @@ using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
-// TODO: document the behavior in conceptual docs - same as table in https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/quic/quic-overview#platform-dependencies
-
 /// <summary>
 /// Represents a WebTransport stream.
 /// </summary>
