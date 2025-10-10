@@ -210,6 +210,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Request a graceful close of the session. The peer is expected to attempt to gracefully terminate the session as soon as possible.
     /// </summary>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
@@ -287,6 +288,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
+    /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="WebTransportException">
     /// When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or
     /// when you can not create more streams because of the peer's stream count limit has been reached
@@ -309,6 +312,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
+    /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
