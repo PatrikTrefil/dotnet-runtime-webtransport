@@ -274,6 +274,7 @@ namespace System.Net.Http
         ConfigurationLimitExceeded = 11,
         MissingExtendedConnectManager = 12,
         ServerSettingsValidationFailed = 13,
+        ExtendedConnectRequestValidationFailed = 14
     }
     public partial class HttpRequestException : System.Exception
     {
@@ -983,7 +984,7 @@ namespace System.Net.WebTransport
         [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
         [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
         public static bool IsSupported { get { throw null; } }
-        public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(Uri uri, System.Net.Http.HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, System.Threading.CancellationToken cancellationToken = default) { throw null; }
     }
     public abstract partial class WebTransportSession : IAsyncDisposable
     {
