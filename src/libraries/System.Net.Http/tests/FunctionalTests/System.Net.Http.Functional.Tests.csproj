@@ -271,6 +271,7 @@
     <Compile Include="WebTransport\Unit\WebTransportTestBase.cs" />
     <Compile Include="WebTransport\Unit\WebTransportSessionCreationOptionsTests.cs" />
     <Compile Include="WebTransport\Unit\WebTransportPlatformDetectionTests.cs" />
+    <Compile Include="WebTransport\Unit\ClientWebTransportSessionTests.cs" />
   </ItemGroup>
 
   <!-- Windows specific files -->

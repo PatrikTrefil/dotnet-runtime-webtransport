@@ -31,11 +31,12 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSessionCreationOptions options = new()
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
                 AvailableSubProtocols = [expectedSubprotocol]
-            };
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
+            });
 
             Assert.Equal(expectedSubprotocol, session.SubProtocol);
 
@@ -60,11 +61,12 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSessionCreationOptions options = new()
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols
-            };
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options);
+            });
 
             Assert.Null(session.SubProtocol);
 
@@ -89,16 +91,17 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSessionCreationOptions options = new()
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols
-            };
-
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
+            }));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 
             barrier.SignalAndWait();
         });
+
 
         Task serverTask = Task.Run(async () =>
         {
@@ -119,12 +122,12 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSessionCreationOptions options = new()
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols
-            };
-
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client, options));
+            }));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 
             barrier.SignalAndWait();

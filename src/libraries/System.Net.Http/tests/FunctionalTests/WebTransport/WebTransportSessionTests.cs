@@ -47,8 +47,14 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSession session;
-            await using (session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client)) { }
+            WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
+
+            await session.DisposeAsync();
+
             await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<ObjectDisposedException>(session, null);
         });
 
@@ -63,7 +69,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
@@ -90,7 +100,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
 
             CancellationTokenSource cts = new();
             cts.Cancel();
@@ -135,7 +149,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
 
             List<WebTransportStream> streams = new();
 
@@ -172,7 +190,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_webTransportServer.Address, _client);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
 
             barrier.SignalAndWait();
         });

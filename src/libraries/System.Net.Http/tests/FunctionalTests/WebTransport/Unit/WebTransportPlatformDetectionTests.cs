@@ -22,7 +22,10 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
     [ConditionalFact(nameof(IsWebTransportUnsupported))]
     public async Task UnsupportedPlatforms_ThrowsPlatformNotSupportedException()
     {
-        PlatformNotSupportedException listenerEx = await Assert.ThrowsAsync<PlatformNotSupportedException>(async () => await ClientWebTransportSession.ConnectAsync(null, null, null));
+        PlatformNotSupportedException listenerEx = await Assert.ThrowsAsync<PlatformNotSupportedException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+        {
+            Uri = new Uri("https://example.com")
+        }));
     }
 
     [ConditionalFact(nameof(IsQuicSupported))]

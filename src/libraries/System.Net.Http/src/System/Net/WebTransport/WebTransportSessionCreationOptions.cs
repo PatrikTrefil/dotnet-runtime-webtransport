@@ -3,11 +3,38 @@
 
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
+using System.Net.Http;
 
 namespace System.Net.WebTransport;
 
 public sealed class WebTransportSessionCreationOptions
 {
+    /// <summary>
+    /// URI of the WebTransport server to connect to.
+    /// </summary>
+    /// <exception cref="ArgumentException">If the URI does not use 'https' scheme.</exception>
+    /// <exception cref="ArgumentNullException">If the provided value is <c>null</c>.</exception>
+    public required Uri Uri
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (value.Scheme != "https")
+            {
+                throw new ArgumentException("The URI scheme must be 'https'.", nameof(value));
+            }
+
+            field = value;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="HttpMessageInvoker"/> used to for the initial handshake of the WebTransport session.
+    /// </summary>
+    public HttpMessageInvoker? HttpMessageInvoker { get; init; }
+
     /// <summary>
     /// This function is invoked when peer requests a graceful shutdown. The session may be used to send more data,
     /// but is should be terminated as soon as possible.
@@ -21,15 +48,25 @@ public sealed class WebTransportSessionCreationOptions
     /// This handler is called when the peer invokes <see cref="WebTransportSession.RequestCloseAsync(Threading.CancellationToken)"/>
     /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>
+    /// <exception cref="ArgumentNullException">When the value is set to <c>null</c>.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>
-    public Func<WebTransportSession, Task> GracefulShutdownHandler { get; init; } = (session) => { session.Close(); return Task.CompletedTask; };
+    public Func<WebTransportSession, Task> GracefulShutdownHandler
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+
+            field = value;
+        }
+    } = (session) => { session.Close(); return Task.CompletedTask; };
 
     /// <summary>
     /// List of protocols that may be used in the session in order of preference.
     /// The protocol selected by the server will be available in <see cref="WebTransportSession.SubProtocol"/>.
     /// </summary>
     /// <remarks>
-    /// Note that the server may choose not to use any of the provided protocols. In that case <see cref="WebTransportSession.SubProtocol"/> will be null.
+    /// Note that the server may choose not to use any of the provided protocols. In that case <see cref="WebTransportSession.SubProtocol"/> will be <c>null</c>.
     /// The value must be serializable as a list of tokens according to RFC 8941.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-2-9"/>

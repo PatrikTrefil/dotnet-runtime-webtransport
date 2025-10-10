@@ -30,27 +30,14 @@ public static class ClientWebTransportSession
     /// <summary>
     /// Create a WebTransport session using HTTP/3.
     /// </summary>
-    /// <exception cref="ArgumentException">When <paramref name="uri"/>  does not use https scheme.</exception>
-    /// <exception cref="ArgumentNullException">When <paramref name="uri"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="options"/> is <c>null</c>.</exception>
     /// <exception cref="WebTransportException">When the creation of the session fails.</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
-    public static async Task<WebTransportSession> ConnectAsync(Uri uri, HttpMessageInvoker? httpMessageInvoker, WebTransportSessionCreationOptions? options = default, CancellationToken cancellationToken = default)
+    public static async Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(uri);
+        ArgumentNullException.ThrowIfNull(options);
 
-        if (uri.Scheme != "https")
-        {
-            throw new ArgumentException("The URI scheme must be 'https'.", nameof(uri));
-        }
-
-        httpMessageInvoker ??= s_sharedHttpMessageInvoker.Value;
-
-        return await ConnectAsyncCore(uri, httpMessageInvoker, options ?? new WebTransportSessionCreationOptions(), cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async Task<WebTransportSession> ConnectAsyncCore(Uri uri, HttpMessageInvoker httpMessageInvoker, WebTransportSessionCreationOptions options, CancellationToken cancellationToken)
-    {
-        HttpRequestMessage requestMessage = new(HttpMethod.Connect, uri)
+        HttpRequestMessage requestMessage = new(HttpMethod.Connect, options.Uri)
         {
             Version = HttpVersion.Version30,
             VersionPolicy = HttpVersionPolicy.RequestVersionExact,
@@ -64,6 +51,8 @@ public static class ClientWebTransportSession
         {
             requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocols);
         }
+
+        HttpMessageInvoker httpMessageInvoker = options.HttpMessageInvoker ?? s_sharedHttpMessageInvoker.Value;
 
         HttpResponseMessage response;
         try
@@ -89,7 +78,7 @@ public static class ClientWebTransportSession
         }
         catch (Exception)
         {
-            wtExtendedConnectManager.FinishedUsingConnectStream(extendedConnectContent.ConnectStream); // TODO: add test for this path
+            wtExtendedConnectManager.FinishedUsingConnectStream(extendedConnectContent.ConnectStream);
             throw;
         }
 

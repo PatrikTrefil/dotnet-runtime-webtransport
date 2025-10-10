@@ -106,9 +106,13 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private readonly TaskCompletionSource _tcsReadsClosed = new();
     private readonly TaskCompletionSource _tcsWritesClosed = new();
 
+    /// <summary>
+    /// Create inbound stream
+    /// </summary>
     private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream) : base(type)
     {
         ArgumentNullException.ThrowIfNull(quicStream);
+        ArgumentNullException.ThrowIfNull(readStream);
 
         _readStream = readStream;
         _quicStream = quicStream;
@@ -118,15 +122,67 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             NetEventSource.Associate(this, quicStream);
         }
 
-        InitTaskCompletionSources();
+        if (type == WebTransportStreamType.Unidirectional)
+        {
+            _tcsWritesClosed.SetResult();
+        } else
+        {
+            ReactToWritesClosedInQuicStream();
+        }
+
+        ReactToReadsClosedInQuicStream();
     }
+
+    /// <summary>
+    /// Create outbound stream
+    /// </summary>
+    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream) : base(type)
+    {
+        ArgumentNullException.ThrowIfNull(quicStream);
+
+        _readStream = quicStream;
+        _quicStream = quicStream;
+
+        if (NetEventSource.Log.IsEnabled())
+        {
+            NetEventSource.Associate(this, quicStream);
+        }
+
+        if (type == WebTransportStreamType.Unidirectional)
+        {
+            _tcsReadsClosed.SetResult();
+        }
+        else
+        {
+            ReactToReadsClosedInQuicStream();
+        }
+
+        ReactToWritesClosedInQuicStream();
+    }
+
 
     public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream)
         => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream);
     public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream)
-        => new MsQuicWebTransportStream(type, quicStream, quicStream);
+        => new MsQuicWebTransportStream(type, quicStream);
 
-    private void InitTaskCompletionSources()
+    private void ReactToWritesClosedInQuicStream()
+    {
+        Task.Run(async () =>
+        {
+            try
+            {
+                await _quicStream.WritesClosed.ConfigureAwait(false);
+                _tcsWritesClosed.SetResult();
+            }
+            catch (QuicException ex)
+            {
+                _tcsWritesClosed.SetException(QuicExceptionHandler(ex));
+            }
+        });
+    }
+
+    private void ReactToReadsClosedInQuicStream()
     {
         Task.Run(async () =>
         {
@@ -138,18 +194,6 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             catch (QuicException ex)
             {
                 _tcsReadsClosed.SetException(QuicExceptionHandler(ex));
-            }
-        });
-        Task.Run(async () =>
-        {
-            try
-            {
-                await _quicStream.WritesClosed.ConfigureAwait(false);
-                _tcsWritesClosed.SetResult();
-            }
-            catch (QuicException ex)
-            {
-                _tcsWritesClosed.SetException(QuicExceptionHandler(ex));
             }
         });
     }
