@@ -36,6 +36,22 @@ public abstract class WebTransportStream : Stream
     }
 
     /// <summary>
+    /// Gracefully completes the writing side of the stream.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to using <see cref="WriteAsync(ReadOnlyMemory{byte}, bool, CancellationToken)"/> with <c>completeWrites: true</c>.
+    /// </remarks>
+    public abstract void CompleteWrites();
+
+    /// <summary>
+    /// Asynchronously writes a sequence of bytes to the current stream, advances the current position within this stream by the number of bytes written, and monitors cancellation requests.
+    /// </summary>
+    /// <param name="buffer">The region of memory to write data from.</param>
+    /// <param name="completeWrites"><c>true</c> to notify the peer about gracefully closing the write side; otherwise, <c>false</c>.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
+    public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Aborts either the reading, writing, or both sides of the stream.
     /// </summary>
     /// <param name="abortDirection">The direction of the stream to abort.</param>
@@ -222,6 +238,30 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         catch (QuicException quicException)
         {
             throw QuicExceptionHandler(quicException);
+        }
+    }
+
+    public override void CompleteWrites()
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        _quicStream.CompleteWrites();
+    }
+
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+        if (!CanWrite)
+        {
+            throw new NotSupportedException("This stream does not support writing");
+        }
+
+        try
+        {
+            await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
+        } catch (QuicException e)
+        {
+            QuicExceptionHandler(e);
         }
     }
 

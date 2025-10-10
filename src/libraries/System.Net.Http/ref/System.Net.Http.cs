@@ -954,6 +954,8 @@ namespace System.Net.WebTransport
         public abstract long StreamId { get; }
         public abstract System.Threading.Tasks.Task ReadsClosed { get; }
         public abstract System.Threading.Tasks.Task WritesClosed { get; }
+        public abstract void CompleteWrites();
+        public abstract System.Threading.Tasks.ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, System.Threading.CancellationToken cancellationToken = default);
         public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
     }
     public enum WebTransportSessionState
