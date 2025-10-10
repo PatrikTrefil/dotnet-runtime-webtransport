@@ -619,6 +619,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
 
+            // TODO: this could be extracted to a method - must be similar somewhere else too
             lock (SyncObj)
             {
                 if (State == WebTransportSessionState.Open)
@@ -679,6 +680,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         Debug.Assert(!channel.Writer.TryComplete());
 
+        // TODO: maybe we should only abort here and dispose in DisposeAsyncCore? this might be rendered moot after the refactor mentioned in the extended connect manager
         while (channel.Reader.TryRead(out ChannelItem item))
         {
             item.ArrayBuffer.Dispose();

@@ -14,6 +14,8 @@ public static class ClientWebTransportSession
 {
     private static readonly Lazy<HttpMessageInvoker> s_sharedHttpMessageInvoker = new(() => new HttpClient(), true);
 
+    // TODO: IsSupported property is not for all WebTransport but only for WT over HTTP/3 - how to reflect this?
+    // TODO: we also need a property to check for support of WT over HTTP/3 on the server side as well (analogous to QuicListener.IsSupported)
     /// <summary>
     /// Gets a value that indicates whether WebTransport is supported for client scenarios on the current machine.
     /// </summary>

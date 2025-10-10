@@ -12,6 +12,21 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: add tests for when the client receives an invalid webtransport error code
 // TODO: add tests for cancellations of stream operations
+// TODO: test that CanRead returns false on a unidirectional stream
+// TODO: test that CanWrite returns false on an accepted unidirectional stream
+// TODO: write tests that complete writes is a noop on accepted streams
+// TODO: write tests that complete writes is a noop on already closed streams
+// TODO: add completewrites to list of all operations that should throw after stream is disposed
+// TODO: write tests for writes with completeWrites: true
+// TODO: write test that writes with compelteWrites: false does not complete the write side of the stream
+// TODO: assert that normal write does not complete the write side of the stream
+// TODO: test that ReadsClosed and WritesClosed complete when the respective side is closed
+// TODO: test the behavior of WebTransportStream.DisposeAsync - sometimes it should abort and sometimes it should complete the stream cleanly
+// TODO: write test that tries to read from a write-only stream and vice versa - both should throw invalidoperationexception
+// TODO: write test that disposal of a stream that has unread data results in abort of read side and write side is always closed gracefully
+// TODO: write a test that fails because we don't have RESET_STREAM_AT
+// TODO: add completewrites and writeasync to list of all ops
+// TODO: test that if we have a pending read operation and during that we dispose the stream, the read operation throws objectdisposedexception for the correct object
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
