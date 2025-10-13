@@ -49,23 +49,25 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         ..s_asciiSpecialCharsThatAreNotTcharDelimiters.Select(d => "a" + d + "bc")
         ];
 
+    private static readonly Uri s_validUri = new Uri("https://example.com");
+
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt });
     }
 
     [Theory]
     [MemberData(nameof(s_validVariableLengthIntegers))]
     public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
     {
-        new WebTransportSessionCreationOptions() { InitialUnidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialBidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { InitialDataSentLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt };
     }
 
     [Theory]
@@ -76,6 +78,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         {
             WebTransportSessionCreationOptions options = new()
             {
+                Uri = s_validUri,
                 AvailableSubProtocols = [invalidSubprotocol]
             };
         });
@@ -87,6 +90,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     {
         new WebTransportSessionCreationOptions()
         {
+            Uri = s_validUri,
             AvailableSubProtocols = [validSubprotocol]
         };
     }
