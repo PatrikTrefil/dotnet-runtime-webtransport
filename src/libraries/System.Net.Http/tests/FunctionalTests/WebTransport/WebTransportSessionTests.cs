@@ -61,6 +61,29 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Fact]
+    public async Task SessionCanBeDisposedMultipleTimes()
+    {
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
+
+            await session.DisposeAsync();
+            await session.DisposeAsync();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)

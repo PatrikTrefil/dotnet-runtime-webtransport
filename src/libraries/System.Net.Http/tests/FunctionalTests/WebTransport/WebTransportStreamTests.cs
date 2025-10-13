@@ -514,6 +514,39 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task StreamCanBeDisposedMultipleTimes(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
+            WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            await serverInitiatedStream.DisposeAsync();
+            await serverInitiatedStream.DisposeAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
     public async Task DisposedStreamTest(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
