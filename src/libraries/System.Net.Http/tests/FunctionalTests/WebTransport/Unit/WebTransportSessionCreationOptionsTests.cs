@@ -94,4 +94,32 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             AvailableSubProtocols = [validSubprotocol]
         };
     }
+
+    [Fact]
+    public void SettingUriToNullThrows()
+    {
+        Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
+        {
+            Uri = null,
+        });
+    }
+
+    [Fact]
+    public void SettingShutdownHandlerToNullThrows()
+    {
+        Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
+        {
+            Uri = s_validUri,
+            GracefulShutdownHandler = null
+        });
+    }
+
+    [Fact]
+    public void UsingNonHttpsUriThrows()
+    {
+        Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
+        {
+            Uri = new Uri("http://example.com"),
+        });
+    }
 }
