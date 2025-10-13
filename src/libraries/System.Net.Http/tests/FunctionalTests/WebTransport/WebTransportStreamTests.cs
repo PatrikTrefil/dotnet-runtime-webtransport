@@ -67,6 +67,21 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         return theoryData;
     }
 
+    public static readonly TheoryData<WebTransportStreamType, WebTransportAbortDirection> s_multipleAbortTestParameters = MultipleAbortTestParameters();
+
+    private static TheoryData<WebTransportStreamType, WebTransportAbortDirection> MultipleAbortTestParameters()
+    {
+        var theoryData = new TheoryData<WebTransportStreamType, WebTransportAbortDirection>();
+        foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
+        {
+            foreach (WebTransportAbortDirection abortDirection in Enum.GetValues(typeof(WebTransportAbortDirection)))
+            {
+                theoryData.Add(streamType, abortDirection);
+            }
+        }
+        return theoryData;
+    }
+
     public WebTransportStreamTests(ITestOutputHelper output) : base(output) { }
 
     [Theory]
@@ -332,6 +347,44 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
 
             clientInitiatedStream.Abort(WebTransportAbortDirection.Write, expectedWebTransportErrorCode);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+
+    [Theory]
+    [MemberData(nameof(s_multipleAbortTestParameters))]
+    public async Task ClientCanAbortStreamMultipleTimes(WebTransportStreamType streamType, WebTransportAbortDirection abortDirection)
+    {
+        using Barrier barrier = new Barrier(2);
+        const int expectedWebTransportErrorCode = 42;
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
+            await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            clientInitiatedStream.Abort(abortDirection, expectedWebTransportErrorCode);
+            clientInitiatedStream.Abort(abortDirection, expectedWebTransportErrorCode);
 
             barrier.SignalAndWait();
         });
