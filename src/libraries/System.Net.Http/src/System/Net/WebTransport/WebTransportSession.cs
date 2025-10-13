@@ -288,6 +288,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
+    /// <remarks>If the transport-level connection doesn't have any available stream capacity, that is, the peer limits the concurrent stream count, the operation pends until a stream becomes available or the peer increases the stream limit.</remarks>
     /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="WebTransportException">
