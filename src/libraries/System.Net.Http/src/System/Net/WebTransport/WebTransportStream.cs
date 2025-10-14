@@ -59,6 +59,7 @@ public abstract class WebTransportStream : Stream
     /// </summary>
     /// <param name="abortDirection">The direction of the stream to abort.</param>
     /// <param name="errorCode">The error code with which to abort the stream. The value must be in the range [0, 2^32).</param>
+    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="errorCode"/> is not in the range [0, 2^32).</exception>
     /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
     public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
 
