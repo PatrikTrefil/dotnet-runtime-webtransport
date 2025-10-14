@@ -74,8 +74,6 @@ public abstract class WebTransportStream : Stream
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
     public abstract Task WritesClosed { get; }
 
-    // TODO: open issue about QuicStream.Dispose
-    // TODO: add docs about dispose
     protected override void Dispose(bool disposing)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -83,9 +81,6 @@ public abstract class WebTransportStream : Stream
         base.Dispose(disposing);
     }
 
-    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
-
-    // TODO: add tests for this behavior
     /// <summary>
     /// If the read side is not fully consumed, i.e.: <see cref="ReadsClosed"/> is not completed and/or <see cref="Stream.ReadAsync(Memory{byte}, CancellationToken)"/> hasn't returned <c>0</c>,
     /// dispose will abort the read side with provided <see cref="QuicConnectionOptions.DefaultStreamErrorCode"/>.
@@ -102,6 +97,8 @@ public abstract class WebTransportStream : Stream
         Dispose(false);
         GC.SuppressFinalize(this);
     }
+
+    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
 
 // TODO: add session data limit tracking
@@ -198,6 +195,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     private void ReactToReadsClosedInQuicStream()
     {
+        Dispose();
         Task.Run(async () =>
         {
             try
