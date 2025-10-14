@@ -59,7 +59,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         var theoryData = new TheoryData<WebTransportStreamType, long>();
         foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
         {
-            foreach (uint errorCode in s_invalidErrorCodes)
+            foreach (long errorCode in s_invalidErrorCodes)
             {
                 theoryData.Add(streamType, errorCode);
             }
