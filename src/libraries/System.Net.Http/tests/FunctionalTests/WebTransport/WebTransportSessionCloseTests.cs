@@ -188,7 +188,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client
             });
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("closeStatus", () => session.CloseAsync(applicationErrorCode, applicationErrorMessage));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("closeStatus", async () => await session.CloseAsync(applicationErrorCode, applicationErrorMessage));
 
             barrier.SignalAndWait();
         });
@@ -1178,7 +1178,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 HttpMessageInvoker = _client
             });
 
-            session.Close();
+            await session.CloseAsync();
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
@@ -1214,7 +1214,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             ValueTask<WebTransportStream> acceptStreamTask = session.AcceptInboundStreamAsync(streamType);
 
-            session.Close();
+            await session.CloseAsync();
 
             WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await acceptStreamTask);
             Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
@@ -1231,4 +1231,32 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
+
+    [Fact]
+    public async Task SessionCanBeClosedOrRequestedToBeClosedWhenItIsAlreadyClosed()
+    {
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client
+            });
+
+            await session.CloseAsync();
+
+            // The following calls should not throw
+            await session.CloseAsync();
+            await session.CloseAsync(0, "message");
+            await session.RequestCloseAsync();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
 }

@@ -1007,12 +1007,13 @@ namespace System.Net.WebTransport
         public abstract System.Threading.Tasks.ValueTask SetDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
         public long? CloseStatusCode { get { throw null; } }
         public string? CloseStatusDescription { get { throw null; } }
-        public System.Threading.Tasks.Task RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public abstract void Close();
-        public System.Threading.Tasks.Task CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public System.Threading.Tasks.ValueTask RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
+        public abstract System.Threading.Tasks.ValueTask CloseAsync();
+        public System.Threading.Tasks.ValueTask CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
+        System.Threading.Tasks.ValueTask IAsyncDisposable.DisposeAsync() { throw null; }
+
     }
     public enum WebTransportError
     {

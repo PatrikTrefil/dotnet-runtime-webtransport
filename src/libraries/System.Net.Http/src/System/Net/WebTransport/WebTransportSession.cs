@@ -18,7 +18,6 @@ namespace System.Net.WebTransport;
 public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _utf8Encoding = Encoding.UTF8;
-    private bool _isDisposed;
     protected readonly Func<Task> gracefulShutdownHandler;
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
@@ -149,6 +148,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     #endregion
 
+    // TODO: add comment to states that these are not null when state is ClosedRemotely or AbortedRemotely if the peer provided them
     /// <summary>
     /// The status code provided when closing the session.
     /// </summary>
@@ -172,13 +172,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public abstract string? CloseStatusDescription { get; protected set; }
 
-    protected Exception? GetExceptionForObjectState()
+    protected WebTransportException? GetExceptionForObjectState()
     {
-        if (_isDisposed)
-        {
-            return new ObjectDisposedException(GetType().FullName);
-        }
-
         WebTransportSessionState state = State;
         switch (state)
         {
@@ -199,7 +194,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     protected void ThrowIfInvalidState()
     {
-        Exception? ex = GetExceptionForObjectState();
+        WebTransportException? ex = GetExceptionForObjectState();
 
         if (ex != null)
         {
@@ -215,14 +210,15 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    public abstract Task RequestCloseAsync(CancellationToken cancellationToken = default);
+    public abstract ValueTask RequestCloseAsync(CancellationToken cancellationToken = default);
 
+    // TODO: remove comments about objectidposedexception
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
     /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
-    public abstract void Close();
+    public abstract ValueTask CloseAsync();
 
     /// <summary>
     /// Gracefully close the session.
@@ -241,9 +237,12 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ArgumentNullException">When <paramref name="statusDescription"/> is null</exception>
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="closeStatus"/> is not in range [0, 2^32)</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    public async Task CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
+    public async ValueTask CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
     {
-        ThrowIfInvalidState();
+        if (State != WebTransportSessionState.Open)
+        {
+            return;
+        }
 
         if (closeStatus < 0 || closeStatus > uint.MaxValue)
         {
@@ -274,7 +273,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    protected abstract Task CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
+    protected abstract ValueTask CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// This method should be called when peer initiates session close operation.
@@ -308,7 +307,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     }
 
     /// <inheritdoc cref="OpenOutboundStreamAsync(WebTransportStreamType, CancellationToken)"/>
-    protected abstract Task<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    protected abstract ValueTask<WebTransportStream> OpenOutboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Accepts an inbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
@@ -327,25 +326,12 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     }
 
     /// <inheritdoc cref="AcceptInboundStreamAsync(WebTransportStreamType, CancellationToken)"/>
-    protected abstract Task<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
+    protected abstract ValueTask<WebTransportStream> AcceptInboundStreamAsyncCore(WebTransportStreamType type, CancellationToken cancellationToken = default);
 
-    public async ValueTask DisposeAsync()
+    async ValueTask IAsyncDisposable.DisposeAsync()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        await DisposeAsyncCore(disposing: true).ConfigureAwait(false);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual ValueTask DisposeAsyncCore(bool disposing)
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"{nameof(_isDisposed)}={_isDisposed}");
-
-        if (!_isDisposed)
-        {
-            _isDisposed = true;
-        }
-
-        return ValueTask.CompletedTask;
+        await CloseAsync().ConfigureAwait(false);
     }
 }

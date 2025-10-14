@@ -31,58 +31,11 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
         (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken).AsTask(),
         (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
-        (session, cancellationToken) => session.RequestCloseAsync(cancellationToken),
-        (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken),
+        (session, cancellationToken) => session.RequestCloseAsync(cancellationToken).AsTask(),
+        (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken).AsTask(),
         ];
 
     public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
-
-    [Fact]
-    public async Task ObjectDisposedExceptionIsThrownWhenAccessingPropertiesOfDisposedSession()
-    {
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-        });
-
-        Task clientTask = Task.Run(async () =>
-        {
-            WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
-            });
-
-            await session.DisposeAsync();
-
-            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<ObjectDisposedException>(session, null);
-        });
-
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
-    }
-
-    [Fact]
-    public async Task SessionCanBeDisposedMultipleTimes()
-    {
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
-        });
-
-        Task clientTask = Task.Run(async () =>
-        {
-            WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
-            });
-
-            await session.DisposeAsync();
-            await session.DisposeAsync();
-        });
-
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
-    }
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]

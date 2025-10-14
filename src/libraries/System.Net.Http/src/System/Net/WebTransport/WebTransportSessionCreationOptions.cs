@@ -44,7 +44,7 @@ public sealed class WebTransportSessionCreationOptions
     /// The function is invoked only when the session is in state <see cref="WebTransportSessionState.Open"/>, but the session
     /// could be closed during the execution of the function.
     ///
-    /// The default handler calls <see cref="WebTransportSession.Close()"/>.
+    /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
     /// This handler is called when the peer invokes <see cref="WebTransportSession.RequestCloseAsync(Threading.CancellationToken)"/>
     /// The function should never throw. If it throws, the session is closed immediately.
     /// </remarks>
@@ -59,7 +59,7 @@ public sealed class WebTransportSessionCreationOptions
 
             field = value;
         }
-    } = (session) => { session.Close(); return Task.CompletedTask; };
+    } = async (session) => await session.CloseAsync();
 
     /// <summary>
     /// List of protocols that may be used in the session in order of preference.
