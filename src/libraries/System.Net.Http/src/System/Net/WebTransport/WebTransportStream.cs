@@ -28,11 +28,14 @@ public abstract class WebTransportStream : Stream
     /// </summary>
     public WebTransportStreamType Type { get; }
 
-    protected internal WebTransportStream(WebTransportStreamType type)
+    protected long defaultStreamErrorCode;
+
+    protected internal WebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode)
     {
         Debug.Assert(Enum.IsDefined(type));
 
         Type = type;
+        this.defaultStreamErrorCode = defaultStreamErrorCode;
     }
 
     /// <summary>
@@ -71,6 +74,8 @@ public abstract class WebTransportStream : Stream
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
     public abstract Task WritesClosed { get; }
 
+    // TODO: open issue about QuicStream.Dispose
+    // TODO: add docs about dispose
     protected override void Dispose(bool disposing)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -80,6 +85,14 @@ public abstract class WebTransportStream : Stream
 
     protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 
+    // TODO: add tests for this behavior
+    /// <summary>
+    /// If the read side is not fully consumed, i.e.: <see cref="ReadsClosed"/> is not completed and/or <see cref="Stream.ReadAsync(Memory{byte}, CancellationToken)"/> hasn't returned <c>0</c>,
+    /// dispose will abort the read side with provided <see cref="QuicConnectionOptions.DefaultStreamErrorCode"/>.
+    /// If the write side hasn't been closed, it'll be closed gracefully as if <see cref="CompleteWrites"/> was called.
+    /// Finally, all resources associated with the stream will be released.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous dispose operation.</returns>
     public sealed override async ValueTask DisposeAsync()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -109,7 +122,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <summary>
     /// Create inbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream) : base(type)
+    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode) : base(type, defaultStreamErrorCode)
     {
         ArgumentNullException.ThrowIfNull(quicStream);
         ArgumentNullException.ThrowIfNull(readStream);
@@ -125,7 +138,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         if (type == WebTransportStreamType.Unidirectional)
         {
             _tcsWritesClosed.SetResult();
-        } else
+        }
+        else
         {
             ReactToWritesClosedInQuicStream();
         }
@@ -136,7 +150,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <summary>
     /// Create outbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream) : base(type)
+    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode) : base(type, defaultStreamErrorCode)
     {
         ArgumentNullException.ThrowIfNull(quicStream);
 
@@ -161,10 +175,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     }
 
 
-    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream)
-        => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream);
-    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream)
-        => new MsQuicWebTransportStream(type, quicStream);
+    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode)
+        => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode);
+    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode)
+        => new MsQuicWebTransportStream(type, quicStream, defaultStreamErrorCode);
 
     private void ReactToWritesClosedInQuicStream()
     {
@@ -303,7 +317,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         try
         {
             await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
-        } catch (QuicException e)
+        }
+        catch (QuicException e)
         {
             QuicExceptionHandler(e);
         }
@@ -424,6 +439,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
             if (disposing)
             {
+                _quicStream.Abort(QuicAbortDirection.Both, defaultStreamErrorCode);
                 _readStream.Dispose();
                 _quicStream.Dispose();
             }
@@ -433,6 +449,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     }
     protected override async ValueTask DisposeAsyncCore()
     {
+        _quicStream.Abort(QuicAbortDirection.Both, defaultStreamErrorCode);
         await _quicStream.DisposeAsync().ConfigureAwait(false);
         await _readStream.DisposeAsync().ConfigureAwait(false);
     }

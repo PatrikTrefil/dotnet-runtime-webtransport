@@ -27,6 +27,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 // TODO: write a test that fails because we don't have RESET_STREAM_AT
 // TODO: add completewrites and writeasync to list of all ops
 // TODO: test that if we have a pending read operation and during that we dispose the stream, the read operation throws objectdisposedexception for the correct object
+// TODO: add tests for default stream error code
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
@@ -104,7 +105,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
@@ -134,7 +136,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -167,7 +170,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
             clientInitiatedStream.Write(data);
@@ -199,7 +203,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
@@ -235,7 +240,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             serverInitiatedStream.Write(data);
@@ -257,7 +263,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
@@ -294,7 +301,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -340,7 +348,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
@@ -377,7 +386,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
@@ -418,7 +428,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -443,7 +454,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
@@ -487,7 +499,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -535,7 +548,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -576,7 +590,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -609,7 +624,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             WebTransportStream serverInitiatedStream;
             using (serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType)) { }
@@ -646,7 +662,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -685,7 +702,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             Assert.True(serverInitiatedStream.WritesClosed.IsCompletedSuccessfully);
@@ -714,7 +732,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             Assert.True(clientInitatedStream.ReadsClosed.IsCompletedSuccessfully);
@@ -745,7 +764,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
@@ -783,7 +803,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
@@ -823,7 +844,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 

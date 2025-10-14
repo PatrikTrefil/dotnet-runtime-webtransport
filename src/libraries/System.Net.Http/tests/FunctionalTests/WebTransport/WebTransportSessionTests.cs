@@ -48,7 +48,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
@@ -79,7 +80,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             CancellationTokenSource cts = new();
@@ -128,7 +130,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             List<WebTransportStream> streams = new();
@@ -169,7 +172,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait();

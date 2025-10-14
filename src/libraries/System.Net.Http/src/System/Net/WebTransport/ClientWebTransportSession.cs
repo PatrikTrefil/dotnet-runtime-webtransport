@@ -87,7 +87,8 @@ public static class ClientWebTransportSession
             extendedConnectContent.ConnectStreamBuffer,
             extendedConnectContent.QuicConnection,
             options.GracefulShutdownHandler,
-            selectedSubprotocol);
+            selectedSubprotocol,
+            options.DefaultStreamErrorCode);
 
         await SetInitialOptionsForPeerAsync(session, options, cancellationToken).ConfigureAwait(false);
 

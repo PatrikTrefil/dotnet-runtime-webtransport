@@ -24,7 +24,8 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
     {
         PlatformNotSupportedException listenerEx = await Assert.ThrowsAsync<PlatformNotSupportedException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
         {
-            Uri = new Uri("https://example.com")
+            Uri = new Uri("https://example.com"),
+            DefaultStreamErrorCode = 0
         }));
     }
 

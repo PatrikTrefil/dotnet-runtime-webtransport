@@ -73,7 +73,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-4.2-4"/>
     public override long BidirectionalStreamSignalValue => 0x41;
 
-    public WebTransportSession CreateSession(QuicStream connectStream, byte[] connectStreamBuffer, QuicConnection quicConnection, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subprotocol)
+    public WebTransportSession CreateSession(QuicStream connectStream, byte[] connectStreamBuffer, QuicConnection quicConnection, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subprotocol, long defaultStreamErrorCode)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -110,7 +110,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             sessionAndChannels.PendingUnidirectionalStreams,
             sessionAndChannels.PendingBidirectionalStreams,
             gracefulShutdownHandler,
-            subprotocol)
+            subprotocol,
+            defaultStreamErrorCode)
         {
             DataSentLimitProvidedByPeer = _initialMaxDataPerSession,
             UnidirectionalStreamCountLimitProvidedByPeer = _initialMaxUnidirectionalStreamsPerSession,

@@ -19,19 +19,23 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _utf8Encoding = Encoding.UTF8;
     protected readonly Func<Task> gracefulShutdownHandler;
+    protected readonly long defaultStreamErrorCode;
 
-    /// <exception cref="WebTransportException">When <paramref name="id"/> is not in the range [0, 2^62).</exception>
+
+    /// <exception cref="WebTransportException">When <paramref name="id"/> or <paramref name="defaultStreamErrorCode"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
-    internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subProtocol)
+    internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler,  string? subProtocol, long defaultStreamErrorCode)
     {
         ArgumentNullException.ThrowIfNull(gracefulShutdownHandler);
 
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
+        VariableLengthIntegerValidator.ThrowIfInvalid(defaultStreamErrorCode);
 
         Id = id;
 
         SubProtocol = subProtocol;
         this.gracefulShutdownHandler = () => gracefulShutdownHandler(this);
+        this.defaultStreamErrorCode = defaultStreamErrorCode;
     }
 
     /// <summary>

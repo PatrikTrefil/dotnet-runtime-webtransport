@@ -48,7 +48,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         Channel<ChannelItem> pendingUnidirectionalStreams,
         Channel<ChannelItem> pendingBidirectionalStreams,
         Func<WebTransportSession, Task> gracefulShutdownHandler,
-        string? subprotocol) : base(id, gracefulShutdownHandler, subprotocol)
+        string? subprotocol,
+        long defaultStreamErrorCode) : base(id, gracefulShutdownHandler, subprotocol, defaultStreamErrorCode)
     {
         ArgumentNullException.ThrowIfNull(connectionManager);
         ArgumentNullException.ThrowIfNull(connectStream);
@@ -352,7 +353,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, defaultStreamErrorCode);
 
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
 
@@ -398,7 +399,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             try
             {
                 QuicStream quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
-                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, defaultStreamErrorCode);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
             }
             catch (Exception ex)

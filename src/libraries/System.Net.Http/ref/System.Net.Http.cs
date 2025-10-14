@@ -981,6 +981,7 @@ namespace System.Net.WebTransport
         public long InitialUnidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
         public long InitialBidirectionalStreamCountLimitForPeer { get { throw null; } init { } }
         public long InitialDataSentLimitForPeer { get { throw null; } init { } }
+        public required long DefaultStreamErrorCode { get { throw null; } init { } }
     }
     public static class ClientWebTransportSession
     {

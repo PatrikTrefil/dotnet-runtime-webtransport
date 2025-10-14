@@ -50,24 +50,27 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         ];
 
     private static readonly Uri s_validUri = new Uri("https://example.com");
+    private static readonly long s_validVarInt = 42;
 
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = s_validVarInt, DefaultStreamErrorCode = invalidVarInt });
     }
 
     [Theory]
     [MemberData(nameof(s_validVariableLengthIntegers))]
     public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
     {
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt };
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
     }
 
     [Theory]
@@ -79,7 +82,8 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             WebTransportSessionCreationOptions options = new()
             {
                 Uri = s_validUri,
-                AvailableSubProtocols = [invalidSubprotocol]
+                AvailableSubProtocols = [invalidSubprotocol],
+                DefaultStreamErrorCode = s_validVarInt
             };
         });
     }
@@ -91,7 +95,8 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         new WebTransportSessionCreationOptions()
         {
             Uri = s_validUri,
-            AvailableSubProtocols = [validSubprotocol]
+            AvailableSubProtocols = [validSubprotocol],
+            DefaultStreamErrorCode = s_validVarInt
         };
     }
 
@@ -101,6 +106,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
         {
             Uri = null,
+            DefaultStreamErrorCode = s_validVarInt
         });
     }
 
@@ -110,7 +116,8 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
         {
             Uri = s_validUri,
-            GracefulShutdownHandler = null
+            GracefulShutdownHandler = null,
+            DefaultStreamErrorCode = s_validVarInt
         });
     }
 
@@ -120,6 +127,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
         {
             Uri = new Uri("http://example.com"),
+            DefaultStreamErrorCode = s_validVarInt
         });
     }
 }

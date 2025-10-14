@@ -41,7 +41,8 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
         });
 

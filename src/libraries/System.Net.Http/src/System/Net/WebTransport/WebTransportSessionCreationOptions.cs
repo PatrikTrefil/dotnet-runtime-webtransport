@@ -159,4 +159,17 @@ public sealed class WebTransportSessionCreationOptions
             field = value;
         }
     }
+
+    /// <summary>
+    /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="WebTransportStream.DisposeAsync()"/>.
+    /// </summary>
+    public required long DefaultStreamErrorCode
+    {
+        get;
+        init
+        {
+            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            field = value;
+        }
+    }
 }

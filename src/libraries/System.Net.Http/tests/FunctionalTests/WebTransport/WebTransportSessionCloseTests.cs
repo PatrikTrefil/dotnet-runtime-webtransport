@@ -111,7 +111,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0,
             });
             await session.CloseAsync(expectedApplicationErrorCode, Encoding.UTF8.GetString(expectedApplicationErrorMessage));
 
@@ -157,7 +158,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await session.CloseAsync(expectedApplicationErrorCode, invalidUtf8String);
 
@@ -186,7 +188,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("closeStatus", async () => await session.CloseAsync(applicationErrorCode, applicationErrorMessage));
 
@@ -208,7 +211,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
@@ -246,7 +250,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
@@ -279,7 +284,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
@@ -331,7 +337,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
@@ -381,7 +388,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             await using WebTransportStream inboundBidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional);
@@ -448,7 +456,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             await session.RequestCloseAsync();
@@ -469,7 +478,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             await using WebTransportStream inboundUnidirectionalStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
@@ -521,6 +531,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; }
                 }
                 );
@@ -557,6 +568,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(2); return Task.CompletedTask; }
                 }
                 );
@@ -615,6 +627,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(2); return Task.CompletedTask; }
                 }
                 );
@@ -682,7 +695,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             // Wait for session to be closed due to invalid capsule
@@ -721,7 +735,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             // Wait for session to be closed due to invalid capsule
@@ -757,7 +772,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait(); // Signal the session creation is completed
@@ -799,12 +815,14 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait(); // Signal the session creation is completed
@@ -851,7 +869,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait(); // Signal the session creation is completed
@@ -915,6 +934,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => Task.CompletedTask
                 });
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
@@ -922,6 +942,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { throw new Exception(); }
                 }
                 );
@@ -987,6 +1008,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => Task.CompletedTask
                 });
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
@@ -994,6 +1016,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { throw new Exception(); }
                 }
                 );
@@ -1060,6 +1083,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 {
                     Uri = _webTransportServer.Address,
                     HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
                     GracefulShutdownHandler = (_) => { wasHandlerCalledSemaphore.Release(); return Task.CompletedTask; }
                 }
                 );
@@ -1095,7 +1119,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait(); // Signal the session creation is completed
@@ -1135,7 +1160,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             barrier.SignalAndWait(); // Signal the session creation is completed
@@ -1175,7 +1201,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             await session.CloseAsync();
@@ -1209,7 +1236,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             ValueTask<WebTransportStream> acceptStreamTask = session.AcceptInboundStreamAsync(streamType);
@@ -1245,7 +1273,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
             });
 
             await session.CloseAsync();
