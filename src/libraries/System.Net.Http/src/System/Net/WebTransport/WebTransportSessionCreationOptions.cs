@@ -33,7 +33,7 @@ public sealed class WebTransportSessionCreationOptions
     /// <summary>
     /// <see cref="HttpMessageInvoker"/> used to for the initial handshake of the WebTransport session.
     /// </summary>
-    public HttpMessageInvoker? HttpMessageInvoker { get; init; }
+    public required HttpMessageInvoker HttpMessageInvoker { get; init; }
 
     /// <summary>
     /// This function is invoked when peer requests a graceful shutdown. The session may be used to send more data,

@@ -975,7 +975,7 @@ namespace System.Net.WebTransport
     public sealed partial class WebTransportSessionCreationOptions
     {
         public required System.Uri Uri { get { throw null; } init { } }
-        public System.Net.Http.HttpMessageInvoker? HttpMessageInvoker { get { throw null; } init { } }
+        public required System.Net.Http.HttpMessageInvoker HttpMessageInvoker { get { throw null; } init { } }
         public Func<WebTransportSession, System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } init { } }
         public string[]? AvailableSubProtocols { get { throw null; } init { } }
         public long InitialUnidirectionalStreamCountLimitForPeer { get { throw null; } init { } }

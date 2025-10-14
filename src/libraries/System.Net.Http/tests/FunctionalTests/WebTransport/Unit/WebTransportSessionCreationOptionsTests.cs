@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Linq;
+using System.Net.Http;
 using System.Net.Test.Common;
 using Xunit;
 
@@ -51,26 +52,27 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 
     private static readonly Uri s_validUri = new Uri("https://example.com");
     private static readonly long s_validVarInt = 42;
+    private static readonly HttpMessageInvoker s_validHttpMessageInvoker = new HttpClient();
 
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = s_validVarInt, DefaultStreamErrorCode = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = s_validVarInt, DefaultStreamErrorCode = invalidVarInt });
     }
 
     [Theory]
     [MemberData(nameof(s_validVariableLengthIntegers))]
     public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
     {
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
     }
 
     [Theory]
@@ -81,6 +83,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         {
             WebTransportSessionCreationOptions options = new()
             {
+                HttpMessageInvoker = s_validHttpMessageInvoker,
                 Uri = s_validUri,
                 AvailableSubProtocols = [invalidSubprotocol],
                 DefaultStreamErrorCode = s_validVarInt
@@ -94,6 +97,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     {
         new WebTransportSessionCreationOptions()
         {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             AvailableSubProtocols = [validSubprotocol],
             DefaultStreamErrorCode = s_validVarInt
@@ -105,6 +109,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     {
         Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
         {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = null,
             DefaultStreamErrorCode = s_validVarInt
         });
@@ -115,6 +120,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     {
         Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
         {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             GracefulShutdownHandler = null,
             DefaultStreamErrorCode = s_validVarInt
@@ -126,6 +132,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     {
         Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
         {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = new Uri("http://example.com"),
             DefaultStreamErrorCode = s_validVarInt
         });

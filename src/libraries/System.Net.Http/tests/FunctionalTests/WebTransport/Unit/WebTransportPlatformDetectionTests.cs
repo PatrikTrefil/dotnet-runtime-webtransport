@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using System.Net.Quic;
+using System.Net.Http;
 
 namespace System.Net.WebTransport.Unit.Tests;
 
@@ -24,6 +25,7 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
     {
         PlatformNotSupportedException listenerEx = await Assert.ThrowsAsync<PlatformNotSupportedException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
         {
+            HttpMessageInvoker = new HttpClient(),
             Uri = new Uri("https://example.com"),
             DefaultStreamErrorCode = 0
         }));

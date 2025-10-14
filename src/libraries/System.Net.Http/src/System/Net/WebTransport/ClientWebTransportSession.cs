@@ -12,8 +12,6 @@ namespace System.Net.WebTransport;
 
 public static class ClientWebTransportSession
 {
-    private static readonly Lazy<HttpMessageInvoker> s_sharedHttpMessageInvoker = new(() => new HttpClient(), true);
-
     // TODO: IsSupported property is not for all WebTransport but only for WT over HTTP/3 - how to reflect this?
     // TODO: we also need a property to check for support of WT over HTTP/3 on the server side as well (analogous to QuicListener.IsSupported)
     /// <summary>
@@ -52,14 +50,14 @@ public static class ClientWebTransportSession
             requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocols);
         }
 
-        HttpMessageInvoker httpMessageInvoker = options.HttpMessageInvoker ?? s_sharedHttpMessageInvoker.Value;
-
         HttpResponseMessage response;
         try
         {
-            Task<HttpResponseMessage> sendTask = httpMessageInvoker is HttpClient client
-                                ? client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                                : httpMessageInvoker.SendAsync(requestMessage, cancellationToken);
+            Task<HttpResponseMessage> sendTask = options.HttpMessageInvoker switch
+            {
+                HttpClient client => client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+                HttpMessageInvoker httpMessageInvoker => httpMessageInvoker.SendAsync(requestMessage, cancellationToken)
+            };
             response = await sendTask.ConfigureAwait(false);
         }
         catch (Exception e)
