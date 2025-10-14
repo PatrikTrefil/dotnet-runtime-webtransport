@@ -32,8 +32,14 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
 {
-    private static readonly uint[] s_errorCodes = [0, 10, int.MaxValue, uint.MaxValue];
+    private const uint s_minValidErrorCode = 0;
+    private const uint s_maxValidErrorCode = uint.MaxValue;
+
+    private static readonly uint[] s_errorCodes = [s_minValidErrorCode, 10, int.MaxValue, s_maxValidErrorCode];
+    private static readonly long[] s_invalidErrorCodes = [(long)s_minValidErrorCode - 1, (long)s_maxValidErrorCode + 1, long.MaxValue];
+
     public static readonly TheoryData<WebTransportStreamType, long> s_abortTestParameters = AbortTestParameters();
+    public static readonly TheoryData<WebTransportStreamType, long> s_abortWithInvalidTestParameters = AbortWithInvalidErrorCodeTestParameters();
 
     private static TheoryData<WebTransportStreamType, long> AbortTestParameters()
     {
@@ -41,6 +47,19 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
         {
             foreach (uint errorCode in s_errorCodes)
+            {
+                theoryData.Add(streamType, errorCode);
+            }
+        }
+        return theoryData;
+    }
+
+    private static TheoryData<WebTransportStreamType, long> AbortWithInvalidErrorCodeTestParameters()
+    {
+        var theoryData = new TheoryData<WebTransportStreamType, long>();
+        foreach (WebTransportStreamType streamType in Enum.GetValues(typeof(WebTransportStreamType)))
+        {
+            foreach (uint errorCode in s_invalidErrorCodes)
             {
                 theoryData.Add(streamType, errorCode);
             }
@@ -571,6 +590,43 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             barrier.SignalAndWait();
 
             serverInitiatedStream.Abort(QuicAbortDirection.Write, invalidWebTransportErrorCode);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_abortWithInvalidTestParameters))]
+    public async Task ClientAbortsStreamWithInvalidErrorCode(WebTransportStreamType streamType, long invalidWebTransportErrorCode)
+    {
+        using Barrier barrier = new Barrier(2);
+
+        string expectedParamName = "errorCode";
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            Assert.Throws<ArgumentOutOfRangeException>(expectedParamName, () => serverInitiatedStream.Abort(WebTransportAbortDirection.Write, invalidWebTransportErrorCode));
+            Assert.Throws<ArgumentOutOfRangeException>(expectedParamName, () => serverInitiatedStream.Abort(WebTransportAbortDirection.Read, invalidWebTransportErrorCode));
+            Assert.Throws<ArgumentOutOfRangeException>(expectedParamName, () => serverInitiatedStream.Abort(WebTransportAbortDirection.Both, invalidWebTransportErrorCode));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
         });
