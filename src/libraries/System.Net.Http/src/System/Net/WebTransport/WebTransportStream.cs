@@ -214,7 +214,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// Send initial bytes containing session ID and stream type
     /// </summary>
     /// <returns></returns>
-    internal async Task InitOutbound(ReadOnlyMemory<byte> encodedSessionId)
+    internal async Task InitOutbound(ReadOnlyMemory<byte> encodedSessionId, CancellationToken cancellationToken)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -224,8 +224,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             WebTransportStreamType.Bidirectional => s_bidirectionalStreamTypeEncodedAsVariableLengthInteger,
             _ => throw new WebTransportException(WebTransportError.InternalError, "Unknown stream type.")
         };
-        await _readStream.WriteAsync(initialBytes).ConfigureAwait(false);
-        await _readStream.WriteAsync(encodedSessionId).ConfigureAwait(false);
+        await _readStream.WriteAsync(initialBytes, cancellationToken).ConfigureAwait(false);
+        await _readStream.WriteAsync(encodedSessionId, cancellationToken).ConfigureAwait(false);
     }
 
     public override long StreamId => _quicStream.Id;

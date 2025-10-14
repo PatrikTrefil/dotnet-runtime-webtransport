@@ -393,17 +393,28 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
 
-        MsQuicWebTransportStream wtStream;
+        MsQuicWebTransportStream? wtStream = null;
         try
         {
+            QuicStream? quicStream = null;
             try
             {
-                QuicStream quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
+                quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
                 wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, defaultStreamErrorCode);
-                await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger).ConfigureAwait(false);
+                await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
+                if (wtStream != null)
+                {
+                    OpenOutboundStreamCleanup(wtStream);
+                    await wtStream.DisposeAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    Debug.Assert(quicStream == null, "It should be impossible for the quic stream to be created and the WebTransport stream to be null.");
+                }
+
                 if (ex is QuicException qex && qex.QuicError == QuicError.TransportError)
                 {
                     throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", ex);
@@ -420,7 +431,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 throw;
             }
 
-            _ = CleanUpWebTransportStreamWhenClosed(wtStream, OutboundStreamCleanup);
+            _ = CleanUpWebTransportStreamWhenClosed(wtStream, OpenOutboundStreamCleanup);
 
             AddToOpenStreamsOtherwiseDisposeStream(wtStream);
         }
@@ -463,7 +474,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         });
     }
 
-    private void OutboundStreamCleanup(MsQuicWebTransportStream stream)
+    private void OpenOutboundStreamCleanup(MsQuicWebTransportStream stream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
