@@ -195,7 +195,6 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     private void ReactToReadsClosedInQuicStream()
     {
-        Dispose();
         Task.Run(async () =>
         {
             try
