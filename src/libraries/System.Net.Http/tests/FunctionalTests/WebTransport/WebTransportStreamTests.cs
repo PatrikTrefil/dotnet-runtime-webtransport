@@ -28,6 +28,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 // TODO: add completewrites and writeasync to list of all ops
 // TODO: test that if we have a pending read operation and during that we dispose the stream, the read operation throws objectdisposedexception for the correct object
 // TODO: add tests for default stream error code
+// TODO: open as many stream s QUIC connection allows and then close one and try to open another one - this proves that the underlying quic stream was properly disposed
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
@@ -113,7 +114,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -144,7 +145,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -175,7 +176,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await clientInitiatedStream.ReadExactlyAsync(receivedData);
@@ -210,7 +211,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
             stream.Write(data);
 
@@ -245,7 +246,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
@@ -295,7 +296,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
             serverInitiatedStream.Write(data);
 
@@ -332,7 +333,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -349,7 +350,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -392,7 +393,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -429,7 +430,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -494,7 +495,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -539,7 +540,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -584,7 +585,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -625,7 +626,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -659,7 +660,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -695,7 +696,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             // TODO: assert that both sides are closed after disposal on the client side
@@ -739,7 +740,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
@@ -769,7 +770,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             barrier.SignalAndWait();
@@ -799,7 +800,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             barrier.SignalAndWait();
@@ -834,7 +835,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             Assert.Equal(-1, await clientInitatedStream.ReadByteAsync()); // reach end of stream -> ReadsClosed gets completed
@@ -873,7 +874,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             byte[] receivedData = new byte[dataToSend.Length];
@@ -914,7 +915,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             byte[] receivedData = new byte[dataToSend.Length];

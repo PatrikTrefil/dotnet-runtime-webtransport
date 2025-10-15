@@ -16,6 +16,8 @@ namespace System.Net.WebTransport.Functional.Tests;
 // TODO: add tests with multiple WT sessions and try opening streams and sending data
 // TODO: add test for what happens if the QuicConnection is closed while a session is open
 // TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism
+// TODO: write a test that uses a proxy
+// TODO; write a test that uses a SocketsHttpHandler with PooledConnectionLifetime and assert that the session is not closed because of that
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
@@ -60,7 +62,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -94,7 +96,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -152,7 +154,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -181,7 +183,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
 

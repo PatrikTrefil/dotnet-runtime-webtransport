@@ -46,7 +46,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(expectedSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(expectedSubprotocol);
 
             barrier.SignalAndWait();
         });
@@ -77,7 +77,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
@@ -108,7 +108,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(s_notOfferedSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(s_notOfferedSubprotocol);
 
             barrier.SignalAndWait();
         });
@@ -139,7 +139,7 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(s_invalidSubprotocol);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(s_invalidSubprotocol);
 
             barrier.SignalAndWait();
         });

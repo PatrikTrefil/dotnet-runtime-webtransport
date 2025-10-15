@@ -29,20 +29,26 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
         _defaultMaxSessionCount = defaultMaxSessionCount;
     }
 
-    public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(string? subprotocolToRespondWith = null) =>
-        await AcceptWebTransportServerSessionAsync(_defaultMaxSessionCount, subprotocolToRespondWith);
-
-    public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(long maxSessionCount, string? subprotocolToRespondWith = null)
+    public async Task<WebTransportServerSession> AcceptHttpConnectionAndWebTransportServerSessionAsync(string? subprotocolToRespondWith = null)
     {
-        Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
-            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
-            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = maxSessionCount }
-            );
+        return await AcceptHttpConnectionAndWebTransportServerSessionAsync(_defaultMaxSessionCount, subprotocolToRespondWith);
+    }
+
+    public async Task<WebTransportServerSession> AcceptHttpConnectionAndWebTransportServerSessionAsync(long maxSessionCount, string? subprotocolToRespondWith = null)
+    {
+        Http3LoopbackConnection connection = await AcceptWebTransportEnabledConnection(maxSessionCount);
 
         return await AcceptWebTransportServerSessionAsync(connection, subprotocolToRespondWith);
     }
 
-    // TODO: rename this
+    private async Task<Http3LoopbackConnection> AcceptWebTransportEnabledConnection(long maxSessionCount)
+    {
+        return await _httpServer.EstablishConnectionAsync(
+            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = maxSessionCount }
+            );
+    }
+
     public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(Http3LoopbackConnection connection, string? subprotocolToRespondWith = null)
     {
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);

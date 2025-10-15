@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Net.Test.Common;
 using System.Net.Quic;
 using System.Threading;
+using System.Net.Http;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -21,7 +22,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
     {
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
         });
 
         Task clientTask = Task.Run(async () =>
@@ -42,7 +43,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
     {
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using WebTransportServerSession serverSession2 = await _webTransportServer.AcceptWebTransportServerSessionAsync(serverSession1.Connection);
         });
 
@@ -73,7 +74,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptWebTransportServerSessionAsync(maxSessionCount: 1);
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(maxSessionCount: 1);
 
             barrier.SignalAndWait();
         });
