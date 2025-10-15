@@ -1129,7 +1129,7 @@ namespace System.Net.Http
                 {
                     Version = HttpVersion.Version30,
                     RequestMessage = _request,
-                    Content = _request.IsExtendedConnectRequest ? new Http3ExtendedConnectContent() : new HttpConnectionResponseContent(),
+                    Content = _request.IsExtendedConnectRequest && statusCode == 200 ? new Http3ExtendedConnectContent() : new HttpConnectionResponseContent(),
                     StatusCode = (HttpStatusCode)statusCode
                 };
 
