@@ -66,6 +66,11 @@ public static class ClientWebTransportSession
             throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
         }
 
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            throw new WebTransportException(WebTransportError.SessionRefused, $"The server's response to the extended CONNECT request has status code {(int)response.StatusCode} ({response.ReasonPhrase}).");
+        }
+
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
         MsQuicWebTransportExtendedConnectManager wtExtendedConnectManager = (MsQuicWebTransportExtendedConnectManager)extendedConnectContent.ExtendedConnectManager;
 
