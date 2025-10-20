@@ -34,7 +34,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     public MsQuicWebTransportExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options) : base(options) { }
 
-    public override async Task GoAwayReceivedAsync()
+    public override async Task ProcessGoAwayAsync()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -52,7 +52,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                         {
                             if (sessionAndChannels.Session != null)
                             {
-                                await sessionAndChannels.Session.GracefulShutdown().ConfigureAwait(false);
+                                await sessionAndChannels.Session.GracefulShutdownAsync().ConfigureAwait(false);
                             }
                         }),
                     Tombstone => Task.CompletedTask,
@@ -122,13 +122,13 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         if (shouldCallGracefulShutdownHandler)
         {
-            _ = sessionAndChannels.Session.GracefulShutdown();
+            _ = sessionAndChannels.Session.GracefulShutdownAsync();
         }
 
         return sessionAndChannels.Session;
     }
 
-    public override async Task StreamReceivedAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream)
+    public override async Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream)
     {
         int bytesRead;
         long sessionId;
@@ -147,10 +147,10 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
         buffer.Discard(bytesRead);
 
-        StreamReceivedForSessionAsync(streamType, buffer, stream, sessionId);
+        ProcessReceivedStreamForSessionAsync(streamType, buffer, stream, sessionId);
     }
 
-    private void StreamReceivedForSessionAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream, long sessionId)
+    private void ProcessReceivedStreamForSessionAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream, long sessionId)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Stream received for session {sessionId}");
 
@@ -170,8 +170,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
             if (dictionaryItem is Tombstone)
             {
-                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
-                stream.Dispose();
+                RejectReceivedStreamForClosedSession(buffer, stream);
                 return;
             }
 
@@ -184,15 +183,19 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
             };
 
-            // TODO: refactor this - pass only Reader to session and perform cleanup here in the extended connect manager (the extended connect manager is the owner)
-            bool isSessionShuttingDown = !channelForStreamType.Writer.TryWrite((buffer, stream));
-            if (isSessionShuttingDown)
+            bool wasWriteSuccessful = channelForStreamType.Writer.TryWrite((buffer, stream));
+            if (!wasWriteSuccessful) // session has been closed
             {
-                buffer.Dispose();
-                stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
-                stream.Dispose();
+                RejectReceivedStreamForClosedSession(buffer, stream);
             }
         }
+    }
+
+    private static void RejectReceivedStreamForClosedSession(ArrayBuffer buffer, QuicStream stream)
+    {
+        buffer.Dispose();
+        stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+        stream.Dispose();
     }
 
     public override void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings)
@@ -243,12 +246,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         _maxSessionsCount = value;
     }
 
-    /// <summary>
-    /// Call when a session is closed and the CONNECT stream is no longer used.
-    /// This method may be called multiple times for the same stream and is thread-safe.
-    /// </summary>
-    /// <param name="connectStream">CONNECT stream of the session to remove.</param>
-    public void FinishedUsingConnectStream(QuicStream connectStream)
+    void IMsQuicWebTransportSessionConnectionManager.RemoveSession(QuicStream connectStream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -275,14 +273,13 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 _openSessionsCount--;
             }
 
-            FinishedUsingConnectStreamCallbackAsync(connectStream);
+            RemoveSessionAsync(connectStream);
 
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Removed session with ID {sessionId}.");
         }
     }
 
-    // TODO: rename to ReserveSession
-    public override void BeforeExtendedConnectRequest()
+    public override void ReserveSession()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -296,7 +293,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    public override void AfterFailedExtendedConnectRequest(QuicStream? quicStream)
+    public override void ReleaseSessionAfterFailedHandshake(QuicStream? quicStream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -306,7 +303,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
         if (quicStream != null)
         {
-            FinishedUsingConnectStreamCallbackAsync(quicStream);
+            RemoveSessionAsync(quicStream);
         }
     }
 
@@ -318,6 +315,20 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
         stream.Dispose();
         channelItem.ArrayBuffer.Dispose();
+    }
+
+    async Task<QuicStream> IMsQuicWebTransportSessionConnectionManager.OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        return await OpenOutboundStreamAsync(type, cancellationToken).ConfigureAwait(false);
+    }
+
+    void IMsQuicWebTransportSessionConnectionManager.RemoveOutboundStream()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        RemoveOutboundStream();
     }
 
     private abstract class DictionaryItem { }
@@ -332,20 +343,21 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         private const int s_maxPendingUnidirectionalStreams = 100;
         private const int s_maxPendingBidirectionalStreams = 100;
+
         public MsQuicWebTransportSession? Session { get; set; }
         public Channel<ChannelItem> PendingUnidirectionalStreams { get; }
         public Channel<ChannelItem> PendingBidirectionalStreams { get; }
 
         public SessionAndChannels(Action<ChannelItem> channelItemDropped)
         {
-            PendingUnidirectionalStreams = Channel.CreateBounded<ChannelItem>(
+            PendingUnidirectionalStreams = Channel.CreateBounded(
                 new BoundedChannelOptions(s_maxPendingUnidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
                 channelItemDropped
             );
-            PendingBidirectionalStreams = Channel.CreateBounded<ChannelItem>(
+            PendingBidirectionalStreams = Channel.CreateBounded(
                 new BoundedChannelOptions(s_maxPendingBidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
                 channelItemDropped
             );
-    }
+        }
     }
 }

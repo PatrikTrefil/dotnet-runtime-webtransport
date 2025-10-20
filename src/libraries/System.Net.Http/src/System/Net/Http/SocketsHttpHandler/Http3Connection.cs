@@ -299,7 +299,7 @@ namespace System.Net.Http
             return await conn.OpenOutboundStreamAsync(type, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task FinishedUsingConnectStreamAsync(QuicStream connectStream)
+        private async Task RemoveConnectStreamAsync(QuicStream connectStream)
         {
             Http3RequestStream? value;
             lock (SyncObj)
@@ -340,8 +340,8 @@ namespace System.Net.Http
                     (_) => valueFactory(
                         new Http3ExtendedConnectManagerCreationOptions
                         {
-                            FinishedUsingOutboundStream = ReleaseStream,
-                            FinishedUsingConnectStreamCallbackAsync = FinishedUsingConnectStreamAsync,
+                            RemoveOutboundStream = ReleaseStream,
+                            RemoveSessionAsync = RemoveConnectStreamAsync,
                             OpenOutboundStreamAsync = OpenOutboundStreamAsync
                         }
                     )
@@ -357,7 +357,7 @@ namespace System.Net.Http
                 }
                 try
                 {
-                    extendedconnectManager.BeforeExtendedConnectRequest();
+                    extendedconnectManager.ReserveSession();
                 }
                 catch (Exception e)
                 {
@@ -456,7 +456,7 @@ namespace System.Net.Http
             }
             catch (Exception ex)
             {
-                extendedconnectManager?.AfterFailedExtendedConnectRequest(quicStream);
+                extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
 
                 if (ex is QuicException qex && qex.QuicError == QuicError.OperationAborted)
                 {
@@ -575,7 +575,7 @@ namespace System.Net.Http
 
             foreach (Http3ExtendedConnectManager manager in ProtocolExtendedConnectManagers.Values)
             {
-                LogExceptions(manager.GoAwayReceivedAsync()); // should not throw
+                LogExceptions(manager.ProcessGoAwayAsync()); // should not throw
             }
         }
 
@@ -844,7 +844,7 @@ namespace System.Net.Http
                                 {
                                     ArrayBuffer arrayBufferCopy = buffer;
                                     buffer = default;
-                                    await extendedConnectManager.StreamReceivedAsync(stream.Type, arrayBufferCopy, stream).ConfigureAwait(false);
+                                    await extendedConnectManager.ProcessReceivedStreamAsync(stream.Type, arrayBufferCopy, stream).ConfigureAwait(false);
                                     handedOverToExtendedConnectManager = true;
                                     return;
                                 }

@@ -28,7 +28,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private readonly CapsuleSender _capsuleSender;
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
     private Channel<ChannelItem>? _pendingBidirectionalStreams;
-    private List<MsQuicWebTransportStream> _openStreams = [];
+    private List<MsQuicWebTransportStream>? _openStreams = [];
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
     private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
@@ -38,6 +38,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <see cref="WebTransportSession.UnidirectionalStreamCountLimitForPeer"/>, <see cref="WebTransportSession.DataSentLimitForPeer"/>).
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
+    /// <summary>
+    /// Detect redundant <see cref="CleanUpSessionAsync(Http3ErrorCode)"/> calls in a thread-safe manner.
+    /// </summary>
+    /// <value>
+    /// _isDisposed == 0 means Dispose(bool) has not been called yet.
+    /// _isDisposed == 1 means Dispose(bool) has been already called.
+    /// </value>
+    private int _isCleanedUp;
 
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
@@ -151,7 +159,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
         }
 
-        await CleanUpSession(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+        await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
     }
 
     private async Task ProcessIncomingCapsules()
@@ -204,7 +212,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
         }
 
-        await CleanUpSession(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+        await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
     }
 
     private void MarkSessionAsClosed(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
@@ -357,7 +365,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
 
-            AddToOpenStreamsOtherwiseDisposeStream(wtStream);
+            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream);
         }
         finally
         {
@@ -369,21 +377,34 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         return wtStream;
     }
 
-    private void AddToOpenStreamsOtherwiseDisposeStream(MsQuicWebTransportStream stream)
+    private void AddToOpenStreamsOtherwiseRejectAndDisposeStream(MsQuicWebTransportStream stream)
     {
         try
         {
             lock (SyncObj)
             {
                 ThrowIfInvalidState();
-                _openStreams.Add(stream);
+                if (_openStreams != null)
+                {
+                    _openStreams.Add(stream);
+                }
+                else
+                {
+
+                    RejectAndDisposeStream(stream);
+                }
             }
         }
         catch (Exception)
         {
-            stream.AbortQuicStream(QuicAbortDirection.Both, Http3ErrorCode.WebtransportSessionGone);
-            stream.DisposeAsync().AsTask();
+            RejectAndDisposeStream(stream);
             throw;
+        }
+
+        static void RejectAndDisposeStream(MsQuicWebTransportStream streamToReject)
+        {
+            streamToReject.AbortQuicStream(QuicAbortDirection.Both, Http3ErrorCode.WebtransportSessionGone);
+            streamToReject.DisposeAsync().AsTask();
         }
     }
 
@@ -433,7 +454,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, OpenOutboundStreamCleanup);
 
-            AddToOpenStreamsOtherwiseDisposeStream(wtStream);
+            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream);
         }
         finally
         {
@@ -479,7 +500,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         StreamCleanup(stream);
-        _connectionManager.FinishedUsingOutboundStream();
+        _connectionManager.RemoveOutboundStream();
     }
 
     private void InboundStreamCleanup(MsQuicWebTransportStream stream)
@@ -495,7 +516,10 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         lock (SyncObj)
         {
-            _openStreams.Remove(stream);
+            if (_openStreams != null)
+            {
+                _openStreams.Remove(stream);
+            }
         }
     }
 
@@ -514,7 +538,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         CloseSessionBySendingFinOnConnectStream();
 
-        await CleanUpSession(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+        await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
     }
 
     private void CloseSessionBySendingFinOnConnectStream()
@@ -589,7 +613,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             MarkSessionAsClosed(WebTransportSessionState.ClosedRemotely, closeStatus, statusDescription);
         }
 
-        _ = CleanUpSession(Http3ErrorCode.WebtransportSessionGone).AsTask();
+        _ = CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).AsTask();
     }
 
     private void CapsuleSenderExceptionHandler(Exception ex)
@@ -622,7 +646,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// Call when GOAWAY or DRAIN_WEBTRANSPORT_SESSION has been received.
     /// </summary>
     /// <remarks>Does not throw.</remarks>
-    internal async Task GracefulShutdown()
+    internal async Task GracefulShutdownAsync()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -642,7 +666,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
             }
 
-            await CleanUpSession(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+            await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
         }
     }
 
@@ -654,7 +678,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (State == WebTransportSessionState.Open)
         {
-            _ = GracefulShutdown();
+            _ = GracefulShutdownAsync();
         }
     }
 
@@ -663,24 +687,38 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// </summary>
     /// <remarks>May be called multiple times.</remarks>
     /// <param name="errorCodeForStreams">Error code used to abort all <see cref="QuicStream"/> instances associated with this session.</param>
-    private async ValueTask CleanUpSession(Http3ErrorCode errorCodeForStreams)
+    private async ValueTask CleanUpSessionAsync(Http3ErrorCode errorCodeForStreams)
     {
+        if (Interlocked.CompareExchange(ref _isCleanedUp, 1, 0) == 1)
+        {
+            return;
+        }
+
         Debug.Assert(State != WebTransportSessionState.Open);
 
-        await CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+        await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
 
-        _connectionManager.FinishedUsingConnectStream(_connectStream);
+        _connectionManager.RemoveSession(_connectStream);
 
         _capsuleConsumer.Dispose();
     }
 
-    private async ValueTask CloseOpenStreamsAndCleanupPendingChannelsAndCloseConnectStream(Http3ErrorCode httpErrorCode)
+    private async ValueTask CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode httpErrorCode)
+    {
+        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+
+        await CleanupPendingAndOpenStreamsAsync(httpErrorCode).ConfigureAwait(false);
+    }
+
+    private async ValueTask CleanupPendingAndOpenStreamsAsync(Http3ErrorCode httpErrorCode)
     {
         ClosePendingStreamsChannels();
 
-        await CloseOpenStreamsAndCloseAndDisposePendingStreams(httpErrorCode).ConfigureAwait(false);
+        ValueTask pendingStreamTask = CloseAndCleanupPendingStreamsAsync(httpErrorCode);
 
-        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+        CloseOpenStreams(httpErrorCode);
+
+        await pendingStreamTask.ConfigureAwait(false);
     }
 
     private void ClosePendingStreamsChannels()
@@ -693,29 +731,25 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _pendingBidirectionalStreams?.Writer.TryComplete(ex);
     }
 
-    private async ValueTask CloseOpenStreamsAndCloseAndDisposePendingStreams(Http3ErrorCode httpErrorCode)
-    {
-        ValueTask pendingStreamTask = CloseAndCleanupPendingStreams(httpErrorCode);
-
-        CloseOpenStreams(httpErrorCode);
-
-        await pendingStreamTask.ConfigureAwait(false);
-    }
-
     private void CloseOpenStreams(Http3ErrorCode httpErrorCode)
     {
         lock (SyncObj)
         {
+            if (_openStreams == null)
+            {
+                return;
+            }
+
             foreach (MsQuicWebTransportStream item in _openStreams)
             {
                 item.AbortQuicStream(QuicAbortDirection.Both, httpErrorCode);
             }
 
-            _openStreams = []; // TODO: is this necessary or can I just use null?
+            _openStreams = null;
         }
     }
 
-    private async ValueTask CloseAndCleanupPendingStreams(Http3ErrorCode httpErrorCodeForPendingStreams)
+    private async ValueTask CloseAndCleanupPendingStreamsAsync(Http3ErrorCode httpErrorCodeForPendingStreams)
     {
         ValueTask uniStreamsTask = CloseAndDisposeAllStreamsInChannel(_pendingUnidirectionalStreams, httpErrorCodeForPendingStreams);
         ValueTask biStreamsTask = CloseAndDisposeAllStreamsInChannel(_pendingBidirectionalStreams, httpErrorCodeForPendingStreams);

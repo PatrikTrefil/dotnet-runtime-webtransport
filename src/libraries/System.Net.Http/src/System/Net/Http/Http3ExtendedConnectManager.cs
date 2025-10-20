@@ -21,14 +21,14 @@ internal sealed record class Http3ExtendedConnectManagerCreationOptions
     public required Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsync { get; init; }
 
     /// <summary>
-    /// A callback function that should be invoked when the CONNECT stream is no longer in use.
+    /// Call when the CONNECT stream is no longer in use.
     /// </summary>
-    public required Func<QuicStream, Task> FinishedUsingConnectStreamCallbackAsync { get; init; }
+    public required Func<QuicStream, Task> RemoveSessionAsync { get; init; }
 
     /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    public required Action FinishedUsingOutboundStream { get; init; }
+    public required Action RemoveOutboundStream { get; init; }
 }
 
 [SupportedOSPlatform("linux")]
@@ -47,29 +47,17 @@ internal abstract class Http3ExtendedConnectManager
     /// </summary>
     public static readonly HttpRequestOptionsKey<Http3ExtendedConnectManagerValueFactory> RequestOptionsKey = new("ExtendedConnectManager");
 
-    /// <summary>
-    /// Call to open an outbound an outbound stream using the <see cref="QuicConnection"/> associated with the HTTP/3 connection associated with the <see cref="Http3ExtendedConnectManager"/>.
-    /// </summary>
-    protected Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsyncFunc { get; }
-
-    /// <summary>
-    /// A callback function that should be invoked when the CONNECT stream is no longer in use.
-    /// </summary>
-    protected Func<QuicStream, Task> FinishedUsingConnectStreamCallbackAsync { get; }
-
-    /// <summary>
-    /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsyncFunc"/>.
-    /// </summary>
-    protected Action FinishedUsingOutboundStreamFunc { get; }
-
+    private readonly Func<QuicStreamType, CancellationToken, Task<QuicStream>> _openOutboundStreamAsyncFunc;
+    private readonly Func<QuicStream, Task> _removeSessionAsyncFunc;
+    private readonly Action _removeOutboundStreamFunc;
 
     public Http3ExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options)
     {
         Debug.Assert(options != null);
 
-        OpenOutboundStreamAsyncFunc = options.OpenOutboundStreamAsync;
-        FinishedUsingConnectStreamCallbackAsync = options.FinishedUsingConnectStreamCallbackAsync;
-        FinishedUsingOutboundStreamFunc = options.FinishedUsingOutboundStream;
+        _openOutboundStreamAsyncFunc = options.OpenOutboundStreamAsync;
+        _removeSessionAsyncFunc = options.RemoveSessionAsync;
+        _removeOutboundStreamFunc = options.RemoveOutboundStream;
     }
 
     /// <summary>
@@ -78,7 +66,7 @@ internal abstract class Http3ExtendedConnectManager
     /// <remarks>
     /// This method is expected to never throw an exception.
     /// </remarks>
-    public abstract Task GoAwayReceivedAsync();
+    public abstract Task ProcessGoAwayAsync();
 
     /// <summary>
     /// This method is called when the HTTP library receives a unidirectional/bidirectional QUIC stream
@@ -87,7 +75,7 @@ internal abstract class Http3ExtendedConnectManager
     /// <param name="streamType">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="buffer">Contains the initial part of the stream data. The buffer ownership is given to the method.</param>
     /// <param name="stream">The received stream</param>
-    public abstract Task StreamReceivedAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream);
+    public abstract Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream);
 
     /// <summary>
     /// Variable-length integer that is sent at the start of a unidirectional HTTP/3 stream
@@ -122,14 +110,14 @@ internal abstract class Http3ExtendedConnectManager
     /// It may perform validation of the request. If the request is invalid, it should throw an exception to abort the request.
     /// </summary>
     /// <remarks>Note that this method must be thread-safe.</remarks>
-    public abstract void BeforeExtendedConnectRequest();
+    public abstract void ReserveSession();
 
     /// <summary>
     /// This method is called by the HTTP library when an extended CONNECT request has failed.
     /// It may perform cleanup of any state associated with the request.
     /// </summary>
     /// <param name="quicStream">The stream used for the CONNECT request.</param>
-    public abstract void AfterFailedExtendedConnectRequest(QuicStream? quicStream);
+    public abstract void ReleaseSessionAfterFailedHandshake(QuicStream? quicStream);
 
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="QuicStream"/> using
@@ -138,11 +126,11 @@ internal abstract class Http3ExtendedConnectManager
     /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="InvalidOperationException">When the underlying HTTP/3 connection has been disposed.</exception>
-    public async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
+    protected async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
     {
         try
         {
-            return await OpenOutboundStreamAsyncFunc(type, cancellationToken).ConfigureAwait(false);
+            return await _openOutboundStreamAsyncFunc(type, cancellationToken).ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
@@ -155,7 +143,13 @@ internal abstract class Http3ExtendedConnectManager
     }
 
     /// <summary>
+    /// Call when the <paramref name="connectStream"/> is no longer in use.
+    /// </summary>
+    /// <param name="connectStream">The CONNECT stream that is no longer used.</param>
+    protected Task RemoveSessionAsync(QuicStream connectStream) => _removeSessionAsyncFunc(connectStream);
+
+    /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    public void FinishedUsingOutboundStream() => FinishedUsingOutboundStreamFunc();
+    protected void RemoveOutboundStream() => _removeOutboundStreamFunc();
 }

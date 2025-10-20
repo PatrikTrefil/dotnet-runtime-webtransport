@@ -81,7 +81,7 @@ public static class ClientWebTransportSession
         }
         catch (Exception)
         {
-            wtExtendedConnectManager.FinishedUsingConnectStream(extendedConnectContent.ConnectStream);
+            wtExtendedConnectManager.ReleaseSessionAfterFailedHandshake(extendedConnectContent.ConnectStream);
             throw;
         }
 
