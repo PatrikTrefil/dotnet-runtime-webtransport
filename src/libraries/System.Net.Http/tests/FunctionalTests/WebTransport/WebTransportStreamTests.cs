@@ -103,8 +103,6 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         return theoryData;
     }
 
-    public WebTransportStreamTests(ITestOutputHelper output) : base(output) { }
-
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]

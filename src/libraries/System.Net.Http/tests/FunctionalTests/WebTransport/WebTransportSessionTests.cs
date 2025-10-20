@@ -37,8 +37,6 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken).AsTask(),
         ];
 
-    public WebTransportSessionTests(ITestOutputHelper output) : base(output) { }
-
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)

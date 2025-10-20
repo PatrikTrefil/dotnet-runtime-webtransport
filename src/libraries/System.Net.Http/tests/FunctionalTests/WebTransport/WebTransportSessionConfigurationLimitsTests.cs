@@ -37,8 +37,6 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
     private const int s_minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
     private const int s_maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
 
-    public WebTransportSessionConfigurationLimitsTests(ITestOutputHelper output) : base(output) { }
-
     private void WriteMaxDataCapsule(Stream stream, long dataSentLimit)
     {
         VariableLengthIntegerStreamHelper.Write(stream, s_maxDataCapsuleCode);

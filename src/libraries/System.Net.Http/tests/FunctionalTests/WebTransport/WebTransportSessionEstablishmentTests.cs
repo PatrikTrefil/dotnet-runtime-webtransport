@@ -15,8 +15,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase, IAsyncDisposable
 {
-    public WebTransportSessionEstablishmentTests(ITestOutputHelper output) : base(output) { }
-
     [Fact]
     public async Task SessionEstablishmentWithValidHandshakeSucceeds()
     {

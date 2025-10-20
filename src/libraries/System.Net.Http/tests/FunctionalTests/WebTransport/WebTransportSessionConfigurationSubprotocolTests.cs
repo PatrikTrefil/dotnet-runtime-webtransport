@@ -18,9 +18,6 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
         ];
     private static readonly string s_notOfferedSubprotocol = "notOffered";
 
-    public WebTransportSessionConfigurationSubprotocolTests(ITestOutputHelper output) : base(output) { }
-
-
     [Theory]
     [InlineData("abc")]
     [InlineData("*bcd")]

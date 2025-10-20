@@ -11,9 +11,8 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: there are many synchronizations that will be redundant after we get RESET_STREAM_AT support - remove those once it is available
 
-public abstract class WebTransportTestBase : HttpClientHandlerTestBase
+public abstract class WebTransportTestBase
 {
-    protected override Version UseVersion => HttpVersion.Version30;
     public static bool IsWebTransportSupported => ClientWebTransportSession.IsSupported;
     public virtual int TestTimeoutInMilliseconds => 200_000;
 
@@ -27,11 +26,14 @@ public abstract class WebTransportTestBase : HttpClientHandlerTestBase
         MaxInboundBidirectionalStreams = 150,
     };
 
-    public WebTransportTestBase(ITestOutputHelper output) : base(output)
+    public WebTransportTestBase()
     {
-        _httpServer = CreateHttp3LoopbackServer(_http3Options);
+        _httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
         _webTransportServer = new WebTransportLoopbackServer(_httpServer);
-        _client = CreateHttpClient();
+
+        var handler = new VersionHttpClientHandler(HttpVersion.Version30);
+        handler.ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates;
+        _client = new HttpClient(handler);
     }
 
     public async ValueTask DisposeAsync()

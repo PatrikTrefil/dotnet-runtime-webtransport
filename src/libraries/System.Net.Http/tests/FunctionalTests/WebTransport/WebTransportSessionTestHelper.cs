@@ -6,8 +6,6 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net.Quic;
 using System.Threading;
-using System.Net.Test.Common;
-using System.Diagnostics;
 
 namespace System.Net.WebTransport.Functional.Tests;
 

@@ -21,8 +21,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
-    public WebTransportSessionCloseTests(ITestOutputHelper output) : base(output) { }
-
     private const long s_closeSessionCapsuleCode = 0x2843;
     private const long s_drainSessionCapsuleCode = 0x78ae;
 
