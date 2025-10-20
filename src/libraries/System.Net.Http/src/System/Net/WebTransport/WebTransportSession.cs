@@ -152,13 +152,12 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
     #endregion
 
-    // TODO: add comment to states that these are not null when state is ClosedRemotely or AbortedRemotely if the peer provided them
     /// <summary>
     /// The status code provided when closing the session.
     /// </summary>
     /// <value>
     /// </value>
-    /// When the session has been closed using <see cref="CloseAsync(long, string, CancellationToken)"/>,
+    /// When the session has been closed by peer using <see cref="CloseAsync(long, string, CancellationToken)"/>,
     /// this property contains the close status code.
     /// Otherwise the value is <c>null</c>.
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
@@ -168,7 +167,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The status description provided when closing the session.
     /// </summary>
     /// <value>
-    /// When the session has been closed using <see cref="CloseAsync(long, string, CancellationToken)"/>,
+    /// When the session has been closed by peer using <see cref="CloseAsync(long, string, CancellationToken)"/>,
     /// this property contains the close status description.
     /// The description may be up to 1024 bytes long in UTF-8 encoding.
     /// Otherwise the value is <c>null</c>.
