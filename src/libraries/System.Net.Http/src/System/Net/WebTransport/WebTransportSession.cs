@@ -81,7 +81,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <param name="limit">The new value for <see cref="UnidirectionalStreamCountLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
@@ -111,7 +110,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <param name="limit">The new value for <see cref="BidirectionalStreamCountLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
@@ -144,7 +142,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <param name="limit">The new value for <see cref="DataSentLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
@@ -211,7 +208,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     public abstract ValueTask RequestCloseAsync(CancellationToken cancellationToken = default);
 
@@ -219,7 +215,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public abstract ValueTask CloseAsync();
 
     /// <summary>
@@ -236,7 +231,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="statusDescription"/> is null</exception>
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="closeStatus"/> is not in range [0, 2^32)</exception>
     public async ValueTask CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
@@ -297,7 +291,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// (<see cref="UnidirectionalStreamCountLimitProvidedByPeer"/>, <see cref="BidirectionalStreamCountLimitProvidedByPeer"/>).
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-limiting-the-number-of-stre" /></exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public async ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -316,7 +309,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="type">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="OperationCanceledException">Operation cancelled</exception>
-    /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public async ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
