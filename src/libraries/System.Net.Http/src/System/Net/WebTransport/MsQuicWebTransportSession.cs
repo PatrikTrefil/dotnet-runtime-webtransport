@@ -322,6 +322,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
         catch (Exception ex)
         {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
             CapsuleSenderExceptionHandler(ex);
             throw;
         }
@@ -354,6 +355,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
             catch (ChannelClosedException ex)
             {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
                 Debug.Assert(ex.InnerException != null);
                 throw ex.InnerException;
             }
@@ -390,13 +392,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
                 else
                 {
-
                     RejectAndDisposeStream(stream);
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
             RejectAndDisposeStream(stream);
             throw;
         }
@@ -426,6 +428,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
             catch (Exception ex)
             {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+
                 if (wtStream != null)
                 {
                     OpenOutboundStreamCleanup(wtStream);
@@ -549,9 +553,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             _connectStream.CompleteWrites();
         }
-        catch (QuicException e)
+        catch (QuicException ex)
         {
-            throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error when closing the session.", e);
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+
+            throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error when closing the session.", ex);
         }
 
         _connectStream.Abort(QuicAbortDirection.Read, 0);

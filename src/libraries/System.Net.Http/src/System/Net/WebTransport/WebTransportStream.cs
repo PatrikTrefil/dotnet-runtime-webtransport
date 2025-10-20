@@ -417,8 +417,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             {
                 remappedErrorCode = ErrorCodeRemapping.HttpCodeToWebTransportCode(applicationErrorCode);
             }
-            catch (ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException ex)
             {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+
                 return new WebTransportException(WebTransportError.StreamAborted, null, null, "Stream aborted with invalid application error code.");
             }
             return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, "The stream has beed aborted.", quicException);

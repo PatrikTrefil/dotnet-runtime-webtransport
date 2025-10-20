@@ -62,7 +62,6 @@ public static class ClientWebTransportSession
         }
         catch (Exception e)
         {
-            // TODO: handle case where user provides message invoker that does not support http/3 with special WT Error and message and write test for it
             throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
         }
 

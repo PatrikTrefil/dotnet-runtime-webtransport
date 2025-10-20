@@ -42,7 +42,6 @@ internal sealed partial class NetEventSource
         Log.WtTrace(IdOf(obj), memberName ?? MissingMember, message ?? memberName ?? string.Empty);
     }
 
-    // TODO: use this to log all exceptions
     [NonEvent]
     public static void TraceException(object? obj, Exception exception, [CallerMemberName] string? memberName = null)
         => Trace(obj, exception.ToString(), memberName);
