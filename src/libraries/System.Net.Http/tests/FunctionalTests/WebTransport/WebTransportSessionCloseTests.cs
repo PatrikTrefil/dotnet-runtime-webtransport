@@ -78,7 +78,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(s_closeParameters))]
-    public async Task SessionCloseAsyncSendsCorrectCapsule(byte[] expectedApplicationErrorMessage, long expectedApplicationErrorCode)
+    public async Task SessionCloseAsyncSendsCorrectCapsuleAndClosesSession(byte[] expectedApplicationErrorMessage, long expectedApplicationErrorCode)
     {
         using Barrier barrier = new(2);
 
@@ -112,7 +112,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0,
             });
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+
             await session.CloseAsync(expectedApplicationErrorCode, Encoding.UTF8.GetString(expectedApplicationErrorMessage));
+
+            Assert.Equal(WebTransportSessionState.ClosedLocally, session.State);
+            await AssertStreamIsClosedWithSpinWait(stream);
 
             barrier.SignalAndWait();
         });
