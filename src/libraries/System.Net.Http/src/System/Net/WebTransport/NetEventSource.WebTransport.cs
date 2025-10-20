@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 
 namespace System.Net;
 
-// TODO: consider having a TraceSession/stream/... methods to append data to each trace
 // TODO: maybe some events should be visible to the user? (so not in Private.InternalDiagnostics)
 
 // TODO: uncomment when WT is separated from System.Net.Http
