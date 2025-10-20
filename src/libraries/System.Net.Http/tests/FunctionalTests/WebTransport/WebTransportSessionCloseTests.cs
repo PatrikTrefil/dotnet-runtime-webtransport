@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit.Abstractions;
 using System.Threading.Tasks;
 using Xunit;
 using System.Buffers.Binary;
@@ -15,8 +14,6 @@ using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test for the scenario: client opens a session and then closes it and then server tries to open a stream for the closed session
-// TODO: write test for when a session is closed the session's streams are closed with the correct error code (might already be covered or maybe just needs to modify existing test)
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
