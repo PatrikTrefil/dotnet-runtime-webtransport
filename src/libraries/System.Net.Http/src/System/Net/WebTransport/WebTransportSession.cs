@@ -219,7 +219,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
-    /// <exception cref="WebTransportException">When the session is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     public abstract ValueTask CloseAsync();
 
@@ -232,6 +231,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// </param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <remarks>The delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> is best-effort.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
@@ -239,7 +239,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ObjectDisposedException">When calling the method on a disposed session.</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="statusDescription"/> is null</exception>
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="closeStatus"/> is not in range [0, 2^32)</exception>
-    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     public async ValueTask CloseAsync(long closeStatus, string statusDescription, CancellationToken cancellationToken = default)
     {
         if (State != WebTransportSessionState.Open)
@@ -275,7 +274,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
-    /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     protected abstract ValueTask CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>

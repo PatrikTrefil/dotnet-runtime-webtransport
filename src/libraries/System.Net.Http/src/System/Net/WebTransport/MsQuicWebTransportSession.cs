@@ -248,15 +248,31 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         CloseSessionCapsule closeSessionCapsule = new(closeStatus, statusDescription);
 
-        // TODO: what if this fails? the session is already marked as closed
-        await SendCapsuleAsync(
-            closeSessionCapsule,
-            static (session, capsule) => { },
-            completeWrites: true,
-            cancellationToken
-            ).ConfigureAwait(false);
+        try
+        {
+            await SendCapsuleAsync(
+                closeSessionCapsule,
+                static (session, capsule) => { },
+                completeWrites: true,
+                cancellationToken
+                ).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+            // RFC: The delivery of the error code and string MAY be best-effort.
+            // Therefore, we just close the session without the delivery of the error code and description in the finnaly block;
+            throw;
+        }
+        finally
+        {
+            await CloseAsync().ConfigureAwait(false);
+        }
 
-        _connectStream.Abort(QuicAbortDirection.Read, 0); // RFC suggests optional abort of the read side of the CONNECT stream after CLOSE_WEBTRANSPORT_SESSION
 
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncCompleted(this);
     }
@@ -561,7 +577,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
 
         _connectStream.Abort(QuicAbortDirection.Read, 0);
-
 
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncCompleted(this);
     }
