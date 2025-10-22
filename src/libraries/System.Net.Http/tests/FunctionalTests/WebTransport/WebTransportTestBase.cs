@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit.Abstractions;
 using System.Net.Http.Functional.Tests;
 using System.Threading.Tasks;
 using System.Net.Test.Common;
@@ -31,7 +30,7 @@ public abstract class WebTransportTestBase: IAsyncDisposable
         _httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
         _webTransportServer = new WebTransportLoopbackServer(_httpServer);
 
-        var handler = new VersionHttpClientHandler(HttpVersion.Version30);
+        var handler = new VersionHttpClientHandler(HttpVersion.Version30) { AllowAutoRedirect = false };
         handler.ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates;
         _client = new HttpClient(handler);
     }
