@@ -146,7 +146,151 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    /// <summary>
+    /// The point of this test is to verify that the session reserved by a failed attempt is released properly.
+    /// If it was not, the second attempt would fail due to max sessions limit being reached.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.NotImplemented)]
+    [InlineData(HttpStatusCode.Accepted)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task SessionEstablishmentSucceedsAfterFailedAttempt(HttpStatusCode statusCode)
+    {
+        using Barrier barrier = new(2);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
+                new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+                new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
+            );
+            HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+
+            await connection.SendResponseAsync(statusCode: statusCode, content: null, isFinal: false);
+
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(connection);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            }));
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Redirect)]
+    [InlineData(HttpStatusCode.MovedPermanently)]
+    public async Task SessionEstablishmentThrowsWhenTheServerResponsedWithRedirectAndTheHttpMessageInvokerDoesNotAutoRedirect(HttpStatusCode statusCode)
+    {
+        using Barrier barrier = new(2);
+        string expectedLocation = "https://host/redirected";
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
+                new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+                new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
+            );
+            HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+
+            List<HttpHeaderData> headers = [
+                new HttpHeaderData("Location", expectedLocation)
+            ];
+            await connection.SendResponseAsync(statusCode: statusCode, headers, content: null, isFinal: false);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            }));
+            Assert.Equal(WebTransportError.RedirectRequired, ex.WebTransportError);
+            Assert.Equal(expectedLocation, ex.RedirectLocation.ToString());
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Redirect)]
+    [InlineData(HttpStatusCode.MovedPermanently)]
+    public async Task SessionEstablishmentSucceedsWhenTheServerResponsedWithRedirectAndTheHttpMessageInvokerDoesAutoRedirect(HttpStatusCode statusCode)
+    {
+        using Barrier barrier = new(2);
+        Http3LoopbackServer httpServerWithRedirect = new();
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connectionWithRedirect = await httpServerWithRedirect.EstablishConnectionAsync(
+                new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+                new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
+            );
+
+            HttpRequestData httpRequestData = await connectionWithRedirect.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+
+            List<HttpHeaderData> headers = [
+                new HttpHeaderData("Location", _httpServer.Address.ToString())
+            ];
+
+            await connectionWithRedirect.SendResponseAsync(statusCode: statusCode, headers, content: null, isFinal: false);
+
+            await using Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
+                new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+                new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
+            );
+
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptWebTransportServerSessionAsync(connection);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            VersionHttpClientHandler handler = new(HttpVersion.Version30) { AllowAutoRedirect = true };
+            handler.ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates;
+            HttpClient client = new(handler);
+
+            await using WebTransportSession sesison = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = httpServerWithRedirect.Address,
+                HttpMessageInvoker = client,
+                DefaultStreamErrorCode = 0
+            });
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
