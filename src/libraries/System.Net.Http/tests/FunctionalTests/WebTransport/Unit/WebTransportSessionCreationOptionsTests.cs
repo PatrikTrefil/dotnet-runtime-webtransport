@@ -137,4 +137,16 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             DefaultStreamErrorCode = s_validVarInt
         });
     }
+
+    [Fact]
+    public void UsingRelativeUriThrows()
+    {
+        Uri relativeUri = new("/a/b/c", UriKind.Relative);
+        Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = relativeUri,
+            DefaultStreamErrorCode = s_validVarInt
+        });
+    }
 }
