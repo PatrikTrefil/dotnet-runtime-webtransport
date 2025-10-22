@@ -176,6 +176,7 @@
     <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
     <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportStream.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
     <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
