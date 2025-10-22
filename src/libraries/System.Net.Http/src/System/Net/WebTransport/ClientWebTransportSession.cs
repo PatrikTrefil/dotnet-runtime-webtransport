@@ -10,6 +10,8 @@ using System.Runtime.Versioning;
 
 namespace System.Net.WebTransport;
 
+// TODO: use SR.PlatformNotSupported_NetWebTransport in assembly
+
 public static class ClientWebTransportSession
 {
     // TODO: IsSupported property is not for all WebTransport but only for WT over HTTP/3 - how to reflect this?
@@ -62,12 +64,12 @@ public static class ClientWebTransportSession
         }
         catch (Exception e)
         {
-            throw new WebTransportException(WebTransportError.SessionRefused, "Failed to create a WebTransport session.", e);
+            throw new WebTransportException(WebTransportError.SessionRefused, SR.net_webtransport_session_establishment_failed, e);
         }
 
         if (response.StatusCode != HttpStatusCode.OK)
         {
-            throw new WebTransportException(WebTransportError.SessionRefused, $"The server's response to the extended CONNECT request has status code {(int)response.StatusCode} ({response.ReasonPhrase}).");
+            throw new WebTransportException(WebTransportError.SessionRefused, SR.Format(SR.net_webtransport_session_establishment_failed_with_status_code, (int)response.StatusCode));
         }
 
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
@@ -106,21 +108,21 @@ public static class ClientWebTransportSession
             {
                 if (selectedSubprotocol != null)
                 {
-                    throw new WebTransportException(WebTransportError.HeaderError, "Multiple WT-Protocol headers received from the server.");
+                    throw new WebTransportException(WebTransportError.HeaderError, SR.net_webtransport_multiple_subprotocols_selected);
                 }
 
                 try
                 {
                     StructuredFieldValuesForHttp.ValidateToken(value);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.", e);
+                    throw new WebTransportException(WebTransportError.HeaderError, SR.Format(SR.net_webtransport_server_selected_protocol_not_offered, value));
                 }
 
                 if (!availableSubProtocols.Contains(value))
                 {
-                    throw new WebTransportException(WebTransportError.HeaderError, $"The server selected a protocol '{value}' that was not offered by the client.");
+                    throw new WebTransportException(WebTransportError.HeaderError, SR.Format(SR.net_webtransport_server_selected_protocol_not_offered, value));
                 }
                 selectedSubprotocol = value;
             }

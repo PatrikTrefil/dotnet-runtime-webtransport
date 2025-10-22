@@ -6,8 +6,6 @@ using System.Threading;
 using System.Text;
 using System.Diagnostics;
 
-// TODO: separate out error messages to resx file
-
 namespace System.Net.WebTransport;
 
 /// <summary>
@@ -241,7 +239,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
         if (closeStatus < 0 || closeStatus > uint.MaxValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(closeStatus), "The value has to be in range [0, 2^32)");
+            throw new ArgumentOutOfRangeException(nameof(closeStatus), SR.net_webtransport_invalid_close_status);
         }
 
         ArgumentNullException.ThrowIfNull(statusDescription);
@@ -250,7 +248,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
         if (statusDescriptionUtf8.Length > 1024)
         {
-            throw new ArgumentException("The status description is longer than 1024 bytes after encoding.", nameof(statusDescription));
+            throw new ArgumentException(SR.net_webtransport_invalid_status_description_length, nameof(statusDescription));
         }
 
         await CloseAsyncCore(closeStatus, statusDescriptionUtf8, cancellationToken).ConfigureAwait(false);

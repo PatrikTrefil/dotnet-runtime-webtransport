@@ -238,7 +238,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         if (!maxSessionsSettingRetrievalSuccess || value == 0)
         {
-            throw new WebTransportException(WebTransportError.HeaderError, "Server does not support WebTransport over HTTP/3");
+            throw new WebTransportException(WebTransportError.HeaderError, SR.net_webtransport_server_does_not_support_webtransport_over_http3);
         }
 
         _initialMaxUnidirectionalStreamsPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, 0);
@@ -289,7 +289,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         {
             if (_openSessionsCount == _maxSessionsCount)
             {
-                throw new WebTransportException(WebTransportError.SessionRefused, "Maximum number of allowed sessions reached");
+                throw new WebTransportException(WebTransportError.SessionRefused, SR.net_webtransport_maximum_number_of_sessions_reached);
             }
             _openSessionsCount++;
         }

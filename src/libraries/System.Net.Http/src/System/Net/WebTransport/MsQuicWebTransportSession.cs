@@ -359,7 +359,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 WebTransportStreamType.Unidirectional => _pendingUnidirectionalStreams,
                 WebTransportStreamType.Bidirectional => _pendingBidirectionalStreams,
-                _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid abort direction.")
+                _ => throw new ArgumentOutOfRangeException(nameof(type))
             };
 
             ObjectDisposedException.ThrowIf(channel == null, this);
@@ -462,7 +462,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
                 if (ex is QuicException qex && qex.QuicError == QuicError.TransportError)
                 {
-                    throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", ex);
+                    throw new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, ex);
                 }
                 else if (ex is OperationCanceledException or InvalidOperationException)
                 {
@@ -496,7 +496,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             WebTransportStreamType.Unidirectional => QuicStreamType.Unidirectional,
             WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
-            _ => throw new ArgumentOutOfRangeException(paramName, streamType, "Invalid stream type.")
+            _ => throw new ArgumentOutOfRangeException(paramName, streamType, SR.Format(SR.net_webtransport_invalid_stream_type, streamType))
         };
     }
     private static Task CleanUpWebTransportStreamWhenClosed(MsQuicWebTransportStream stream, Action<MsQuicWebTransportStream> cleanUpAction)
@@ -577,7 +577,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-            throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error when closing the session.", ex);
+            throw new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, ex);
         }
 
         _connectStream.Abort(QuicAbortDirection.Read, 0);
@@ -654,15 +654,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (qex.QuicError == QuicError.TransportError)
             {
-                throw new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", ex);
+                throw new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, ex);
             }
             else if (qex.QuicError == QuicError.OperationAborted)
             {
-                throw new InvalidOperationException("The session has been closed.", ex);
+                throw new WebTransportException(WebTransportError.OperationAborted, SR.net_webtransport_operation_aborted, ex);
             }
             else if (qex.QuicError is QuicError.StreamAborted or QuicError.ConnectionAborted)
             {
-                throw new WebTransportException(WebTransportError.SessionClosedByPeer, "The session was abortively closed by peer.", ex);
+                throw new WebTransportException(WebTransportError.SessionClosedByPeer, SR.net_webtransport_session_closed_by_peer, ex);
             }
         }
     }

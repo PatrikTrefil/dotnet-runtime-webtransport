@@ -26,7 +26,7 @@ internal static class StructuredFieldValuesForHttp
 
         if (!char.IsAsciiLetter(token[0]) && token[0] != '*')
         {
-            throw new ArgumentException("The token does not start with an ASCII letter or '*'.", nameof(token));
+            throw new ArgumentException(SR.net_webtransport_invalid_starting_char_in_token, nameof(token));
         }
 
         for (int i = 1; i < token.Length; i++)
@@ -35,7 +35,7 @@ internal static class StructuredFieldValuesForHttp
 
             if (!IsTchar(currChar) && currChar != ':' && currChar != '/')
             {
-                throw new ArgumentException($"The token contains an invalid character '{currChar}' at index {i}.", nameof(token));
+                throw new ArgumentException(SR.Format(SR.net_webtransport_invalid_char_in_token, currChar, i), nameof(token));
             }
         }
     }

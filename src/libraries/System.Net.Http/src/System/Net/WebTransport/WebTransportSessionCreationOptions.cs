@@ -23,7 +23,7 @@ public sealed class WebTransportSessionCreationOptions
 
             if (value.Scheme != "https")
             {
-                throw new ArgumentException("The URI scheme must be 'https'.", nameof(value));
+                throw new ArgumentException(SR.net_webtransport_uri_scheme_not_https, nameof(value));
             }
 
             field = value;
@@ -95,7 +95,7 @@ public sealed class WebTransportSessionCreationOptions
             }
             catch (ArgumentException e)
             {
-                throw new ArgumentException($"The token at index {i} is not valid.", paramName, e);
+                throw new ArgumentException(SR.Format(SR.net_webtransport_invalid_subprotocol_value, i), paramName, e);
             }
         }
     }

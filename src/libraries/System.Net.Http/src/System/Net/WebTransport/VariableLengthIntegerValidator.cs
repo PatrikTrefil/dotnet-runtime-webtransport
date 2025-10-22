@@ -13,7 +13,7 @@ internal static class VariableLengthIntegerValidator
     {
         if (value is < 0 or > MaxValue)
         {
-            throw new ArgumentOutOfRangeException(paramName, "The value must be in the range [0, 2^62)");
+            throw new ArgumentOutOfRangeException(paramName, SR.net_webtransport_invalid_variable_length_integer);
         }
     }
 }

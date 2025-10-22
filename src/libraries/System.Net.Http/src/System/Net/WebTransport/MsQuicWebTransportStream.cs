@@ -130,7 +130,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         {
             WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
             WebTransportStreamType.Bidirectional => s_bidirectionalStreamTypeEncodedAsVariableLengthInteger,
-            _ => throw new WebTransportException(WebTransportError.InternalError, "Unknown stream type.")
+            _ => throw new WebTransportException(WebTransportError.InternalError, SR.net_webtransport_internal_error)
         };
         await _readStream.WriteAsync(initialBytes, cancellationToken).ConfigureAwait(false);
         await _readStream.WriteAsync(encodedSessionId, cancellationToken).ConfigureAwait(false);
@@ -173,7 +173,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             WebTransportAbortDirection.Read => QuicAbortDirection.Read,
             WebTransportAbortDirection.Write => QuicAbortDirection.Write,
             WebTransportAbortDirection.Both => QuicAbortDirection.Both,
-            _ => throw new ArgumentOutOfRangeException(paramName, abortDirection, "Invalid abort direction value.")
+            _ => throw new ArgumentOutOfRangeException(paramName, abortDirection, SR.net_webtransport_stream_invalid_abort_direction)
         };
     }
 
@@ -452,7 +452,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             {
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-                return new WebTransportException(WebTransportError.StreamAborted, null, null, SR.net_webtransport_stream_invalid_application_error_code);
+                return new WebTransportException(WebTransportError.StreamAborted, null, null, SR.Format(SR.net_webtransport_stream_invalid_application_error_code, applicationErrorCode));
             }
             return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, SR.net_webtransport_stream_aborted, quicException);
         }
