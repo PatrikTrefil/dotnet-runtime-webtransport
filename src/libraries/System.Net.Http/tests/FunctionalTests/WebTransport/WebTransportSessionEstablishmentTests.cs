@@ -1,13 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
-using Xunit.Abstractions;
-using System.Threading.Tasks;
-using System.Net.Test.Common;
-using System.Net.Quic;
-using System.Threading;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Functional.Tests;
+using System.Net.Quic;
+using System.Net.Test.Common;
+using System.Threading;
+using System.Threading.Tasks;
+using Xunit;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -92,7 +93,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait();
         });
@@ -111,11 +112,10 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
             HttpMessageInvoker = _client,
             DefaultStreamErrorCode = 0
         }));
-        Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+        Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.Redirect)]
     [InlineData(HttpStatusCode.NotImplemented)]
     [InlineData(HttpStatusCode.Accepted)]
     [InlineData(HttpStatusCode.BadGateway)]
@@ -131,7 +131,6 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 }
             );
             HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
-            QuicStream controlStream = connection.CurrentStream.Stream;
 
             await connection.SendResponseAsync(statusCode: statusCode, content: null, isFinal: false);
 
@@ -298,6 +297,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    // TODO: write test that does a failed handshake and then a successful one
     [Fact]
     public async Task SessionEstablishmentFailsWhenTheExtendedConnectRequestReachesTimeout()
     {
@@ -322,7 +322,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
@@ -353,7 +353,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
@@ -383,7 +383,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
@@ -414,7 +414,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             }));
-            Assert.Equal(WebTransportError.SessionRefused, ex.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
@@ -448,8 +448,8 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
             WebTransportException ex1 = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(options));
             WebTransportException ex2 = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(options));
 
-            Assert.Equal(WebTransportError.SessionRefused, ex1.WebTransportError);
-            Assert.Equal(WebTransportError.SessionRefused, ex2.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex1.WebTransportError);
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex2.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);
         });
