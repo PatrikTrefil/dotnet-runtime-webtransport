@@ -28,14 +28,17 @@ public abstract class WebTransportStream : Stream
     /// </summary>
     public WebTransportStreamType Type { get; }
 
-    protected long defaultStreamErrorCode;
+    /// <summary>
+    /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="DisposeAsync()"/>.
+    /// </summary>
+    protected long DefaultStreamErrorCode { get; }
 
     protected internal WebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode)
     {
         Debug.Assert(Enum.IsDefined(type));
 
         Type = type;
-        this.defaultStreamErrorCode = defaultStreamErrorCode;
+        DefaultStreamErrorCode = defaultStreamErrorCode;
     }
 
     /// <summary>
@@ -566,7 +569,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
             if (disposing)
             {
-                _quicStream.Abort(QuicAbortDirection.Both, defaultStreamErrorCode);
+                _quicStream.Abort(QuicAbortDirection.Both, DefaultStreamErrorCode);
                 _readStream.Dispose();
                 _quicStream.Dispose();
             }
@@ -576,7 +579,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     }
     protected override async ValueTask DisposeAsyncCore()
     {
-        _quicStream.Abort(QuicAbortDirection.Both, defaultStreamErrorCode);
+        _quicStream.Abort(QuicAbortDirection.Both, DefaultStreamErrorCode);
         await _quicStream.DisposeAsync().ConfigureAwait(false);
         await _readStream.DisposeAsync().ConfigureAwait(false);
     }
