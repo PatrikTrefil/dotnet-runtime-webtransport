@@ -440,16 +440,23 @@ namespace System.Net.Http
 
                 HttpResponseMessage response = await responseTask.ConfigureAwait(false);
 
-                if (request.IsExtendedConnectRequest && response.IsSuccessStatusCode)
+                if (request.IsExtendedConnectRequest)
                 {
-                    Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
-                    extendedConnectContent.QuicConnection = conn!;
-                    bool success = ProtocolExtendedConnectManagers.TryGetValue(request.Headers.Protocol!, out Http3ExtendedConnectManager? extendedConnectManager);
-                    Debug.Assert(success, "The extended connect manager should have been already created");
-                    Debug.Assert(extendedConnectManager != null, "The extended connect manager should not be null");
-                    extendedConnectContent.ExtendedConnectManager = extendedConnectManager!;
-                    Debug.Assert(extendedConnectContent.ConnectStream != null, "The connect stream should have already been set");
-                    Debug.Assert(extendedConnectContent.ConnectStreamBuffer != null, "The connect stream buffer should have already been set");
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;
+                        extendedConnectContent.QuicConnection = conn!;
+                        bool success = ProtocolExtendedConnectManagers.TryGetValue(request.Headers.Protocol!, out Http3ExtendedConnectManager? extendedConnectManager);
+                        Debug.Assert(success, "The extended connect manager should have been already created");
+                        Debug.Assert(extendedConnectManager != null, "The extended connect manager should not be null");
+                        extendedConnectContent.ExtendedConnectManager = extendedConnectManager!;
+                        Debug.Assert(extendedConnectContent.ConnectStream != null, "The connect stream should have already been set");
+                        Debug.Assert(extendedConnectContent.ConnectStreamBuffer != null, "The connect stream buffer should have already been set");
+                    }
+                    else
+                    {
+                        extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
+                    }
                 }
 
                 return response;
