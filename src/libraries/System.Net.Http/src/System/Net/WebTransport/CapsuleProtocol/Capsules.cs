@@ -61,11 +61,13 @@ internal sealed class CloseSessionCapsule : Capsule
         ApplicationErrorCode = applicationErrorCode;
         ApplicationErrorMessage = applicationErrorMessage;
     }
+
     public override void ProcessReceived(MsQuicWebTransportSession session)
     {
         string applicationErrorMessageString = _encoding.GetString(ApplicationErrorMessage.Span);
         session.ReceiveClose(ApplicationErrorCode, applicationErrorMessageString);
     }
+
     public static CloseSessionCapsule Deserialize(ReadOnlyMemory<byte> buffer)
     {
         long applicationErrorMessageLength = buffer.Length - s_applicationErrorMessageOffset;
@@ -86,6 +88,7 @@ internal sealed class CloseSessionCapsule : Capsule
 
         return new CloseSessionCapsule(applicationErrorCode, errorMessageBuffer);
     }
+
     public override void Serialize(Span<byte> buffer)
     {
         if (buffer.Length < TotalLength)
@@ -195,6 +198,7 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
 
         return new MaxBidirectionalStreamsCapsule(maxBidirectionalStreams);
     }
+
     public override void Serialize(Span<byte> buffer)
     {
         if (buffer.Length < TotalLength)
