@@ -10,7 +10,15 @@ public sealed class WebTransportException : Exception
     /// </summary>
     /// <param name="error">The error associated with the exception.</param>
     /// <param name="message">The message for the exception</param>
-    public WebTransportException(WebTransportError error, string message) : this(error, null, null, message, null) { }
+    public WebTransportException(WebTransportError error, string message) : this(error, null, null, null, message, null) { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WebTransportException"/> class.
+    /// </summary>
+    /// <param name="error">The error associated with the exception.</param>
+    /// <param name="message">The message for the exception</param>
+    /// <param name="redirectUri">Value of <see cref="Http.Headers.HttpResponseHeaders.Location"/> of the extended CONNECT request.</param>
+    public WebTransportException(WebTransportError error, string message, Uri? redirectUri) : this(error, null, null, redirectUri, message, null) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebTransportException"/> class.
@@ -18,7 +26,7 @@ public sealed class WebTransportException : Exception
     /// <param name="error">The error associated with the exception.</param>
     /// <param name="message">The message for the exception</param>
     /// <param name="innerException">The exception that is the cause of the current exception, or a null reference if no inner exception is specified.</param>
-    public WebTransportException(WebTransportError error, string message, Exception? innerException) : this(error, null, null, message, innerException) { }
+    public WebTransportException(WebTransportError error, string message, Exception? innerException) : this(error, null, null, null, message, innerException) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebTransportException"/> class.
@@ -28,7 +36,8 @@ public sealed class WebTransportException : Exception
     /// <param name="applicationErrorMessage">The application error message associated with the error.</param>
     /// <param name="message">The message for the exception</param>
 
-    public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message) : this(error, applicationErrorCode, applicationErrorMessage, message, null) { }
+    public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message) : this(error, applicationErrorCode, applicationErrorMessage, null, message, null) { }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="WebTransportException"/> class.
     /// </summary>
@@ -37,12 +46,24 @@ public sealed class WebTransportException : Exception
     /// <param name="applicationErrorMessage">The application error message associated with the error.</param>
     /// <param name="message">The message for the exception</param>
     /// <param name="innerException">The exception that is the cause of the current exception, or a null reference if no inner exception is specified.</param>
+    public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message, Exception? innerException) : this(error, applicationErrorCode, applicationErrorMessage, null, message, innerException) { }
 
-    public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message, Exception? innerException) : base(message, innerException)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WebTransportException"/> class.
+    /// </summary>
+    /// <param name="error">The error associated with the exception.</param>
+    /// <param name="applicationErrorCode">The application error code associated with the error.</param>
+    /// <param name="applicationErrorMessage">The application error message associated with the error.</param>
+    /// <param name="redirectUri">Redirect to this URI is required to create a session.</param>
+    /// <param name="message">The message for the exception</param>
+    /// <param name="innerException">The exception that is the cause of the current exception, or a null reference if no inner exception is specified.</param>
+
+    public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, Uri? redirectUri, string message, Exception? innerException) : base(message, innerException)
     {
+        RedirectLocation = redirectUri;
         WebTransportError = error;
-        ApplicationErrorCode = applicationErrorCode;
-        ApplicationErrorMessage = applicationErrorMessage;
+        CloseStatusCode = applicationErrorCode;
+        CloseStatusDescription = applicationErrorMessage;
     }
 
     /// <summary>
@@ -52,17 +73,29 @@ public sealed class WebTransportException : Exception
 
     /// <summary>
     /// Error code provided by the peer when closing a stream/session.
-    /// The value is in the range [0, 2^32).
     /// </summary>
-    public long? ApplicationErrorCode { get; }
+    /// <value>
+    /// The value is in the range [0, 2^32) or <c>null</c>.
+    /// The value is not <c>null</c> if the <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/> and the peer provided a description when closing the session
+    /// or the <see cref="WebTransportError"/> is <see cref="WebTransportError.StreamAborted"/>.
+    /// </value>
+    public long? CloseStatusCode { get; }
 
     /// <summary>
     /// Application error message provided by the peer when closing a session.
-    /// When the session has been closed by peer using the CLOSE_WEBTRANSPORT_SESSION capsule,
-    /// this property contains the "Application Error Message" part of the capsule.
-    /// When the session has been closed cleanly by peer using a GOAWAY frame or DRAIN_WEBTRANSPORT_SESSION, the value is null.
-    /// The description may be up to 1024 bytes long in UTF-8 encoding.
     /// </summary>
+    /// <value>
+    /// The description may be up to 1024 bytes long in UTF-8 encoding.
+    /// The value is not <c>null</c>, if the <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/> and the peer provided a description when closing the session.
+    /// </value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    public string? ApplicationErrorMessage { get; }
+    public string? CloseStatusDescription { get; }
+
+    /// <summary>
+    /// Value of <see cref="Http.Headers.HttpResponseHeaders.Location"/> of the extended CONNECT request.
+    /// </summary>
+    /// <value>
+    /// Value is not <c>null</c> if the <see cref="WebTransportError"/> is <see cref="WebTransportError.RedirectRequired"/>.
+    /// </value>
+    public Uri? RedirectLocation { get; }
 }

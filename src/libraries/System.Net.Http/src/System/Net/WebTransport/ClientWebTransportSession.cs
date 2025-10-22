@@ -31,7 +31,12 @@ public static class ClientWebTransportSession
     /// Create a WebTransport session using HTTP/3.
     /// </summary>
     /// <exception cref="ArgumentNullException">When <paramref name="options"/> is <c>null</c>.</exception>
-    /// <exception cref="WebTransportException">When the creation of the session fails.</exception>
+    /// <exception cref="WebTransportException">
+    /// When the creation of the session fails.
+    ///
+    /// If the server responds with a redirect and the <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> does not automatically follow redirects,
+    /// the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.RedirectRequired"/>.
+    /// </exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public static async Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, CancellationToken cancellationToken = default)
     {
@@ -64,12 +69,17 @@ public static class ClientWebTransportSession
         }
         catch (Exception e)
         {
-            throw new WebTransportException(WebTransportError.SessionRefused, SR.net_webtransport_session_establishment_failed, e);
+            throw new WebTransportException(WebTransportError.SessionConnectFailure, SR.net_webtransport_session_connect_failed, e);
         }
 
         if (response.StatusCode != HttpStatusCode.OK)
         {
-            throw new WebTransportException(WebTransportError.SessionRefused, SR.Format(SR.net_webtransport_session_establishment_failed_with_status_code, (int)response.StatusCode));
+            // Redirects should not be automatically followed: https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-3.3-5
+            if ((int)response.StatusCode is >= 300 and < 400)
+            {
+                throw new WebTransportException(WebTransportError.RedirectRequired, SR.net_webtransport_session_connect_redirect_required, response.Headers.Location);
+            }
+            throw new WebTransportException(WebTransportError.SessionConnectFailure, SR.Format(SR.net_webtransport_session_connect_failed_with_status_code, (int)response.StatusCode));
         }
 
         Http3ExtendedConnectContent extendedConnectContent = (Http3ExtendedConnectContent)response.Content;

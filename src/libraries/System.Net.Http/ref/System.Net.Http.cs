@@ -1023,21 +1023,26 @@ namespace System.Net.WebTransport
         SessionClosedByPeer = 2,
         StreamAborted = 3,
         TransportLayerError = 4,
-        SessionRefused = 5,
+        SessionConnectFailure = 5,
         OperationAborted = 6,
         CallbackError = 7,
         UnsupportedProtocol = 8,
-        HeaderError = 9
+        HeaderError = 9,
+        RedirectRequired = 10
     }
     public sealed partial class WebTransportException : Exception
     {
         public WebTransportException(WebTransportError error, string message) { }
         public WebTransportException(WebTransportError error, string message, Exception? innerException) { }
+        public WebTransportException(WebTransportError error, string message, Uri? redirectUri) : this(error, null, null, redirectUri, message, null) { }
         public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message) { }
         public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, string message, Exception? innerException) { }
+        public WebTransportException(WebTransportError error, long? applicationErrorCode, string? applicationErrorMessage, Uri? redirectUri, string message, Exception? innerException) { }
+
         public WebTransportError WebTransportError { get; }
-        public long? ApplicationErrorCode { get { throw null; } }
-        public string? ApplicationErrorMessage { get { throw null; } }
+        public long? CloseStatusCode { get { throw null; } }
+        public string? CloseStatusDescription { get { throw null; } }
+        public Uri? RedirectLocation { get { throw null; } }
     }
     public enum WebTransportAbortDirection
     {

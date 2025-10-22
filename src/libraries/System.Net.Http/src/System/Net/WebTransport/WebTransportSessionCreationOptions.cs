@@ -10,9 +10,9 @@ namespace System.Net.WebTransport;
 public sealed class WebTransportSessionCreationOptions
 {
     /// <summary>
-    /// URI of the WebTransport server to connect to.
+    /// Absolute URI of the WebTransport server to connect to.
     /// </summary>
-    /// <exception cref="ArgumentException">If the URI does not use 'https' scheme.</exception>
+    /// <exception cref="ArgumentException">If the URI does not use 'https' scheme or is not absolute.</exception>
     /// <exception cref="ArgumentNullException">If the provided value is <c>null</c>.</exception>
     public required Uri Uri
     {
@@ -20,6 +20,11 @@ public sealed class WebTransportSessionCreationOptions
         init
         {
             ArgumentNullException.ThrowIfNull(value);
+
+            if (!value.IsAbsoluteUri)
+            {
+                throw new ArgumentException(SR.net_webtransport_uri_not_absolute, nameof(value));
+            }
 
             if (value.Scheme != "https")
             {

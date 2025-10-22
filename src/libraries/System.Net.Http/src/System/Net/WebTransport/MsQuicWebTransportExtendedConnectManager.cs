@@ -289,7 +289,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         {
             if (_openSessionsCount == _maxSessionsCount)
             {
-                throw new WebTransportException(WebTransportError.SessionRefused, SR.net_webtransport_maximum_number_of_sessions_reached);
+                throw new WebTransportException(WebTransportError.SessionConnectFailure, SR.net_webtransport_maximum_number_of_sessions_reached);
             }
             _openSessionsCount++;
         }

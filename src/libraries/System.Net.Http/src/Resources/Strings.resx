@@ -621,7 +621,7 @@
   <data name="net_webtransport_server_selected_protocol_not_offered" xml:space="preserve">
     <value>The server selected a protocol '{0}' that was not offered by the client.</value>
   </data>
-  <data name="net_webtransport_session_establishment_failed" xml:space="preserve">
+  <data name="net_webtransport_session_connect_failed" xml:space="preserve">
     <value>Failed to create a WebTransport session.</value>
   </data>
   <data name="net_webtransport_session_establishment_failed_with_status_code" xml:space="preserve">
@@ -662,5 +662,11 @@
   </data>
   <data name="net_webtransport_server_does_not_support_webtransport_over_http3" xml:space="preserve">
     <value>Server does not support WebTransport over HTTP/3.</value>
+  </data>
+  <data name="net_webtransport_uri_not_absolute" xml:space="preserve">
+    <value>URI of the WebTransport endpoint must be absolute.</value>
+  </data>
+  <data name="net_webtransport_session_connect_redirect_required" xml:space="preserve">
+    <value>A redirect is required to create the session.</value>
   </data>
 </root>
