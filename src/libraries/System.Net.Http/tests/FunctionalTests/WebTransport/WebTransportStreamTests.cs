@@ -269,6 +269,83 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
+    // TODO: uncomment and make this test public once QUIC fixes the underlying issue
+    //[Theory]
+    //[InlineData(WebTransportStreamType.Unidirectional)]
+    //[InlineData(WebTransportStreamType.Bidirectional)]
+    private async Task WriteAfterCompleteWritesThrows(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            stream.CompleteWrites();
+
+            await AssertWriteOperationsOnStreamThrowAsync<WebTransportException>(
+                stream,
+                (ex) => Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError)
+            );
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task ReadsAfterEndOfStreamIsReachThrow(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+            await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
+
+            await Assert.ThrowsAsync<EndOfStreamException>(() => stream.ReadExactlyAsync(new byte[1]).AsTask());
+            await Assert.ThrowsAsync<EndOfStreamException>(() => stream.ReadAtLeastAsync(new byte[2], 1).AsTask());
+            Assert.Throws<EndOfStreamException>(() => stream.ReadExactly(new byte[1]));
+            Assert.Throws<EndOfStreamException>(() => stream.ReadAtLeast(new byte[2], 1));
+            Assert.Equal(-1, stream.ReadByte());
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using QuicStream stream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            stream.CompleteWrites();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
 
     [Theory]
     [MemberData(nameof(s_dataToSendWithStreamType))]
@@ -484,7 +561,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 exceptionValidator: (ex) =>
                 {
                     Assert.Equal(WebTransportError.StreamAborted, ex.WebTransportError);
-                    Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
+                    Assert.Equal(expectedWebTransportErrorCode, ex.CloseStatusCode);
                 }
                 );
 
@@ -529,7 +606,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 exceptionValidator: (ex) =>
                 {
                     Assert.Equal(WebTransportError.StreamAborted, ex.WebTransportError);
-                    Assert.Equal(expectedWebTransportErrorCode, ex.ApplicationErrorCode);
+                    Assert.Equal(expectedWebTransportErrorCode, ex.CloseStatusCode);
                 }
                 );
 
@@ -575,7 +652,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             await AssertReadOperationsAndReadsClosedOnStreamThrowAsync<WebTransportException>(
                 serverInitiatedStream,
-                exceptionValidator: (ex) => Assert.Null(ex.ApplicationErrorCode)
+                exceptionValidator: (ex) => Assert.Null(ex.CloseStatusCode)
                 );
 
             barrier.SignalAndWait();
