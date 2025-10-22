@@ -708,7 +708,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task NotSupportedOperationsThrows(WebTransportStreamType streamType)
+    public async Task InvalidAndNotSupportedOperationsThrow(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
 
@@ -730,7 +730,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             if (streamType == WebTransportStreamType.Unidirectional)
             {
-                await AssertWriteOperationsOnStreamThrowAsync<NotSupportedException>(serverInitiatedStream, exceptionValidator: null);
+                await AssertWriteOperationsOnStreamThrowAsync<InvalidOperationException>(serverInitiatedStream, exceptionValidator: null);
             }
 
             barrier.SignalAndWait();
@@ -940,6 +940,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await Assert.ThrowsAsync<TException>(() => stream.WriteAsync(new byte[1]).AsTask()),
             Assert.Throws<TException>(() => stream.WriteByte(2)),
             Assert.Throws<TException>(() => stream.Write(new byte[1])),
+            Assert.Throws<TException>(() => {
+                IAsyncResult result = stream.BeginWrite(new byte[1], 0, 1, null, null);
+                result.AsyncWaitHandle.WaitOne();
+                stream.EndWrite(result);
+            })
         ];
         foreach (TException ex in exceptions)
         {
@@ -957,7 +962,12 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             Assert.Throws<TException>(() => stream.CopyTo(new MemoryStream(), 10)),
             Assert.Throws<TException>(() => stream.ReadByte()),
             Assert.Throws<TException>(() => stream.Read(new byte[1])),
-            Assert.Throws<TException>(() => stream.ReadExactly(new byte[1]))
+            Assert.Throws<TException>(() => stream.ReadExactly(new byte[1])),
+            Assert.Throws<TException>(() => {
+                IAsyncResult result = stream.BeginRead(new byte[1], 0, 1, null, null);
+                result.AsyncWaitHandle.WaitOne();
+                _ = stream.EndRead(result);
+            })
         ];
         foreach (TException ex in exceptions)
         {

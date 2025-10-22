@@ -46,6 +46,10 @@ public abstract class WebTransportStream : Stream
     /// </remarks>
     public abstract void CompleteWrites();
 
+    /// <inheritdoc/>
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        => WriteAsync(buffer, completeWrites: false, cancellationToken);
+
     /// <summary>
     /// Asynchronously writes a sequence of bytes to the current stream, advances the current position within this stream by the number of bytes written, and monitors cancellation requests.
     /// </summary>
@@ -304,50 +308,206 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         _quicStream.CompleteWrites();
     }
 
-    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-        if (!CanWrite)
-        {
-            throw new NotSupportedException("This stream does not support writing");
-        }
+    #region Reads
 
+    public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
+    {
         try
         {
-            await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
+            return _readStream.BeginRead(buffer, offset, count, callback, state);
         }
-        catch (QuicException e)
+        catch (QuicException ex)
         {
-            QuicExceptionHandler(e);
+            throw QuicExceptionHandler(ex);
         }
     }
 
-    public override void Flush()
+    public override int EndRead(IAsyncResult asyncResult)
     {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        if (!CanWrite)
-        {
-            throw new NotSupportedException("Flush is not supported, because the stream does not support writing.");
-        }
-
         try
         {
-            _readStream.Flush();
+            return _readStream.EndRead(asyncResult);
         }
-        catch (QuicException quicException)
+        catch (QuicException ex)
         {
-            QuicExceptionHandler(quicException);
+            throw QuicExceptionHandler(ex);
         }
     }
 
     public override int Read(byte[] buffer, int offset, int count)
     {
+        try
+        {
+            return _readStream.Read(buffer, offset, count);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override int ReadByte()
+    {
+        try
+        {
+            return _readStream.ReadByte();
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return _readStream.ReadAsync(buffer, offset, count, cancellationToken);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         try
         {
-            return _readStream.Read(buffer, offset, count);
+            return _readStream.Read(buffer);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        try
+        {
+            return await _readStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    #endregion
+
+    #region Writes
+
+    public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
+    {
+        try
+        {
+            return _quicStream.BeginWrite(buffer, offset, count, callback, state);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override void EndWrite(IAsyncResult asyncResult)
+    {
+        try
+        {
+            _quicStream.EndWrite(asyncResult);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override void WriteByte(byte value)
+    {
+        try
+        {
+            _quicStream.WriteByte(value);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _quicStream.WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    public override void Write(ReadOnlySpan<byte> buffer)
+    {
+        try
+        {
+            _quicStream.Write(buffer);
+        }
+        catch (QuicException quicException)
+        {
+            throw QuicExceptionHandler(quicException);
+        }
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        try
+        {
+            _quicStream.Write(buffer, offset, count);
+        }
+        catch (QuicException quicException)
+        {
+            throw QuicExceptionHandler(quicException);
+        }
+    }
+
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw QuicExceptionHandler(ex);
+        }
+    }
+
+    #endregion
+
+    public override void Flush()
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        try
+        {
+            _quicStream.Flush();
+        }
+        catch (QuicException quicException)
+        {
+            throw QuicExceptionHandler(quicException);
+        }
+    }
+
+    public override async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        try
+        {
+            await _quicStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException quicException)
         {
@@ -371,39 +531,6 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
-    public override void Write(byte[] buffer, int offset, int count)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        if (!CanWrite)
-        {
-            throw new NotSupportedException("This stream does not support writing");
-        }
-
-        try
-        {
-            _quicStream.Write(buffer, offset, count);
-        }
-        catch (QuicException quicException)
-        {
-            throw QuicExceptionHandler(quicException);
-        }
-    }
-
-    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        return base.ReadAsync(buffer, offset, count, cancellationToken);
-    }
-
-    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        return base.WriteAsync(buffer, offset, count, cancellationToken);
-    }
-
     private WebTransportException QuicExceptionHandler(QuicException quicException)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, quicException);
@@ -421,13 +548,13 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             {
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-                return new WebTransportException(WebTransportError.StreamAborted, null, null, "Stream aborted with invalid application error code.");
+                return new WebTransportException(WebTransportError.StreamAborted, null, null, SR.net_webtransport_stream_invalid_application_error_code);
             }
-            return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, "The stream has beed aborted.", quicException);
+            return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, SR.net_webtransport_stream_aborted, quicException);
         }
         else
         {
-            return new WebTransportException(WebTransportError.TransportLayerError, "Transport layer error occurred.", quicException);
+            return new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, quicException);
         }
     }
 

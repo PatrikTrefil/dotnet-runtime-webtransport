@@ -2,15 +2,21 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
 
+/// <summary>
+/// Read-only stream that concatenates an <see cref="ArrayBuffer"/> of pre-read data and a <see cref="Stream"/>.
+/// </summary>
 internal sealed class ConcatenatedStream : Stream
 {
-    private Memory<byte> _memory;
+    private Memory<byte> BufferMemory => _buffer.ActiveMemory;
+    private readonly ArrayBuffer _buffer;
     private readonly Stream _stream;
-    private bool _isMemoryRead => _memoryPosition == _memory.Length;
+    private bool _isMemoryRead;
     private int _memoryPosition;
 
     private bool _isDisposed;
@@ -19,11 +25,12 @@ internal sealed class ConcatenatedStream : Stream
     public ConcatenatedStream(ArrayBuffer buffer, Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        _memory = buffer.ActiveMemory;
+
+        _buffer = buffer;
         _stream = stream;
     }
 
-    public override bool CanRead => true;
+    public override bool CanRead => !_isDisposed && _stream.CanRead;
     public override bool CanSeek => false;
     public override bool CanWrite => false;
     public override long Length
@@ -31,7 +38,7 @@ internal sealed class ConcatenatedStream : Stream
         get
         {
             ObjectDisposedException.ThrowIf(_isDisposed, this);
-            return _memory.Length + _stream.Length;
+            return BufferMemory.Length + _stream.Length;
         }
     }
     public override long Position
@@ -44,38 +51,119 @@ internal sealed class ConcatenatedStream : Stream
         set => throw new NotSupportedException();
     }
 
-    public override void Flush() => throw new NotSupportedException();
+    public override void Flush() => throw new InvalidOperationException();
+
+    public override Task FlushAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    #region Reads
+
+    #region Read call forwards
+
+    public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
+         => TaskToAsyncResult.Begin(ReadAsync(buffer, offset, count, default), callback, state);
+
+    public override int EndRead(IAsyncResult asyncResult)
+        => TaskToAsyncResult.End<int>(asyncResult);
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
+        ValidateBufferArguments(buffer, offset, count);
+        return Read(buffer.AsSpan(offset, count));
+    }
 
-        ArgumentOutOfRangeException.ThrowIfNegative(offset);
-        ArgumentOutOfRangeException.ThrowIfNegative(count);
-        if (offset + count > buffer.Length) throw new ArgumentException($"The sum of {nameof(count)} and {nameof(offset)} is larger then the length of {nameof(buffer)}");
+    public override int ReadByte()
+    {
+        byte b = 0;
+        return Read(new Span<byte>(ref b)) != 0 ? b : -1;
+    }
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    {
+        ValidateBufferArguments(buffer, offset, count);
+        return ReadAsync(new Memory<byte>(buffer, offset, count), cancellationToken).AsTask();
+    }
+
+    #endregion
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         int bytesToReadFromMemory = 0;
         if (!_isMemoryRead)
         {
-            bytesToReadFromMemory = Math.Min(count, _memory.Length - _memoryPosition);
-            _memory.Slice(_memoryPosition, bytesToReadFromMemory).CopyTo(buffer.AsMemory().Slice(offset));
+            bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
+            BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).CopyTo(buffer);
             _memoryPosition += bytesToReadFromMemory;
+
+            if (_memoryPosition == BufferMemory.Length)
+            {
+                _isMemoryRead = true;
+                _buffer.Dispose();
+            }
         }
 
-        int bytesToReadFromStream = count - bytesToReadFromMemory;
+        int bytesToReadFromStream = buffer.Length - bytesToReadFromMemory;
         int bytesReadFromStream = 0;
         if (bytesToReadFromStream > 0) // necessary because of https://github.com/dotnet/runtime/issues/118888
         {
-            bytesReadFromStream = _stream.Read(buffer, offset + bytesToReadFromMemory, bytesToReadFromStream);
+            bytesReadFromStream = await _stream.ReadAsync(buffer.Slice(bytesToReadFromMemory, bytesToReadFromStream), cancellationToken).ConfigureAwait(false);
         }
 
         return bytesToReadFromMemory + bytesReadFromStream;
     }
 
-    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override int Read(Span<byte> buffer)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-    public override void SetLength(long value) => throw new NotSupportedException();
+        int bytesToReadFromMemory = 0;
+        if (!_isMemoryRead)
+        {
+            bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
+            BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).Span.CopyTo(buffer);
+            _memoryPosition += bytesToReadFromMemory;
+
+            if (_memoryPosition == BufferMemory.Length)
+            {
+                _isMemoryRead = true;
+                _buffer.Dispose();
+            }
+        }
+
+        int bytesToReadFromStream = buffer.Length - bytesToReadFromMemory;
+        int bytesReadFromStream = 0;
+        if (bytesToReadFromStream > 0) // necessary because of https://github.com/dotnet/runtime/issues/118888
+        {
+            bytesReadFromStream = _stream.Read(buffer.Slice(bytesToReadFromMemory, bytesToReadFromStream));
+        }
+
+        return bytesToReadFromMemory + bytesReadFromStream;
+    }
+
+    #endregion
+
+    #region Writes
+
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+    public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state) => throw new NotSupportedException();
+
+    public override void EndWrite(IAsyncResult asyncResult) => throw new NotSupportedException();
+
+    public override void WriteByte(byte value) => throw new NotSupportedException();
+
+    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
+
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    #endregion
 
     protected override void Dispose(bool disposing)
     {
@@ -87,7 +175,7 @@ internal sealed class ConcatenatedStream : Stream
             if (disposing)
             {
                 _stream.Dispose();
-                _memory = null;
+                _buffer.Dispose();
             }
         }
 
