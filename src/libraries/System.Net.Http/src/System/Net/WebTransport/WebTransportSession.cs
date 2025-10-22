@@ -211,7 +211,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
     public abstract ValueTask RequestCloseAsync(CancellationToken cancellationToken = default);
 
-    // TODO: remove comments about objectidposedexception
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
