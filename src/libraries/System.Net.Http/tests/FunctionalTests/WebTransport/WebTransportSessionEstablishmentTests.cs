@@ -13,7 +13,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
-public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase, IAsyncDisposable
+public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 {
     [Fact]
     public async Task SessionEstablishmentWithValidHandshakeSucceeds()
