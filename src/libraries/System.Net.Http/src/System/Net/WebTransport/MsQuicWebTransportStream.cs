@@ -456,6 +456,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             }
             return new WebTransportException(WebTransportError.StreamAborted, remappedErrorCode, null, SR.net_webtransport_stream_aborted, quicException);
         }
+        else if (quicException.QuicError == QuicError.OperationAborted)
+        {
+            return new WebTransportException(WebTransportError.OperationAborted, SR.net_webtransport_operation_aborted, quicException);
+        }
         else
         {
             return new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, quicException);
