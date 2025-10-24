@@ -143,7 +143,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
             CancellationTokenSource cts = new(5000);
 
-            await Assert.ThrowsAsync<OperationCanceledException>(async () => await session.OpenOutboundStreamAsync(streamType, cts.Token)); // TODO: document this behavior in conceptual docs
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await session.OpenOutboundStreamAsync(streamType, cts.Token));
 
             await Task.WhenAll(streams.Select(s => s.DisposeAsync().AsTask()));
 
