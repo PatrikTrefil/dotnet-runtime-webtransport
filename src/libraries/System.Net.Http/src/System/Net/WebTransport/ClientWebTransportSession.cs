@@ -14,6 +14,8 @@ namespace System.Net.WebTransport;
 
 public static class ClientWebTransportSession
 {
+    private const string s_extendedConnectProtocolName = "webtransport";
+    private const string s_availableProtocolsHeaderName = "WT-Available-Protocols";
     // TODO: IsSupported property is not for all WebTransport but only for WT over HTTP/3 - how to reflect this?
     // TODO: we also need a property to check for support of WT over HTTP/3 on the server side as well (analogous to QuicListener.IsSupported)
     /// <summary>
@@ -51,10 +53,10 @@ public static class ClientWebTransportSession
             Http3ExtendedConnectManager.RequestOptionsKey,
             static (Http3ExtendedConnectManagerCreationOptions options) => new MsQuicWebTransportExtendedConnectManager(options)
             );
-        requestMessage.Headers.Protocol = "webtransport";
+        requestMessage.Headers.Protocol = s_extendedConnectProtocolName;
         if (options.AvailableSubProtocols != null)
         {
-            requestMessage.Headers.Add("WT-Available-Protocols", options.AvailableSubProtocols);
+            requestMessage.Headers.Add(s_availableProtocolsHeaderName, options.AvailableSubProtocols);
         }
 
         HttpResponseMessage response;
