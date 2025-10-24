@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 namespace System.Net.WebTransport;
 
 // TODO: add session data limit tracking
+// TODO: the documentation of MsQuicWebTransportStream is not visible to users - only WebTransportStream is public
 
 /// <summary>
 /// Implementation that uses System.Net.Quic
@@ -138,23 +139,26 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     public override long StreamId => _quicStream.Id;
 
+    /// <inheritdoc/>
     public override bool CanRead => !_isDisposed && _readStream.CanRead;
 
+    /// <inheritdoc/>
     public override bool CanSeek => !_isDisposed && _readStream.CanSeek;
 
+    /// <inheritdoc/>
     public override bool CanWrite => !_isDisposed && _quicStream.CanWrite;
 
+    /// <inheritdoc/>
     /// <summary>
     /// Gets the length of the data available on the stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
     /// </summary>
-    /// <value>A long value representing the length of the stream in bytes.</value>
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Length => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     /// <summary>
     /// Gets or sets the position within the current stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
     /// </summary>
-    /// <value>The current position within the stream.</value>
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Position
     {
@@ -214,6 +218,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     #region Reads
 
+    /// <inheritdoc/>
     public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
     {
         try
@@ -226,6 +231,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override int EndRead(IAsyncResult asyncResult)
     {
         try
@@ -238,6 +244,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override int Read(byte[] buffer, int offset, int count)
     {
         try
@@ -250,6 +257,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override int ReadByte()
     {
         try
@@ -261,6 +269,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             throw QuicExceptionHandler(ex);
         }
     }
+
+    /// <inheritdoc/>
     public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
         try
@@ -273,6 +283,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override int Read(Span<byte> buffer)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -287,6 +298,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -305,6 +317,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     #region Writes
 
+    /// <inheritdoc/>
     public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
     {
         try
@@ -317,6 +330,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override void EndWrite(IAsyncResult asyncResult)
     {
         try
@@ -329,6 +343,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override void WriteByte(byte value)
     {
         try
@@ -341,6 +356,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
         try
@@ -353,6 +369,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override void Write(ReadOnlySpan<byte> buffer)
     {
         try
@@ -365,6 +382,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count)
     {
         try
@@ -377,6 +395,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
     {
         try
@@ -391,6 +410,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     #endregion
 
+    /// <inheritdoc/>
     public override void Flush()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -405,6 +425,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     public override async Task FlushAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -419,19 +440,17 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
     }
 
+    /// <inheritdoc/>
     /// <summary>
     /// Sets the current position of the stream to the given value. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
     /// </summary>
-    /// <param name="offset">A byte offset relative to the <paramref name="origin"/> parameter.</param>
-    /// <param name="origin">A value of type <see cref="SeekOrigin"/> indicating the reference point used to obtain the new position.</param>
-    /// <returns>The new position within the current stream.</returns>
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     /// <summary>
     /// Sets the length of the stream. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
     /// </summary>
-    /// <param name="value">The desired length of the current stream in bytes.</param>
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
