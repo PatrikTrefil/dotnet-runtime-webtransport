@@ -487,12 +487,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
 
             if (disposing)
             {
-                try
-                {
-                    _quicStream.CompleteWrites();
-                }
-                catch (Exception) { }
-                _quicStream.Abort(QuicAbortDirection.Both, _remappedDefaultStreamErrorCode);
+                // The write side is closed gracefully by QuicStream.Dispose/DisposeAsync
+                _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
                 _readStream.Dispose();
                 _quicStream.Dispose();
             }
@@ -505,12 +501,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     {
         if (!_isDisposed)
         {
-            try
-            {
-                _quicStream.CompleteWrites();
-            }
-            catch (Exception) { }
-            _quicStream.Abort(QuicAbortDirection.Both, _remappedDefaultStreamErrorCode);
+            // The write side is closed gracefully by QuicStream.Dispose/DisposeAsync
+            _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
             await _quicStream.DisposeAsync().ConfigureAwait(false);
             await _readStream.DisposeAsync().ConfigureAwait(false);
         }

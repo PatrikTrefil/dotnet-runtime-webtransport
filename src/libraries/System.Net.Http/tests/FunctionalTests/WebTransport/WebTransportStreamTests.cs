@@ -935,20 +935,10 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             if (streamType == WebTransportStreamType.Bidirectional)
             {
-                // Remove try-catch block after RESET_STREAM_AT is supported
-                try
-                {
-                    Assert.Equal(-1, serverInitiatedStream.ReadByte());
-                }
-                catch (Exception) { }
-
-                // Remove try-catch block after RESET_STREAM_AT is supported
-                try
-                {
-                    await serverInitiatedStream.ReadsClosed;
-                }
-                catch (Exception) { }
+                Assert.Equal(-1, serverInitiatedStream.ReadByte());
+                await serverInitiatedStream.ReadsClosed;
             }
+
 
             QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
 
@@ -996,19 +986,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             if (streamType == WebTransportStreamType.Bidirectional)
             {
-                // Remove try-catch block after RESET_STREAM_AT is supported
-                try
-                {
-                    Assert.Equal(-1, serverInitiatedStream.ReadByte());
-                }
-                catch (Exception) { }
-
-                // Remove try-catch block after RESET_STREAM_AT is supported
-                try
-                {
-                    await serverInitiatedStream.ReadsClosed;
-                }
-                catch (Exception) { }
+                Assert.Equal(-1, serverInitiatedStream.ReadByte());
+                await serverInitiatedStream.ReadsClosed;
             }
 
             QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
