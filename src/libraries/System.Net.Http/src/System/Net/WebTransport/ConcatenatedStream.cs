@@ -149,19 +149,21 @@ internal sealed class ConcatenatedStream : Stream
 
     #region Writes
 
-    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    // Writes throw InvalidOperationException because this is a read-only stream.
 
-    public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new InvalidOperationException();
 
-    public override void EndWrite(IAsyncResult asyncResult) => throw new NotSupportedException();
+    public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state) => throw new InvalidOperationException();
 
-    public override void WriteByte(byte value) => throw new NotSupportedException();
+    public override void EndWrite(IAsyncResult asyncResult) => throw new InvalidOperationException();
 
-    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public override void WriteByte(byte value) => throw new InvalidOperationException();
 
-    public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
+    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 
-    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public override void Write(ReadOnlySpan<byte> buffer) => throw new InvalidOperationException();
+
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 
     #endregion
 
