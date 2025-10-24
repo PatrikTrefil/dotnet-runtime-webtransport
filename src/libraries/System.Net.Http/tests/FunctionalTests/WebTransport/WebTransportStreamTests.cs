@@ -12,8 +12,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: add tests for when the client receives an invalid webtransport error code
 // TODO: add tests for cancellations of stream operations
-// TODO: test that CanRead returns false on a unidirectional stream
-// TODO: test that CanWrite returns false on an accepted unidirectional stream
 // TODO: write tests that complete writes is a noop on accepted streams
 // TODO: write tests that complete writes is a noop on already closed streams
 // TODO: add completewrites to list of all operations that should throw after stream is disposed
@@ -127,6 +125,59 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 DefaultStreamErrorCode = 0
             });
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task CanWriteAndCanReadReturnCorrectValues(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            WebTransportStream stream;
+            await using (stream = await session.OpenOutboundStreamAsync(streamType))
+            {
+                if (streamType == WebTransportStreamType.Bidirectional)
+                {
+                    Assert.True(stream.CanRead);
+                    Assert.True(stream.CanWrite);
+                }
+                else
+                {
+                    Assert.False(stream.CanRead);
+                    Assert.True(stream.CanWrite);
+                }
+
+                barrier.SignalAndWait();
+            }
+
+            Assert.False(stream.CanRead);
+            Assert.False(stream.CanWrite);
+
 
             barrier.SignalAndWait();
         });
