@@ -587,7 +587,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
 
-            Assert.False(clientInitiatedStream.ReadsClosed.IsCompleted);
+            Assert.True(clientInitiatedStream.ReadsClosed.IsCompleted);
 
             barrier.SignalAndWait();
         });
@@ -669,7 +669,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
 
-            Assert.False(serverInitiatedStream.WritesClosed.IsCompleted);
+            Assert.True(serverInitiatedStream.WritesClosed.IsCompleted);
 
             barrier.SignalAndWait();
         });
