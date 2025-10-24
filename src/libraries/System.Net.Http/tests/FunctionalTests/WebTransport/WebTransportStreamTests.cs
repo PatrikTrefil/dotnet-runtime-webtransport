@@ -6,25 +6,19 @@ using System.Threading.Tasks;
 using Xunit;
 using System.IO;
 using System.Threading;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: add tests for when the client receives an invalid webtransport error code
 // TODO: add tests for cancellations of stream operations
 // TODO: write tests that complete writes is a noop on accepted streams
 // TODO: write tests that complete writes is a noop on already closed streams
 // TODO: add completewrites to list of all operations that should throw after stream is disposed
-// TODO: write tests for writes with completeWrites: true
-// TODO: write test that writes with compelteWrites: false does not complete the write side of the stream
-// TODO: assert that normal write does not complete the write side of the stream
-// TODO: test that ReadsClosed and WritesClosed complete when the respective side is closed
-// TODO: test the behavior of WebTransportStream.DisposeAsync - sometimes it should abort and sometimes it should complete the stream cleanly
 // TODO: write test that tries to read from a write-only stream and vice versa - both should throw invalidoperationexception
 // TODO: write test that disposal of a stream that has unread data results in abort of read side and write side is always closed gracefully
-// TODO: write a test that fails because we don't have RESET_STREAM_AT
 // TODO: add completewrites and writeasync to list of all ops
 // TODO: test that if we have a pending read operation and during that we dispose the stream, the read operation throws objectdisposedexception for the correct object
-// TODO: add tests for default stream error code
 // TODO: open as many stream s QUIC connection allows and then close one and try to open another one - this proves that the underlying quic stream was properly disposed
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
@@ -319,6 +313,114 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
+
+    [Theory]
+    [MemberData(nameof(s_dataToSend))]
+    public async Task SendDataRepeatedlyDoesNotThrow(byte[] data)
+    {
+        using Barrier barrier = new(2);
+        const int iterations = 5;
+        byte[] expectedData = Enumerable.Repeat(data, iterations).SelectMany(d => d).ToArray();
+
+        WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            List<byte> receivedData = new();
+
+            byte[] buffer = new byte[10];
+            int bytesRead;
+            while ((bytesRead = await serverInitiatedStream.ReadAsync(buffer)) > 0)
+            {
+                receivedData.AddRange(buffer.AsSpan(0, bytesRead));
+            }
+
+            Assert.Equal(expectedData, receivedData.ToArray());
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+            await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+
+            for (int i = 0; i < iterations; i++)
+            {
+                await serverInitiatedStream.WriteAsync(data);
+            }
+
+            await serverInitiatedStream.WriteAsync(ReadOnlyMemory<byte>.Empty, completeWrites: true);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_dataToSend))]
+    public async Task SendDataOverMultipleSessionsAndStreams(byte[] data)
+    {
+        using Barrier barrier = new(2);
+
+        WebTransportStreamType streamType = WebTransportStreamType.Bidirectional; // only makes sense for bidirectional
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession2 = await _webTransportServer.AcceptWebTransportServerSessionAsync(serverSession1.Connection);
+
+
+            await using QuicStream serverInitiatedStreamSession1 = await serverSession1.OpenStreamFromServerAsync(streamType);
+            await ReceiveData(serverInitiatedStreamSession1);
+
+            await using QuicStream serverInitiatedStreamSession2 = await serverSession2.OpenStreamFromServerAsync(streamType);
+            await ReceiveData(serverInitiatedStreamSession2);
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportSession session2 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportStream serverInitiatedStreamSession1 = await session1.AcceptInboundStreamAsync(streamType);
+            serverInitiatedStreamSession1.Write(data);
+
+            await using WebTransportStream serverInitiatedStreamSession2 = await session2.AcceptInboundStreamAsync(streamType);
+            serverInitiatedStreamSession2.Write(data);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        async Task ReceiveData(QuicStream stream)
+        {
+            byte[] receivedData = new byte[data.Length];
+            await stream.ReadExactlyAsync(receivedData);
+            Assert.Equal(data, receivedData);
+        }
+    }
     // TODO: uncomment and make this test public once QUIC fixes the underlying issue
     //[Theory]
     //[InlineData(WebTransportStreamType.Unidirectional)]
@@ -485,6 +587,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
 
+            Assert.False(clientInitiatedStream.ReadsClosed.IsCompleted);
+
             barrier.SignalAndWait();
         });
 
@@ -564,6 +668,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 serverInitiatedStream,
                 exceptionValidator: (ex) => Assert.Equal(expectedWebTransportErrorCode, ErrorCodeRemapping.HttpCodeToWebTransportCode((long)ex.ApplicationErrorCode))
                 );
+
+            Assert.False(serverInitiatedStream.WritesClosed.IsCompleted);
 
             barrier.SignalAndWait();
         });
@@ -681,7 +787,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task ServerAbortsStreamWriteSideAbortsWithIncorrectErrorCode(WebTransportStreamType streamType)
+    public async Task ServerAbortsStreamWriteSideAbortsWithInvalidErrorCode(WebTransportStreamType streamType)
     {
         using Barrier barrier = new Barrier(2);
 
