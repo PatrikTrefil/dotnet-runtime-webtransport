@@ -5,10 +5,11 @@ using System.Net.Test.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Quic;
+using System.Net.Http;
+using System.Net.Http.Functional.Tests;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -17,7 +18,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 // TODO: add test for what happens if the QuicConnection is closed while a session is open
 // TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism
 // TODO: write a test that uses a proxy
-// TODO; write a test that uses a SocketsHttpHandler with PooledConnectionLifetime and assert that the session is not closed because of that
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
@@ -197,6 +197,75 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             }
 
             await Task.WhenAll(openStreams.Select(s => s.DisposeAsync().AsTask()));
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task PooledConnectionLifetimeDoesNotCloseWebTransportSession()
+    {
+        using Barrier barrier = new(2);
+
+        WebTransportStreamType streamType = WebTransportStreamType.Unidirectional;
+        Task clientTask = Task.Run(async () =>
+        {
+
+            TimeSpan pooledConnectionLifetime = TimeSpan.FromSeconds(10);
+            SocketsHttpHandler handler = TestHelper.CreateSocketsHttpHandler(allowAllCertificates: true);
+            // The following handler configuration makes it so that the connection pool manager cleans up the connection pools every second
+            handler.PooledConnectionLifetime = pooledConnectionLifetime;
+            handler.PooledConnectionIdleTimeout = TimeSpan.FromSeconds(4);
+            HttpClient client = new(handler);
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = client,
+                DefaultStreamErrorCode = 0
+            });
+
+            WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            CancellationTokenSource cts = new();
+            Task sendDataTask = Task.Run(async () =>
+            {
+                using (stream)
+                {
+                    while (true)
+                    {
+                        await stream.WriteAsync(new byte[] { 1, 2, 3 });
+                        await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+                    }
+                }
+            }, cts.Token);
+
+            await Task.Delay(TimeSpan.FromSeconds(3)); // After some time the connection used by the WT session should have been removed from the pool
+
+            cts.Cancel();
+
+            Assert.Equal(WebTransportSessionState.Open, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            byte[] buffer = new byte[10];
+            while (true)
+            {
+                int bytesRead = await stream.ReadAsync(buffer);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+            }
 
             barrier.SignalAndWait();
         });
