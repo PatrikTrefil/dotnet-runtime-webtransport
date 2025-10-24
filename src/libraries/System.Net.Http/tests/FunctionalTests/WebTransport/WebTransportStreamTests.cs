@@ -747,9 +747,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task DisposedStreamTest(WebTransportStreamType streamType)
+    public async Task DisposedAsyncStreamTest(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
+        long defaultErrorCode = 42;
+        long remappedErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultErrorCode);
 
         Task clientTask = Task.Run(async () =>
         {
@@ -757,10 +759,11 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = defaultErrorCode
             });
-            WebTransportStream serverInitiatedStream;
-            using (serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType)) { }
+
+            WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+            await serverInitiatedStream.DisposeAsync();
 
             await AssertAllOperationsOnStreamThrowAsync<ObjectDisposedException>(serverInitiatedStream, exceptionValidator: null);
             Assert.False(serverInitiatedStream.CanRead);
@@ -774,7 +777,84 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
             await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
 
-            // TODO: assert that both sides are closed after disposal on the client side
+            if (streamType == WebTransportStreamType.Bidirectional)
+            {
+                // Remove try-catch block after RESET_STREAM_AT is supported
+                try
+                {
+                    Assert.Equal(-1, serverInitiatedStream.ReadByte());
+                } catch (Exception) { }
+
+                // Remove try-catch block after RESET_STREAM_AT is supported
+                try
+                {
+                    await serverInitiatedStream.ReadsClosed;
+                } catch (Exception) { }
+            }
+
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
+
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(remappedErrorCode, (long)ex.ApplicationErrorCode);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task DisposedStreamTest(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        long defaultErrorCode = 42;
+        long remappedErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultErrorCode);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = defaultErrorCode
+            });
+
+            WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
+            serverInitiatedStream.Dispose();
+
+            await AssertAllOperationsOnStreamThrowAsync<ObjectDisposedException>(serverInitiatedStream, exceptionValidator: null);
+            Assert.False(serverInitiatedStream.CanRead);
+            Assert.False(serverInitiatedStream.CanWrite);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using QuicStream serverInitiatedStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            if (streamType == WebTransportStreamType.Bidirectional)
+            {
+                // Remove try-catch block after RESET_STREAM_AT is supported
+                try
+                {
+                    Assert.Equal(-1, serverInitiatedStream.ReadByte());
+                } catch (Exception) { }
+
+                // Remove try-catch block after RESET_STREAM_AT is supported
+                try
+                {
+                    await serverInitiatedStream.ReadsClosed;
+                } catch (Exception) { }
+            }
+
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
+
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(remappedErrorCode, (long)ex.ApplicationErrorCode);
 
             barrier.SignalAndWait();
         });

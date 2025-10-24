@@ -26,17 +26,12 @@ public abstract class WebTransportStream : Stream
     /// </summary>
     public WebTransportStreamType Type { get; }
 
-    /// <summary>
-    /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="DisposeAsync()"/>.
-    /// </summary>
-    protected long DefaultStreamErrorCode { get; }
 
-    protected internal WebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode)
+    protected internal WebTransportStream(WebTransportStreamType type)
     {
         Debug.Assert(Enum.IsDefined(type));
 
         Type = type;
-        DefaultStreamErrorCode = defaultStreamErrorCode;
     }
 
     /// <summary>

@@ -11,6 +11,9 @@ namespace System.Net.WebTransport.Unit.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 {
+    public static readonly TheoryData<long> s_validApplicationErrorCodes = [uint.MinValue, 42, uint.MaxValue];
+    public static readonly TheoryData<long> s_invalidApplicationErrorCodes = [-1, uint.MaxValue + 1L, long.MaxValue];
+
     public static readonly TheoryData<long> s_validVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue, VariableLengthIntegerHelper.MaxValue];
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
 
@@ -52,6 +55,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 
     private static readonly Uri s_validUri = new Uri("https://example.com");
     private static readonly long s_validVarInt = 42;
+    private static readonly long s_validApplicationErrorCode = 42;
     private static readonly HttpMessageInvoker s_validHttpMessageInvoker = new HttpClient();
 
 
@@ -59,25 +63,60 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
     public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = invalidVarInt, DefaultStreamErrorCode = s_validVarInt });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = s_validVarInt, DefaultStreamErrorCode = invalidVarInt });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt,
+            DefaultStreamErrorCode = s_validApplicationErrorCode
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialBidirectionalStreamCountLimitForPeer = invalidVarInt,
+            DefaultStreamErrorCode = s_validApplicationErrorCode
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialDataSentLimitForPeer = invalidVarInt,
+            DefaultStreamErrorCode = s_validApplicationErrorCode
+        });
     }
 
     [Theory]
-    [MemberData(nameof(s_validVariableLengthIntegers))]
-    public void ValidVariableLengthIntegerUsedToCreateInitialSessionConfigurationDoesNotThrow(long validVarInt)
+    [MemberData(nameof(s_validApplicationErrorCodes))]
+    public void ValidDefaultApplicationErrorCodeUsedToCreateInitialSessionConfigurationDoesNotThrow(long validApplicationErrorCode)
     {
-        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialUnidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialBidirectionalStreamCountLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
-        new WebTransportSessionCreationOptions() { HttpMessageInvoker = s_validHttpMessageInvoker, Uri = s_validUri, InitialDataSentLimitForPeer = validVarInt, DefaultStreamErrorCode = validVarInt };
+        new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialUnidirectionalStreamCountLimitForPeer = s_validVarInt,
+            DefaultStreamErrorCode = validApplicationErrorCode
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(s_invalidApplicationErrorCodes))]
+    public void InvalidDefaultApplicationErrorCodeUsedToCreateInitialSessionConfigurationThrows(long invalidApplicationErrorCode)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new WebTransportSessionCreationOptions()
+            {
+                HttpMessageInvoker = s_validHttpMessageInvoker,
+                Uri = s_validUri,
+                InitialUnidirectionalStreamCountLimitForPeer = s_validVarInt,
+                DefaultStreamErrorCode = invalidApplicationErrorCode
+            }
+        );
     }
 
     [Theory]
     [MemberData(nameof(s_invalidSubprotocols))]
-    public void InvalidProtocolThrows(string invalidSubprotocol)
+    public void InvalidSubprotocolThrows(string invalidSubprotocol)
     {
         Assert.Throws<ArgumentException>(() =>
         {
@@ -93,7 +132,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(s_validSubprotocols))]
-    public void ValidProtocolDoesNotThrow(string validSubprotocol)
+    public void ValidSubprotocolDoesNotThrow(string validSubprotocol)
     {
         new WebTransportSessionCreationOptions()
         {

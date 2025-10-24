@@ -17,10 +17,10 @@ namespace System.Net.WebTransport;
 /// <summary>
 /// Implementation that uses System.Net.Quic
 /// </summary>
-internal sealed class MsQuicWebTransportStream : WebTransportStream
+internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode, Stream readStream, QuicStream quicStream) : WebTransportStream(type)
 {
-    private readonly QuicStream _quicStream;
-    private readonly Stream _readStream;
+    private readonly QuicStream _quicStream = quicStream ?? throw new ArgumentNullException(nameof(quicStream));
+    private readonly Stream _readStream = readStream ?? throw new ArgumentNullException(nameof(readStream));
     private bool _isDisposed;
     private static readonly ReadOnlyMemory<byte> s_bidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
     private static readonly ReadOnlyMemory<byte> s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
@@ -28,16 +28,15 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private readonly TaskCompletionSource _tcsWritesClosed = new();
 
     /// <summary>
+    /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="WebTransportStream.DisposeAsync()"/>.
+    /// </summary>
+    private readonly long _remappedDefaultStreamErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultStreamErrorCode);
+
+    /// <summary>
     /// Create inbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode) : base(type, defaultStreamErrorCode)
+    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode) : this(type, defaultStreamErrorCode, readStream, quicStream)
     {
-        ArgumentNullException.ThrowIfNull(quicStream);
-        ArgumentNullException.ThrowIfNull(readStream);
-
-        _readStream = readStream;
-        _quicStream = quicStream;
-
         if (NetEventSource.Log.IsEnabled())
         {
             NetEventSource.Associate(this, quicStream);
@@ -58,13 +57,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// <summary>
     /// Create outbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode) : base(type, defaultStreamErrorCode)
+    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode) : this(type, defaultStreamErrorCode, readStream: quicStream, quicStream)
     {
-        ArgumentNullException.ThrowIfNull(quicStream);
-
-        _readStream = quicStream;
-        _quicStream = quicStream;
-
         if (NetEventSource.Log.IsEnabled())
         {
             NetEventSource.Associate(this, quicStream);
@@ -493,7 +487,12 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
             if (disposing)
             {
-                _quicStream.Abort(QuicAbortDirection.Both, DefaultStreamErrorCode);
+                try
+                {
+                    _quicStream.CompleteWrites();
+                }
+                catch (Exception) { }
+                _quicStream.Abort(QuicAbortDirection.Both, _remappedDefaultStreamErrorCode);
                 _readStream.Dispose();
                 _quicStream.Dispose();
             }
@@ -501,10 +500,19 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
         base.Dispose(disposing);
     }
+
     protected override async ValueTask DisposeAsyncCore()
     {
-        _quicStream.Abort(QuicAbortDirection.Both, DefaultStreamErrorCode);
-        await _quicStream.DisposeAsync().ConfigureAwait(false);
-        await _readStream.DisposeAsync().ConfigureAwait(false);
+        if (!_isDisposed)
+        {
+            try
+            {
+                _quicStream.CompleteWrites();
+            }
+            catch (Exception) { }
+            _quicStream.Abort(QuicAbortDirection.Both, _remappedDefaultStreamErrorCode);
+            await _quicStream.DisposeAsync().ConfigureAwait(false);
+            await _readStream.DisposeAsync().ConfigureAwait(false);
+        }
     }
 }
