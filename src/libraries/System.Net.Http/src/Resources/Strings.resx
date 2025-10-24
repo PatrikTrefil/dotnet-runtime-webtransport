@@ -624,7 +624,7 @@
   <data name="net_webtransport_session_connect_failed" xml:space="preserve">
     <value>Failed to create a WebTransport session.</value>
   </data>
-  <data name="net_webtransport_session_establishment_failed_with_status_code" xml:space="preserve">
+  <data name="net_webtransport_session_connect_failed_with_status_code" xml:space="preserve">
     <value>The server's response to the extended CONNECT request has status code {0}.</value>
   </data>
   <data name="net_webtransport_invalid_stream_type" xml:space="preserve">
