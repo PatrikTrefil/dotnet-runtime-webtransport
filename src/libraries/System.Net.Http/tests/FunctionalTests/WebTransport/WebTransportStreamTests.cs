@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit.Abstractions;
 using System.Net.Quic;
 using System.Threading.Tasks;
 using Xunit;
@@ -834,13 +833,15 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 try
                 {
                     Assert.Equal(-1, serverInitiatedStream.ReadByte());
-                } catch (Exception) { }
+                }
+                catch (Exception) { }
 
                 // Remove try-catch block after RESET_STREAM_AT is supported
                 try
                 {
                     await serverInitiatedStream.ReadsClosed;
-                } catch (Exception) { }
+                }
+                catch (Exception) { }
             }
 
             QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
@@ -893,13 +894,15 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 try
                 {
                     Assert.Equal(-1, serverInitiatedStream.ReadByte());
-                } catch (Exception) { }
+                }
+                catch (Exception) { }
 
                 // Remove try-catch block after RESET_STREAM_AT is supported
                 try
                 {
                     await serverInitiatedStream.ReadsClosed;
-                } catch (Exception) { }
+                }
+                catch (Exception) { }
             }
 
             QuicException ex = await Assert.ThrowsAsync<QuicException>(() => serverInitiatedStream.WritesClosed);
