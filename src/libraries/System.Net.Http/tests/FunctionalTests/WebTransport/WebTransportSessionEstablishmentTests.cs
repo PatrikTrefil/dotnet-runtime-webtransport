@@ -4,7 +4,6 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Functional.Tests;
-using System.Net.Quic;
 using System.Net.Test.Common;
 using System.Threading;
 using System.Threading.Tasks;
@@ -101,6 +100,43 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Fact]
+    public async Task OpenSessionCountIsDecreasedAfterSessionIsClosed()
+    {
+        using Barrier barrier = new(2);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(maxSessionCount: 1);
+
+            await using WebTransportServerSession serverSession2 = await _webTransportServer.AcceptWebTransportServerSessionAsync(serverSession1.Connection);
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await session1.CloseAsync();
+
+            await using WebTransportSession session2 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
 
     [Fact]
     public async Task SessionEstablishmentWithNonExistingEndpointThrows()
