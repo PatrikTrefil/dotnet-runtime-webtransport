@@ -93,7 +93,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                _tcsWritesClosed.SetException(QuicExceptionHandler(ex));
+                _tcsWritesClosed.SetException(ExceptionHandler(ex));
             }
         });
     }
@@ -109,7 +109,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                _tcsReadsClosed.SetException(QuicExceptionHandler(ex));
+                _tcsReadsClosed.SetException(ExceptionHandler(ex));
             }
         });
     }
@@ -199,7 +199,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw QuicExceptionHandler(quicException);
+            throw ExceptionHandler(quicException);
         }
     }
 
@@ -221,7 +221,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -234,7 +234,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -247,7 +247,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -260,20 +260,29 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
     /// <inheritdoc/>
-    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
+
         try
         {
-            return _readStream.ReadAsync(buffer, offset, count, cancellationToken);
+            return await _readStream.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -288,7 +297,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -297,13 +306,22 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
+
         try
         {
             return await _readStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -316,6 +334,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         {
             throw new InvalidOperationException(SR.net_webtransport_stream_reading_not_allowed);
         }
+
+        // No need to setup a cancellation callback here, the ReadAsync calls inside CopyToAsync will do that.
 
         return base.CopyToAsync(destination, bufferSize, cancellationToken);
     }
@@ -346,7 +366,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -359,7 +379,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
@@ -372,20 +392,29 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex);
         }
     }
 
     /// <inheritdoc/>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
+
         try
         {
             await _quicStream.WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -398,7 +427,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw QuicExceptionHandler(quicException);
+            throw ExceptionHandler(quicException);
         }
     }
 
@@ -411,20 +440,28 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw QuicExceptionHandler(quicException);
+            throw ExceptionHandler(quicException);
         }
     }
 
     /// <inheritdoc/>
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
     {
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
         try
         {
             await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
-            throw QuicExceptionHandler(ex);
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -441,7 +478,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw QuicExceptionHandler(quicException);
+            throw ExceptionHandler(quicException);
         }
     }
 
@@ -450,13 +487,22 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
+
         try
         {
             await _quicStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (QuicException quicException)
         {
-            throw QuicExceptionHandler(quicException);
+            throw ExceptionHandler(quicException, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -474,9 +520,26 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
-    private WebTransportException QuicExceptionHandler(QuicException quicException)
+    private CancellationTokenRegistration? RegisterCancellationCallback(QuicAbortDirection abortDirection, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.CanBeCanceled)
+        {
+            return cancellationToken.Register(() =>
+            {
+                _quicStream.Abort(abortDirection, _remappedDefaultStreamErrorCode);
+            });
+        }
+        return null;
+    }
+
+    private Exception ExceptionHandler(QuicException quicException, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, quicException);
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new OperationCanceledException();
+        }
 
         if (quicException.QuicError == QuicError.StreamAborted)
         {

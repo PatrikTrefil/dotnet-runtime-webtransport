@@ -95,23 +95,23 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         (stream, cancellationToken) => stream.CopyToAsync(new MemoryStream(), 10, cancellationToken),
         ];
 
-    public static readonly TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>> s_operationCanceledTestParameters = OperationCanceledTestParameters();
+    public static readonly TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>, QuicAbortDirection> s_operationCanceledTestParameters = OperationCanceledTestParameters();
 
-    private static TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>> OperationCanceledTestParameters()
+    private static TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>, QuicAbortDirection> OperationCanceledTestParameters()
     {
-        TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>> theoryData = new();
+        TheoryData<WebTransportStreamType, Func<WebTransportStream, CancellationToken, Task>, QuicAbortDirection> theoryData = new();
 
         foreach (WebTransportStreamType type in Enum.GetValues(typeof(WebTransportStreamType)))
         {
             foreach (Func<WebTransportStream, CancellationToken, Task> operation in s_writeOperationsAsParameters)
             {
-                theoryData.Add(type, operation);
+                theoryData.Add(type, operation, QuicAbortDirection.Write);
             }
         }
 
         foreach (Func<WebTransportStream, CancellationToken, Task> operation in s_readOperationsAsParameters)
         {
-            theoryData.Add(WebTransportStreamType.Bidirectional, operation);
+            theoryData.Add(WebTransportStreamType.Bidirectional, operation, QuicAbortDirection.Read);
         }
 
         return theoryData;
@@ -669,7 +669,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     }
 
     [Fact]
-    public async Task ReadOperationsThrowOnClientInitatedUnidirectionalStream()
+    public async Task ReadOperationsThrowOnClientInitiatedUnidirectionalStream()
     {
         using Barrier barrier = new(2);
         WebTransportStreamType streamType = WebTransportStreamType.Unidirectional;
@@ -1291,8 +1291,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                 HttpMessageInvoker = _client,
                 DefaultStreamErrorCode = 0
             });
-            await using WebTransportStream clientInitatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
-            Assert.True(clientInitatedStream.ReadsClosed.IsCompletedSuccessfully);
+            await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
+            Assert.True(clientInitiatedStream.ReadsClosed.IsCompletedSuccessfully);
 
             barrier.SignalAndWait();
         });
@@ -1300,7 +1300,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
 
             barrier.SignalAndWait();
         });
@@ -1335,10 +1335,10 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
-            Assert.Equal(-1, await clientInitatedStream.ReadByteAsync()); // reach end of stream -> ReadsClosed gets completed
-            await clientInitatedStream.ReadsClosed;
+            Assert.Equal(-1, await clientInitiatedStream.ReadByteAsync()); // reach end of stream -> ReadsClosed gets completed
+            await clientInitiatedStream.ReadsClosed;
 
             barrier.SignalAndWait();
         });
@@ -1375,7 +1375,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             barrier.SignalAndWait();
         });
@@ -1411,12 +1411,12 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             byte[] receivedData = new byte[dataToSend.Length];
-            await clientInitatedStream.ReadExactlyAsync(receivedData);
+            await clientInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(dataToSend, receivedData);
-            await clientInitatedStream.ReadsClosed;
+            await clientInitiatedStream.ReadsClosed;
 
             barrier.SignalAndWait();
         });
@@ -1452,13 +1452,13 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             byte[] receivedData = new byte[dataToSend.Length];
-            await clientInitatedStream.ReadExactlyAsync(receivedData);
+            await clientInitiatedStream.ReadExactlyAsync(receivedData);
             Assert.Equal(dataToSend, receivedData);
 
-            Assert.False(clientInitatedStream.ReadsClosed.IsCompleted);
+            Assert.False(clientInitiatedStream.ReadsClosed.IsCompleted);
 
             barrier.SignalAndWait();
         });
@@ -1468,9 +1468,10 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(s_operationCanceledTestParameters))]
-    public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(WebTransportStreamType type, Func<WebTransportStream, CancellationToken, Task> operation)
+    public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(WebTransportStreamType type, Func<WebTransportStream, CancellationToken, Task> operation, QuicAbortDirection expectedClientAbortDirection)
     {
         using Barrier barrier = new(2);
+        const long defaultStreamErrorCode = 42;
 
         Task clientTask = Task.Run(async () =>
         {
@@ -1478,7 +1479,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = defaultStreamErrorCode
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
@@ -1489,15 +1490,63 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation(clientInitiatedStream, cts.Token));
 
+            Task sideExpectedToBeClosed;
+            Task? sideExpectedToBeOpen;
+
+            switch (expectedClientAbortDirection)
+            {
+                case QuicAbortDirection.Read:
+                    sideExpectedToBeClosed = clientInitiatedStream.ReadsClosed;
+                    sideExpectedToBeOpen = clientInitiatedStream.WritesClosed;
+                    break;
+                case QuicAbortDirection.Write:
+                    sideExpectedToBeClosed = clientInitiatedStream.WritesClosed;
+                    if (type == WebTransportStreamType.Bidirectional)
+                    {
+                        sideExpectedToBeOpen = clientInitiatedStream.ReadsClosed;
+                    } else
+                    {
+                        sideExpectedToBeOpen = null;
+                    }
+                        break;
+                default:
+                    throw new ArgumentException("Invalid abort direction", nameof(expectedClientAbortDirection));
+            }
+
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await sideExpectedToBeClosed);
+
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+
+            if (sideExpectedToBeOpen != null)
+            {
+                Assert.False(sideExpectedToBeOpen.IsCompleted);
+            }
+
             barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            await using QuicStream clientInitatedStream = await serverSession.AcceptStreamFromServerAsync(type);
+            await using QuicStream clientInitiatedStream = await serverSession.AcceptStreamFromServerAsync(type);
 
             barrier.SignalAndWait();
+
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(() =>
+            {
+                switch (expectedClientAbortDirection)
+                {
+                    case QuicAbortDirection.Read:
+                        return clientInitiatedStream.WritesClosed;
+                    case QuicAbortDirection.Write:
+                        return clientInitiatedStream.ReadsClosed;
+                    default:
+                        throw new ArgumentException("Invalid abort direction", nameof(expectedClientAbortDirection));
+                }
+            });
+
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultStreamErrorCode), (long)ex.ApplicationErrorCode);
 
             barrier.SignalAndWait();
         });
