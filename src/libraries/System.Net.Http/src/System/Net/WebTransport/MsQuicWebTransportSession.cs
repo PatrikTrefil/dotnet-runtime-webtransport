@@ -38,14 +38,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <see cref="WebTransportSession.UnidirectionalStreamCountLimitForPeer"/>, <see cref="WebTransportSession.DataSentLimitForPeer"/>).
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
-    /// <summary>
-    /// Detect redundant <see cref="CleanUpSessionAsync(Http3ErrorCode)"/> calls in a thread-safe manner.
-    /// </summary>
-    /// <value>
-    /// _isDisposed == 0 means Dispose(bool) has not been called yet.
-    /// _isDisposed == 1 means Dispose(bool) has been already called.
-    /// </value>
-    private int _isCleanedUp;
 
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
@@ -714,17 +706,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <param name="errorCodeForStreams">Error code used to abort all <see cref="QuicStream"/> instances associated with this session.</param>
     private async ValueTask CleanUpSessionAsync(Http3ErrorCode errorCodeForStreams)
     {
-        if (Interlocked.CompareExchange(ref _isCleanedUp, 1, 0) == 1)
-        {
-            return;
-        }
-
-        Debug.Assert(State != WebTransportSessionState.Open);
-
         await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
-
         _connectionManager.RemoveSession(_connectStream);
-
         _capsuleConsumer.Dispose();
     }
 
