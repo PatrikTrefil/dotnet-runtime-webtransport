@@ -307,6 +307,28 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
     }
 
+    /// <inheritdoc/>
+    public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
+    {
+        if (!CanRead)
+        {
+            throw new InvalidOperationException(SR.net_webtransport_stream_reading_not_allowed);
+        }
+
+        return base.CopyToAsync(destination, bufferSize, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public override void CopyTo(Stream destination, int bufferSize)
+    {
+        if (!CanRead)
+        {
+            throw new InvalidOperationException(SR.net_webtransport_stream_reading_not_allowed);
+        }
+
+        base.CopyTo(destination, bufferSize);
+    }
+
     #endregion
 
     #region Writes

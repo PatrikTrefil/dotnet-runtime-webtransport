@@ -684,7 +684,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             });
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
-            await AssertReadOperationsOnStreamThrowAnyAsync<Exception>(stream, (ex) => Assert.True(ex is InvalidOperationException or NotSupportedException));
+            await AssertReadOperationsOnStreamThrowAnyAsync<InvalidOperationException>(stream, null);
 
             barrier.SignalAndWait();
         });
