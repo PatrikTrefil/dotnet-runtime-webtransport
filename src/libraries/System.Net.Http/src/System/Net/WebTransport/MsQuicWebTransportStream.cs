@@ -127,8 +127,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             WebTransportStreamType.Bidirectional => s_bidirectionalStreamTypeEncodedAsVariableLengthInteger,
             _ => throw new WebTransportException(WebTransportError.InternalError, SR.net_webtransport_internal_error)
         };
-        await _readStream.WriteAsync(initialBytes, cancellationToken).ConfigureAwait(false);
-        await _readStream.WriteAsync(encodedSessionId, cancellationToken).ConfigureAwait(false);
+        await _quicStream.WriteAsync(initialBytes, cancellationToken).ConfigureAwait(false);
+        await _quicStream.WriteAsync(encodedSessionId, cancellationToken).ConfigureAwait(false);
     }
 
     public override long StreamId => _quicStream.Id;
