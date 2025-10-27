@@ -10,9 +10,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 internal sealed class WebTransportServerSession : IAsyncDisposable
 {
-    private static readonly byte[] s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = [0x40, 0x54];
-
-    private static readonly byte[] s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger = [0x40, 0x41];
     public long SessionId => ConnectStream.Id;
     public Http3LoopbackConnection Connection { get; init; }
     public QuicStream ConnectStream { get; init; }
@@ -31,17 +28,11 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
     {
         QuicStream clientInitatedStream = await Connection.AcceptQuicStreamAsync();
 
-        byte[] expectedStreamTypeOrSignalValueValue = expectedStreamTypeOfIncomingStream switch
-        {
-            WebTransportStreamType.Unidirectional => s_unidirectionalStreamTypeEncodedAsVariableLengthInteger,
-            WebTransportStreamType.Bidirectional => s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger,
-            _ => throw new ArgumentException("Unknown stream type", nameof(expectedStreamTypeOfIncomingStream))
-        };
+        long expectedStreamTypeOrSignalValueValue = WebTransportStreamTypeHelper.GetStreamTypeOrSignalValue(expectedStreamTypeOfIncomingStream);
 
-        byte[] receivedStreamTypeOrSignalValue = new byte[expectedStreamTypeOrSignalValueValue.Length];
+        (long StreamTypeOrSignalValue, _) = await VariableLengthIntegerStreamHelper.ReadAsync(clientInitatedStream);
 
-        clientInitatedStream.Read(receivedStreamTypeOrSignalValue);
-        Assert.Equal(expectedStreamTypeOrSignalValueValue, receivedStreamTypeOrSignalValue);
+        Assert.Equal(expectedStreamTypeOrSignalValueValue, StreamTypeOrSignalValue);
 
         var (sessionId, _) = await VariableLengthIntegerStreamHelper.ReadAsync(clientInitatedStream);
         Assert.Equal(SessionId, sessionId);
@@ -60,17 +51,11 @@ internal sealed class WebTransportServerSession : IAsyncDisposable
 
         QuicStream stream = await Connection.OpenQuicStreamAsync(quicStreamType);
 
-        switch (streamType)
-        {
-            case WebTransportStreamType.Unidirectional:
-                stream.Write(s_unidirectionalStreamTypeEncodedAsVariableLengthInteger);
-                break;
-            case WebTransportStreamType.Bidirectional:
-                stream.Write(s_bidirectionalStreamSignalValueEncodedAsVariableLengthInteger);
-                break;
-        }
+        long streamTypeOrSignalValue = WebTransportStreamTypeHelper.GetStreamTypeOrSignalValue(streamType);
+        VariableLengthIntegerStreamHelper.Write(stream, streamTypeOrSignalValue);
 
         VariableLengthIntegerStreamHelper.Write(stream, SessionId);
+
         stream.Flush();
 
         return stream;
