@@ -10,10 +10,10 @@ using System.Linq;
 using System.Net.Quic;
 using System.Net.Http;
 using System.Net.Http.Functional.Tests;
+using System.Diagnostics;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test when server opens a stream for a non-existing session and then client opens a session with that id (implementation easy if we can predict the session id, otherwise we have to do manual session establishment)
 // TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism - use KeepAlivePingInterval and KeepAlivePingDelay on SocketsHttpHandler
 // TODO: write a test that uses a proxy
 
@@ -93,6 +93,71 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningStreamBeforeSessionExistsWorks(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        ReadOnlyMemory<byte> dataToSend = new byte[] { 1, 2, 3, 4, 5 };
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
+
+            byte[] receivedData = new byte[dataToSend.Length];
+
+            await stream.ReadExactlyAsync(receivedData);
+
+            Assert.Equal(dataToSend, receivedData);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            QuicStreamType quicStreamType = streamType switch
+            {
+                WebTransportStreamType.Unidirectional => QuicStreamType.Unidirectional,
+                WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
+                _ => throw new ArgumentOutOfRangeException(nameof(streamType), "Invalid stream type")
+            };
+
+            long nextSessionId = (int)backgroundSession.SessionId + 4;
+            await using QuicStream stream = await backgroundSession.Connection.OpenQuicStreamAsync(quicStreamType);
+
+            long streamTypeOrSignalValue = WebTransportStreamTypeHelper.GetStreamTypeOrSignalValue(streamType);
+
+            VariableLengthIntegerStreamHelper.Write(stream, streamTypeOrSignalValue);
+            VariableLengthIntegerStreamHelper.Write(stream, nextSessionId);
+            await stream.WriteAsync(dataToSend);
+
+            await using WebTransportServerSession session = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
+
+            Debug.Assert(session.SessionId == nextSessionId, $"Session ID prediction failed (expected: {nextSessionId}, received: {session.SessionId}).");
 
             barrier.SignalAndWait();
         });
