@@ -116,7 +116,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            await using WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
