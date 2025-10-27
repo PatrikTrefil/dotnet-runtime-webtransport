@@ -997,6 +997,47 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Fact]
+    public async Task SessionIsClosedIfServerClosesQuicConnection()
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(
+                new WebTransportSessionCreationOptions
+                {
+                    Uri = _webTransportServer.Address,
+                    HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0,
+                    GracefulShutdownHandler = (_) => Task.CompletedTask
+                });
+
+            barrier.SignalAndWait(); // Signal the session creation is completed
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            Assert.Equal(WebTransportSessionState.AbortedRemotely, session.State);
+            Assert.Null(session.CloseStatusDescription);
+            Assert.Null(session.CloseStatusCode);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession session = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait(); // Wait for the client to complete session creation
+
+            await session.Connection.CloseAsync(0);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
     public async Task SessionIsClosedIfDefaultShutdownHandlerThrowsWhenDrainIsReceived()
     {
         using Barrier barrier = new(2);

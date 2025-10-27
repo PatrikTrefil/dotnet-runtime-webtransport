@@ -14,8 +14,7 @@ using System.Net.Http.Functional.Tests;
 namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: write test when server opens a stream for a non-existing session and then client opens a session with that id (implementation easy if we can predict the session id, otherwise we have to do manual session establishment)
-// TODO: add test for what happens if the QuicConnection is closed while a session is open
-// TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism
+// TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism - use KeepAlivePingInterval and KeepAlivePingDelay on SocketsHttpHandler
 // TODO: write a test that uses a proxy
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
