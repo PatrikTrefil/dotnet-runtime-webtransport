@@ -14,7 +14,6 @@ using System.Diagnostics;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test that checks that a session will not timeout because of QUIC limit and that the session has a keepalive mechanism - use KeepAlivePingInterval and KeepAlivePingDelay on SocketsHttpHandler
 // TODO: write a test that uses a proxy
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
@@ -293,6 +292,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
             CancellationTokenSource cts = new();
+            // This is to prevent idle timeout on the stream
             Task sendDataTask = Task.Run(async () =>
             {
                 using (stream)
@@ -329,6 +329,49 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
                     break;
                 }
             }
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task PooledConnectionIdleTimeoutDoesNotCloseWebTransportSessionThatUsesKeepAlive()
+    {
+        using Barrier barrier = new(2);
+
+        TimeSpan idleTimeout = TimeSpan.FromSeconds(3);
+        _http3Options.QuicConnectionIdleTimeout = idleTimeout;
+        _http3Options.QuicConnectionKeepAliveInterval = TimeSpan.FromSeconds(1); // the keep alive is done by server in this test case, because System.Net.Http does not support client keep alive pings yet
+
+        using var httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
+        await using WebTransportLoopbackServer webTransportServer = new(httpServer);
+
+        Task clientTask = Task.Run(async () =>
+        {
+
+            SocketsHttpHandler handler = TestHelper.CreateSocketsHttpHandler(allowAllCertificates: true);
+            handler.PooledConnectionIdleTimeout = idleTimeout;
+            HttpClient client = new(handler);
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = webTransportServer.Address,
+                HttpMessageInvoker = client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await Task.Delay(idleTimeout + TimeSpan.FromSeconds(1));
+
+            Assert.Equal(WebTransportSessionState.Open, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             barrier.SignalAndWait();
         });
