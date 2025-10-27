@@ -264,6 +264,7 @@
     <Compile Include="WebTransport\WebTransportSessionConfigurationSubprotocolTests.cs" />
     <Compile Include="WebTransport\WebTransportLoopbackServer.cs" />
     <Compile Include="WebTransport\WebTransportServerSession.cs" />
+    <Compile Include="WebTransport\WebTransportHttpConnectionCreationOptions.cs" />
     <Compile Include="WebTransport\VariableLengthIntegerStreamHelper.cs" />
     <Compile Include="WebTransport\ErrorCodeRemapping.cs" />
     <Compile Include="WebTransport\WebTransportSessionTestHelper.cs" />

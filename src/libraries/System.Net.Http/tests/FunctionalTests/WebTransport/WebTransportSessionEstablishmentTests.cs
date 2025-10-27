@@ -72,7 +72,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(maxSessionCount: 1);
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 });
 
             barrier.SignalAndWait();
         });
@@ -107,7 +107,7 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(maxSessionCount: 1);
+            await using WebTransportServerSession serverSession1 = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 });
 
             await using WebTransportServerSession serverSession2 = await _webTransportServer.AcceptWebTransportServerSessionAsync(serverSession1.Connection);
 
@@ -444,12 +444,13 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            }));
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(
+                async () => await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+                {
+                    Uri = _webTransportServer.Address,
+                    HttpMessageInvoker = _client,
+                    DefaultStreamErrorCode = 0
+                }));
             Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
 
             barrier.SignalAndWait(TestTimeoutInMilliseconds);

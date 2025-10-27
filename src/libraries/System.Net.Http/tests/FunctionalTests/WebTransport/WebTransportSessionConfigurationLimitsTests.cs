@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit.Abstractions;
 using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
@@ -693,6 +692,83 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task DefaultSessionCreationOptionsValuesAreApplied()
+    {
+        using Barrier barrier = new(2);
+
+        int expectedBidirectionalStreamsCountLimitForPeer = 0;
+        int expectedUnidirectionalStreamsCountLimitForPeer = 0;
+        int expectedDataSentLimitForPeer = 0;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0,
+            });
+
+            Assert.Equal(expectedBidirectionalStreamsCountLimitForPeer, session.BidirectionalStreamCountLimitForPeer);
+            Assert.Equal(expectedUnidirectionalStreamsCountLimitForPeer, session.UnidirectionalStreamCountLimitForPeer);
+            Assert.Equal(expectedDataSentLimitForPeer, session.DataSentLimitForPeer);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task SessionConfigurationFromHttpSettingsIsApplied()
+    {
+        using Barrier barrier = new(2);
+
+        int expectedBidirectionalStreamsCountLimitByPeer = 5;
+        int expectedUnidirectionalStreamsCountLimitByPeer = 6;
+        int expectedDataSentLimitByPeer = 7;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0,
+            });
+
+            Assert.Equal(expectedBidirectionalStreamsCountLimitByPeer, session.BidirectionalStreamCountLimitProvidedByPeer);
+            Assert.Equal(expectedUnidirectionalStreamsCountLimitByPeer, session.UnidirectionalStreamCountLimitProvidedByPeer);
+            Assert.Equal(expectedDataSentLimitByPeer, session.DataSentLimitProvidedByPeer);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = expectedUnidirectionalStreamsCountLimitByPeer,
+                    InitialBidirectionalStreamCountLimitForPeer = expectedBidirectionalStreamsCountLimitByPeer,
+                    InitialDataSentLimitForPeer = expectedDataSentLimitByPeer
+                });
 
             barrier.SignalAndWait();
         });
