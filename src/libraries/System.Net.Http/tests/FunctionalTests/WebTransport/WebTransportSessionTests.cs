@@ -14,7 +14,6 @@ using System.Diagnostics;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write a test that uses a proxy
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
