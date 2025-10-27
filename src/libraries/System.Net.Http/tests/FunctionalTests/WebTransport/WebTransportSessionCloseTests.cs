@@ -884,8 +884,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            // To make sure the pending streams are already processed by the client, we more than allowed and wait for one to be rejected.
-            // This is a deterministic way to ensure that all streams have been processed by the client
+            // To make sure the pending streams are already processed by the client, we open more than allowed and wait for one to be rejected.
+            // This is a deterministic way to ensure that at least one stream is pending in the client's channel.
 
             (List<QuicStream> pendingStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
 
@@ -914,6 +914,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                     Assert.Equal(QuicError.StreamAborted, readsClosedEx.QuicError);
                     Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, readsClosedEx.ApplicationErrorCode);
                 }
+
+                await stream.DisposeAsync();
             }
 
             barrier.SignalAndWait();
@@ -969,6 +971,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream establishedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
+            // To make sure the pending streams are already processed by the client, we open more than allowed and wait for one to be rejected.
+            // This is a deterministic way to ensure that at least one stream is pending in the client's channel.
             (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, WebTransportStreamType.Bidirectional);
 
             QuicStream pendingStream = openStreams.First(stream => !stream.WritesClosed.IsCompleted); // Get one pending stream and assert it will be closed after the session is closed
@@ -989,6 +993,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
                 Assert.Equal(QuicError.StreamAborted, ex.QuicError);
                 Assert.Equal((long)Http3ErrorCode.WebtransportSessionGone, ex.ApplicationErrorCode);
             }
+
+            await Task.WhenAll(openStreams.Select(stream => stream.DisposeAsync().AsTask()).ToArray());
 
             barrier.SignalAndWait();
         });
@@ -1084,6 +1090,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream establishedStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
+            // To make sure the pending streams are already processed by the client, we open more than allowed and wait for one to be rejected.
+            // This is a deterministic way to ensure that at least one stream is pending in the client's channel.
             (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, WebTransportStreamType.Bidirectional);
 
             QuicStream pendingStream = openStreams.First(stream => !stream.WritesClosed.IsCompleted); // Get one pending stream and assert it will be closed after the session is closed
