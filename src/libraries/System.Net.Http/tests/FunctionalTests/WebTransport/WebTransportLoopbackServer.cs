@@ -52,7 +52,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
     public async Task<WebTransportServerSession> AcceptWebTransportServerSessionAsync(Http3LoopbackConnection connection, string? subprotocolToRespondWith = null)
     {
         HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
-        QuicStream controlStream = connection.CurrentStream.Stream;
+        QuicStream connectStream = connection.CurrentStream.Stream;
         bool isValidOpeningHandshake = httpRequestData.Method == HttpMethod.Connect.ToString() && httpRequestData.GetSingleHeaderValue(":protocol") == s_protocolPseudoHeaderValue;
 
         Assert.True(isValidOpeningHandshake, "Invalid handshake from client received");
@@ -65,7 +65,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 
         await connection.SendResponseAsync(content: null, headers: headers, isFinal: false);
 
-        WebTransportServerSession session = new() { Connection = connection, ConnectStream = controlStream };
+        WebTransportServerSession session = new() { Connection = connection, ConnectStream = connectStream };
         _sessions.Add(session);
 
         return session;
