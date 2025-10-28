@@ -32,6 +32,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
     private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
+    private bool _isCleanedUp;
     /// <summary>
     /// Used to synchronize sending of capsules using <see cref="_capsuleSender"/> and access to configuration
     /// properties for peer (<see cref="WebTransportSession.BidirectionalStreamCountLimitForPeer"/>,
@@ -706,9 +707,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <param name="errorCodeForStreams">Error code used to abort all <see cref="QuicStream"/> instances associated with this session.</param>
     private async ValueTask CleanUpSessionAsync(Http3ErrorCode errorCodeForStreams)
     {
-        await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
-        _connectionManager.RemoveSession(_connectStream);
-        _capsuleConsumer.Dispose();
+        if (!_isCleanedUp)
+        {
+            await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+            _connectionManager.RemoveSession(_connectStream);
+            _capsuleConsumer.Dispose();
+
+            _isCleanedUp = true;
+        }
     }
 
     private async ValueTask CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode httpErrorCode)
