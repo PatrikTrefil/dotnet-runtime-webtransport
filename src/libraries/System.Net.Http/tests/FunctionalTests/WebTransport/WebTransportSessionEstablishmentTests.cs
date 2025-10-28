@@ -335,7 +335,6 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    // TODO: write test that does a failed handshake and then a successful one
     [Fact]
     public async Task SessionEstablishmentFailsWhenTheExtendedConnectRequestReachesTimeout()
     {
