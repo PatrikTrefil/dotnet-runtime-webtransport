@@ -57,20 +57,29 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         return data;
     }
 
-    private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream)
+    private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream) => await AssertStreamIsClosedWithSpinWait(stream, null, null);
+    private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream, Action<WebTransportException> exceptionValidator) => await AssertStreamIsClosedWithSpinWait(stream, exceptionValidator, exceptionValidator);
+    private async Task AssertStreamIsClosedWithSpinWait(WebTransportStream stream, Action<WebTransportException> writesClosedExceptionValidator, Action<WebTransportException> readsClosedExceptionValidator)
     {
-        try
+        if (writesClosedExceptionValidator != null)
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => stream.WritesClosed);
+            writesClosedExceptionValidator(ex);
+        }
+        else
         {
             await stream.WritesClosed;
         }
-        catch (Exception) { }
 
-
-        try
+        if (readsClosedExceptionValidator != null)
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => stream.ReadsClosed);
+            readsClosedExceptionValidator(ex);
+        }
+        else
         {
             await stream.ReadsClosed;
         }
-        catch (Exception) { }
     }
 
     [Theory]
@@ -114,12 +123,18 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await session.CloseAsync(expectedApplicationErrorCode, Encoding.UTF8.GetString(expectedApplicationErrorMessage));
 
             Assert.Equal(WebTransportSessionState.ClosedLocally, session.State);
-            await AssertStreamIsClosedWithSpinWait(stream);
+            await AssertStreamIsClosedWithSpinWait(stream, writesClosedExceptionValidator: ExceptionValidator, readsClosedExceptionValidator: null);
 
             barrier.SignalAndWait();
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+            Assert.Null(ex.CloseStatusCode);
+        }
     }
 
     [Fact]
@@ -298,10 +313,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
 
-            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream, readsClosedExceptionValidator: ExceptionValidator, writesClosedExceptionValidator: null);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream, ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream, readsClosedExceptionValidator: null, writesClosedExceptionValidator: ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream, ExceptionValidator);
 
             barrier.SignalAndWait();
         });
@@ -320,8 +335,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             barrier.SignalAndWait();
         });
 
-
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+            Assert.Null(ex.CloseStatusCode);
+        }
     }
 
     [Theory]
@@ -351,10 +371,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
-            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream, writesClosedExceptionValidator: null, readsClosedExceptionValidator: ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream, ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream, writesClosedExceptionValidator: ExceptionValidator, readsClosedExceptionValidator: null);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream, ExceptionValidator);
 
             barrier.SignalAndWait();
         });
@@ -374,6 +394,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+            Assert.Null(ex.CloseStatusCode);
+        }
+        ;
     }
 
     [Theory]
@@ -402,10 +429,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), session.CloseStatusDescription);
             Assert.Equal(expectedApplicationErrorCode, session.CloseStatusCode);
 
-            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream, writesClosedExceptionValidator: null, readsClosedExceptionValidator: ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream, ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream, writesClosedExceptionValidator: ExceptionValidator, readsClosedExceptionValidator: null);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream, ExceptionValidator);
 
             barrier.SignalAndWait();
         });
@@ -430,6 +457,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+            Assert.Null(ex.CloseStatusCode);
+        }
+        ;
     }
 
     [Fact]
@@ -493,10 +527,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusDescription);
             Assert.Null(session.CloseStatusCode);
 
-            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream);
-            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream);
+            await AssertStreamIsClosedWithSpinWait(inboundUnidirectionalStream, readsClosedExceptionValidator: ExceptionValidator, writesClosedExceptionValidator: null);
+            await AssertStreamIsClosedWithSpinWait(inboundBidirectionalStream, ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundUnidirectionalStream, readsClosedExceptionValidator: null, writesClosedExceptionValidator: ExceptionValidator);
+            await AssertStreamIsClosedWithSpinWait(outboundBidirectionalStream, ExceptionValidator);
 
             barrier.SignalAndWait();
         });
@@ -516,6 +550,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         });
 
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+            Assert.Null(ex.CloseStatusCode);
+        }
+        ;
     }
 
     [Fact]
