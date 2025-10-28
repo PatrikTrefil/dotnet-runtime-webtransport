@@ -10,9 +10,7 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write tests for limits enforcement (e.g. try to open more streams than allowed and see that it fails)
-// TODO: write test that sends settings using HTTP/3 SETTINGS frame and asserts that the values are applied to the session
-// TODO: write test that doesn't sends settings using HTTP/3 SETTINGS frame and asserts that the default values are applied to the session
+// TODO: write tests for limits enforcement (send more data then allowed, open more streams than allowed)
 
 /// <summary>
 /// Contains tests for limits configuration of WebTransport sessions such as setting of maximum count of open unidirectional streams.
