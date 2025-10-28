@@ -265,28 +265,6 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     }
 
     /// <inheritdoc/>
-    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
-    {
-        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
-
-        try
-        {
-            return await _readStream.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
-        }
-        catch (QuicException ex)
-        {
-            throw ExceptionHandler(ex, cancellationToken);
-        }
-        finally
-        {
-            if (ctr.HasValue)
-            {
-                await ctr.Value.DisposeAsync().ConfigureAwait(false);
-            }
-        }
-    }
-
-    /// <inheritdoc/>
     public override int Read(Span<byte> buffer)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -301,16 +279,16 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
     }
 
-    /// <inheritdoc/>
-    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
+#pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
 
+    /// <inheritdoc/>
+    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    {
         CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
 
         try
         {
-            return await _readStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            return await _readStream.ReadAsync(buffer.AsMemory(offset, count)).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
@@ -324,6 +302,32 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
         }
     }
+
+    /// <inheritdoc/>
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
+
+        try
+        {
+            return await _readStream.ReadAsync(buffer).ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+#pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
 
     /// <inheritdoc/>
     public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
@@ -397,28 +401,6 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     }
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
-    {
-        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
-
-        try
-        {
-            await _quicStream.WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
-        }
-        catch (QuicException ex)
-        {
-            throw ExceptionHandler(ex, cancellationToken);
-        }
-        finally
-        {
-            if (ctr.HasValue)
-            {
-                await ctr.Value.DisposeAsync().ConfigureAwait(false);
-            }
-        }
-    }
-
-    /// <inheritdoc/>
     public override void Write(ReadOnlySpan<byte> buffer)
     {
         try
@@ -444,13 +426,16 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
     }
 
+#pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
+
     /// <inheritdoc/>
-    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
+    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
         CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
+
         try
         {
-            await _quicStream.WriteAsync(buffer, completeWrites, cancellationToken).ConfigureAwait(false);
+            await _quicStream.WriteAsync(buffer.AsMemory(offset, count)).ConfigureAwait(false);
         }
         catch (QuicException ex)
         {
@@ -464,6 +449,30 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
         }
     }
+
+    /// <inheritdoc/>
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
+    {
+        CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
+
+        try
+        {
+            await _quicStream.WriteAsync(buffer, completeWrites).ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw ExceptionHandler(ex, cancellationToken);
+        }
+        finally
+        {
+            if (ctr.HasValue)
+            {
+                await ctr.Value.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+#pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
 
     #endregion
 
@@ -491,7 +500,9 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
 
         try
         {
-            await _quicStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+#pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
+            await _quicStream.FlushAsync().ConfigureAwait(false);
+#pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
         }
         catch (QuicException quicException)
         {
@@ -520,6 +531,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
+    /// <remarks>Instead of passing the cancellation tokens to the QUIC stream operations we handle the cancellation request in this class. This gives us the possibility to apply the <see cref="_remappedDefaultStreamErrorCode"/>.</remarks>
     private CancellationTokenRegistration? RegisterCancellationCallback(QuicAbortDirection abortDirection, CancellationToken cancellationToken)
     {
         if (cancellationToken.CanBeCanceled)
