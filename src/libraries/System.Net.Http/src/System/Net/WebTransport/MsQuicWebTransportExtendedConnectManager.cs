@@ -24,11 +24,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     // For this scenario we need to remember to call the graceful shutdown handler right after the session is created.
     // To check if the graceful shutdown handler needs to be called we use this boolean variable.
     private bool _wasGoAwayReceived;
-    private object SyncObjSessionCounts { get; } = new();
-    private object SyncObjDictionary => _idSessionAndChannelsDict;
+    private Lock SessionCountsLock { get; } = new();
+    private Lock DictionaryLock { get; } = new();
     private readonly Dictionary<long, DictionaryItem> _idSessionAndChannelsDict = new();
 
-    private object SyncObjSettingsValidation { get; } = new();
+    private Lock SyncObjSettingsValidation { get; } = new();
     private bool _isSettingsValidationDone;
     private Exception? _validationException;
 
@@ -39,7 +39,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         Task[] goAwayHandlerTasks;
-        lock (SyncObjDictionary)
+        lock (DictionaryLock)
         {
             goAwayHandlerTasks = new Task[_idSessionAndChannelsDict.Count];
             int i = 0;
@@ -84,7 +84,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         // It's possible that a there are already pending streams for the session we are creating
         SessionAndChannels sessionAndChannels;
         bool shouldCallGracefulShutdownHandler = false;
-        lock (SyncObjDictionary)
+        lock (DictionaryLock)
         {
             if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
             {
@@ -154,7 +154,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Stream received for session {sessionId}");
 
-        lock (SyncObjDictionary)
+        lock (DictionaryLock)
         {
             // The session may not exist yet. In that case we only create the channels without a session object.
             // The session object will then attached in the CreateSession method
@@ -254,7 +254,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         bool wasRemovalSuccessful;
         long sessionId = connectStream.Id;
-        lock (SyncObjDictionary)
+        lock (DictionaryLock)
         {
             _idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem);
             if (dictionaryItem is Tombstone or null)
@@ -270,7 +270,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
         if (wasRemovalSuccessful)
         {
-            lock (SyncObjSessionCounts)
+            lock (SessionCountsLock)
             {
                 _openSessionsCount--;
             }
@@ -285,7 +285,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (SyncObjSessionCounts)
+        lock (SessionCountsLock)
         {
             if (_openSessionsCount == _maxSessionsCount)
             {
@@ -299,7 +299,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (SyncObjSessionCounts)
+        lock (SessionCountsLock)
         {
             _openSessionsCount--;
         }

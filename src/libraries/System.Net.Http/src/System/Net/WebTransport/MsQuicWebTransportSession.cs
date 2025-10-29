@@ -23,7 +23,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// Lock this object when working with <see cref="WebTransportSession.State"/>, <see cref="WebTransportSession.CloseStatusCode"/>,
     /// ,<see cref="WebTransportSession.CloseStatusDescription"/> or <see cref="_openStreams"/>.
     /// </summary>
-    private object SyncObj { get; } = new();
+    private Lock SyncLock { get; } = new();
+
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
@@ -82,11 +83,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         get
         {
-            lock (SyncObj) { return field; }
+            lock (SyncLock) { return field; }
         }
         protected set
         {
-            Debug.Assert(Monitor.IsEntered(SyncObj));
+            Debug.Assert(SyncLock.IsHeldByCurrentThread);
 
             field = value;
         }
@@ -96,11 +97,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         get
         {
-            lock (SyncObj) { return field; }
+            lock (SyncLock) { return field; }
         }
         protected set
         {
-            Debug.Assert(Monitor.IsEntered(SyncObj));
+            Debug.Assert(SyncLock.IsHeldByCurrentThread);
 
             field = value;
         }
@@ -110,13 +111,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         get
         {
-            lock (SyncObj) { return field; }
+            lock (SyncLock) { return field; }
         }
         protected set
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {field} to {value}");
 
-            Debug.Assert(Monitor.IsEntered(SyncObj));
+            Debug.Assert(SyncLock.IsHeldByCurrentThread);
 
             field = value;
         }
@@ -124,7 +125,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     internal void Init()
     {
-        lock (SyncObj)
+        lock (SyncLock)
         {
             State = WebTransportSessionState.Open;
         }
@@ -142,7 +143,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         catch (Exception) { }
 
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (State == WebTransportSessionState.Open)
             {
@@ -180,7 +181,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-            lock (SyncObj)
+            lock (SyncLock)
             {
                 if (State == WebTransportSessionState.Open)
                 {
@@ -210,7 +211,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private void MarkSessionAsClosed(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
     {
-        Debug.Assert(Monitor.IsEntered(SyncObj));
+        Debug.Assert(SyncLock.IsHeldByCurrentThread);
         Debug.Assert(State == WebTransportSessionState.Open);
         Debug.Assert(
             state
@@ -229,7 +230,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingCloseCapsuleAsyncStarted(this);
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (State != WebTransportSessionState.Open)
             {
@@ -392,7 +393,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         try
         {
-            lock (SyncObj)
+            lock (SyncLock)
             {
                 ThrowIfInvalidState();
                 if (_openStreams != null)
@@ -531,7 +532,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (_openStreams != null)
             {
@@ -544,7 +545,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (State != WebTransportSessionState.Open)
             {
@@ -589,7 +590,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (State != WebTransportSessionState.Open)
             {
@@ -622,7 +623,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     internal override void ReceiveClose(uint closeStatus, string statusDescription)
     {
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (State != WebTransportSessionState.Open)
             {
@@ -638,7 +639,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-        lock (SyncObj)
+        lock (SyncLock)
         {
             ThrowIfInvalidState();
         }
@@ -676,7 +677,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
 
-            lock (SyncObj)
+            lock (SyncLock)
             {
                 if (State == WebTransportSessionState.Open)
                 {
@@ -747,7 +748,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private void CloseOpenStreams(Http3ErrorCode httpErrorCode)
     {
-        lock (SyncObj)
+        lock (SyncLock)
         {
             if (_openStreams == null)
             {
