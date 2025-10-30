@@ -939,7 +939,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             // Now we are sure that the pending streams are in the channel
 
-            await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
+            serverSession.ConnectStream.Abort(QuicAbortDirection.Both, 0);
 
             foreach (QuicStream stream in pendingStreams)
             {
