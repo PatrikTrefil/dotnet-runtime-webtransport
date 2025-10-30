@@ -14,6 +14,8 @@ using System.Runtime.CompilerServices;
 
 namespace System.Net.WebTransport;
 
+// TODO: add limit on number of open uni/bi dir streams
+
 /// <summary>
 /// Implementation of a WebTransport session that uses <see cref="Quic"/>.
 /// </summary>
@@ -27,19 +29,26 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private readonly CapsuleConsumer _capsuleConsumer;
     private readonly CapsuleSender _capsuleSender;
+
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
     private Channel<ChannelItem>? _pendingBidirectionalStreams;
+
     private List<MsQuicWebTransportStream>? _openStreams = [];
+
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
     private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
     private bool _isCleanedUp;
+
     /// <summary>
     /// Used to synchronize sending of capsules using <see cref="_capsuleSender"/> and access to configuration
     /// properties for peer (<see cref="WebTransportSession.BidirectionalStreamCountLimitForPeer"/>,
     /// <see cref="WebTransportSession.UnidirectionalStreamCountLimitForPeer"/>, <see cref="WebTransportSession.DataSentLimitForPeer"/>).
     /// </summary>
     private readonly SemaphoreSlim _forPeerConfigurationSemaphore = new(1, 1);
+
+    private long _bytesSent;
+    private Lock BytesSentLock { get; } = new();
 
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
@@ -122,6 +131,46 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             field = value;
         }
     }
+
+    #region Session configuration
+
+    public override long UnidirectionalStreamCountLimitProvidedByPeer
+    {
+        get => Interlocked.Read(ref field);
+        internal set => Interlocked.Exchange(ref field, value);
+    }
+
+    public override long UnidirectionalStreamCountLimitForPeer
+    {
+        get => Interlocked.Read(ref field);
+        protected set => Interlocked.Exchange(ref field, value);
+    }
+
+    public override long BidirectionalStreamCountLimitProvidedByPeer
+    {
+        get => Interlocked.Read(ref field);
+        internal set => Interlocked.Exchange(ref field, value);
+    }
+
+    public override long BidirectionalStreamCountLimitForPeer
+    {
+        get => Interlocked.Read(ref field);
+        protected set => Interlocked.Exchange(ref field, value);
+    }
+
+    public override long DataSentLimitProvidedByPeer
+    {
+        get => Interlocked.Read(ref field);
+        internal set => Interlocked.Exchange(ref field, value);
+    }
+
+    public override long DataSentLimitForPeer
+    {
+        get => Interlocked.Read(ref field);
+        protected set => Interlocked.Exchange(ref field, value);
+    }
+
+    #endregion
 
     internal void Init()
     {
@@ -207,6 +256,20 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
 
         await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+    }
+
+    private void AddBytesSent(long bytes)
+    {
+        Debug.Assert(bytes >= 0);
+
+        lock (BytesSentLock)
+        {
+            if (_bytesSent + bytes > DataSentLimitProvidedByPeer)
+            {
+                throw new WebTransportException(WebTransportError.LimitExceeded, SR.net_webtransport_data_limit_exceeded);
+            }
+            _bytesSent += bytes;
+        }
     }
 
     private void MarkSessionAsClosed(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
@@ -373,7 +436,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, defaultStreamErrorCode);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, defaultStreamErrorCode, AddBytesSent);
 
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
 
@@ -433,7 +496,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             try
             {
                 quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
-                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, defaultStreamErrorCode);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, defaultStreamErrorCode, AddBytesSent);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

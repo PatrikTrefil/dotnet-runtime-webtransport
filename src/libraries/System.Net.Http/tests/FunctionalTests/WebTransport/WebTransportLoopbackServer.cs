@@ -13,7 +13,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 {
     private const string s_protocolPseudoHeaderValue = "webtransport";
-    private const long s_defaultMaxSessionCount = VariableLengthIntegerHelper.MaxValue; // No limit by default
     private readonly Http3LoopbackServer _httpServer;
     private bool _disposedValue;
     private List<WebTransportServerSession> _sessions = new List<WebTransportServerSession>();
@@ -21,7 +20,15 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 
     public Uri Address => _httpServer.Address;
 
-    public WebTransportLoopbackServer(Http3LoopbackServer httpServer) : this(httpServer, new WebTransportHttpConnectionCreationOptions { MaxSessionCount = s_defaultMaxSessionCount }) { }
+    public WebTransportLoopbackServer(Http3LoopbackServer httpServer) : this(
+        httpServer,
+        new WebTransportHttpConnectionCreationOptions
+        {
+            // No limits by default
+            MaxSessionCount = VariableLengthIntegerHelper.MaxValue,
+            InitialDataSentLimitForPeer = VariableLengthIntegerHelper.MaxValue,
+        })
+    { }
 
     public WebTransportLoopbackServer(Http3LoopbackServer httpServer, WebTransportHttpConnectionCreationOptions defaultOptions)
     {

@@ -53,5 +53,9 @@ public enum WebTransportError
     /// <remarks>
     /// When a <see cref="WebTransportException"/> with <see cref="RedirectRequired"/> is thrown, the property <see cref="WebTransportException.RedirectLocation"/> contains the URI to redirect to.
     /// </remarks>
-    RedirectRequired = 10
+    RedirectRequired = 10,
+    /// <summary>
+    /// Indicates that <see cref="WebTransportSession.UnidirectionalStreamCountLimitProvidedByPeer"/>, <see cref="WebTransportSession.BidirectionalStreamCountLimitProvidedByPeer"/> or <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been exceeded.
+    /// </summary>
+    LimitExceeded = 11
 }

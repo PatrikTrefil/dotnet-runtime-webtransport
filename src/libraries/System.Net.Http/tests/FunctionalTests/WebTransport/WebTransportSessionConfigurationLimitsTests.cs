@@ -7,10 +7,11 @@ using Xunit;
 using System.Threading;
 using System.IO;
 using System.Net.Quic;
+using System.Collections.Generic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write tests for limits enforcement (send more data then allowed, open more streams than allowed)
+// TODO: write test for opening more streams than allowed - suspension
 
 /// <summary>
 /// Contains tests for limits configuration of WebTransport sessions such as setting of maximum count of open unidirectional streams.
@@ -31,6 +32,57 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
     private const int s_minValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
     private const int s_maxValidSizeOfMaxBidirectionalCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
+
+    private static readonly IReadOnlyCollection<int> s_maxDataSentLimitValues = [0, 1, 5];
+    private static readonly IReadOnlyCollection<Func<WebTransportStream, int, Task>> _writeOps = [
+        async (stream, maxDataSentLimit) => await stream.WriteAsync(new byte[maxDataSentLimit]),
+        (stream, maxDataSentLimit) => { stream.Write(new byte[maxDataSentLimit]); return Task.CompletedTask; },
+        (stream, maxDataSentLimit) => { stream.BeginWrite(new byte[maxDataSentLimit], 0, maxDataSentLimit, null, null); return Task.CompletedTask; },
+        async (stream, maxDataSentLimit) => await stream.WriteAsync(new byte[maxDataSentLimit]),
+        (stream, maxDataSentLimit) => {
+            for (int i = 0; i < maxDataSentLimit; i++) stream.WriteByte(2);
+            return Task.CompletedTask;
+        }
+    ];
+    public static readonly TheoryData<WebTransportStreamType, int> s_maxDataSentLimitThrowsTestParameters = MaxDataSentLimitThrowsParameters(includeZero: true);
+    public static readonly TheoryData<WebTransportStreamType, int, Func<WebTransportStream, int, Task>> s_maxDataSentLimitDoesNotThrowTestParameters = MaxDataSentLimitParameters(includeZero: false);
+
+    private static TheoryData<WebTransportStreamType, int> MaxDataSentLimitThrowsParameters(bool includeZero)
+    {
+        TheoryData<WebTransportStreamType, int> theoryData = new();
+
+        foreach (int maxDataSentLimitValue in s_maxDataSentLimitValues)
+        {
+            if (maxDataSentLimitValue == 0) continue;
+
+            foreach (WebTransportStreamType streamType in Enum.GetValues<WebTransportStreamType>())
+            {
+                theoryData.Add(streamType, maxDataSentLimitValue);
+            }
+        }
+
+        return theoryData;
+    }
+
+    private static TheoryData<WebTransportStreamType, int, Func<WebTransportStream, int, Task>> MaxDataSentLimitParameters(bool includeZero)
+    {
+        TheoryData<WebTransportStreamType, int, Func<WebTransportStream, int, Task>> theoryData = new();
+
+        foreach (int maxDataSentLimitValue in s_maxDataSentLimitValues)
+        {
+            if (maxDataSentLimitValue == 0) continue;
+
+            foreach (WebTransportStreamType streamType in Enum.GetValues<WebTransportStreamType>())
+            {
+                foreach (Func<WebTransportStream, int, Task> writeOp in _writeOps)
+                {
+                    theoryData.Add(streamType, maxDataSentLimitValue, writeOp);
+                }
+            }
+        }
+
+        return theoryData;
+    }
 
     private void WriteMaxDataCapsule(Stream stream, long dataSentLimit)
     {
@@ -471,6 +523,160 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
 
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_maxDataSentLimitThrowsTestParameters))]
+    public async Task SendingDataThrowsWhenMaxDataSentLimitExceeded(WebTransportStreamType streamType, int maxDataSentLimit)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == maxDataSentLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            ExceptionValidator(await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[maxDataSentLimit + 1]).AsTask()));
+            ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.Write(new byte[maxDataSentLimit + 1])));
+            ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.BeginWrite(new byte[maxDataSentLimit + 1], 0, maxDataSentLimit + 1, null, null)));
+
+            await stream.WriteAsync(new byte[maxDataSentLimit]);
+            ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.WriteByte(2)));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            WriteMaxDataCapsule(serverSession.ConnectStream, maxDataSentLimit);
+
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+
+        void ExceptionValidator(WebTransportException ex)
+        {
+            Assert.Equal(WebTransportError.LimitExceeded, ex.WebTransportError);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(s_maxDataSentLimitDoesNotThrowTestParameters))]
+    public async Task SendingDataDoesNotThrowWhenMaxDataSentLimitIsNotExceeded(WebTransportStreamType streamType, int maxDataSentLimit, Func<WebTransportStream, int, Task> writeOp)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == maxDataSentLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            await writeOp(stream, maxDataSentLimit);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            WriteMaxDataCapsule(serverSession.ConnectStream, maxDataSentLimit);
+
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_maxDataSentLimitThrowsTestParameters))]
+    public async Task AdjustingDataSentLimitWorks(WebTransportStreamType streamType, int maxDataSentLimit)
+    {
+        using Barrier barrier = new(2);
+
+        int firstLimit = 1;
+        int secondLimit = maxDataSentLimit;
+        int thirdLimit = 0;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == firstLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            await stream.WriteAsync(new byte[firstLimit]);
+            WebTransportException ex1 = await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[1]).AsTask());
+            Assert.Equal(WebTransportError.LimitExceeded, ex1.WebTransportError);
+
+            barrier.SignalAndWait();
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == secondLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            await stream.WriteAsync(new byte[secondLimit - firstLimit]);
+            WebTransportException ex2 = await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[1]).AsTask());
+            Assert.Equal(WebTransportError.LimitExceeded, ex2.WebTransportError);
+
+            barrier.SignalAndWait();
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == thirdLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            WebTransportException ex3 = await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[1]).AsTask());
+            Assert.Equal(WebTransportError.LimitExceeded, ex3.WebTransportError);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            WriteMaxDataCapsule(serverSession.ConnectStream, firstLimit);
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+
+            WriteMaxDataCapsule(serverSession.ConnectStream, secondLimit);
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+
+            WriteMaxDataCapsule(serverSession.ConnectStream, thirdLimit);
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();

@@ -63,7 +63,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
+    public abstract long UnidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// A count of the cumulative number of unidirectional streams that can be opened
@@ -72,7 +72,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <remarks>The value may be updated using <see cref="SetUnidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long UnidirectionalStreamCountLimitForPeer { get; protected set; }
+    public abstract long UnidirectionalStreamCountLimitForPeer { get; protected set; }
 
     /// <summary>
     /// Set a new value of <see cref="UnidirectionalStreamCountLimitForPeer"/> and send it to the peer.
@@ -92,7 +92,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The value may be changed during the lifetime of the session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
+    public abstract long BidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// A count of the cumulative number of bidirectional streams that can be opened
@@ -101,7 +101,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <remarks>The value may be updated using <see cref="SetBidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
-    public long BidirectionalStreamCountLimitForPeer { get; protected set; }
+    public abstract long BidirectionalStreamCountLimitForPeer { get; protected set; }
 
     /// <summary>
     /// Set a new value of <see cref="BidirectionalStreamCountLimitForPeer"/> and send it to the peer.
@@ -122,7 +122,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long DataSentLimitProvidedByPeer { get; internal set; }
+    public abstract long DataSentLimitProvidedByPeer { get; internal set; }
 
     /// <summary>
     /// The maximum amount of data that can be sent on the entire session, in units of bytes, by the remote endpoint.
@@ -133,7 +133,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     /// <remarks>The value may be updated using <see cref="SetDataSentLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
-    public long DataSentLimitForPeer { get; protected set; }
+    public abstract long DataSentLimitForPeer { get; protected set; }
 
     /// <summary>
     /// Set a new value of <see cref="DataSentLimitForPeer"/> and send it to peer.

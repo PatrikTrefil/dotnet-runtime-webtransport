@@ -11,21 +11,24 @@ using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
-// TODO: add session data limit tracking
 // TODO: the documentation of MsQuicWebTransportStream is not visible to users - only WebTransportStream is public
 
 /// <summary>
 /// Implementation that uses System.Net.Quic
 /// </summary>
-internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode, Stream readStream, QuicStream quicStream) : WebTransportStream(type)
+internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode, Stream readStream, QuicStream quicStream, Action<long> addBytesSent) : WebTransportStream(type)
 {
     private readonly QuicStream _quicStream = quicStream ?? throw new ArgumentNullException(nameof(quicStream));
     private readonly Stream _readStream = readStream ?? throw new ArgumentNullException(nameof(readStream));
     private bool _isDisposed;
+
     private static readonly ReadOnlyMemory<byte> s_bidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
     private static readonly ReadOnlyMemory<byte> s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
+
     private readonly TaskCompletionSource _tcsReadsClosed = new();
     private readonly TaskCompletionSource _tcsWritesClosed = new();
+
+    private readonly Action<long> _addBytesSent = addBytesSent;
 
     /// <summary>
     /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="WebTransportStream.DisposeAsync()"/>.
@@ -35,7 +38,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <summary>
     /// Create inbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode) : this(type, defaultStreamErrorCode, readStream, quicStream)
+    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent) : this(type, defaultStreamErrorCode, readStream, quicStream, addBytesSent)
     {
         if (NetEventSource.Log.IsEnabled())
         {
@@ -57,7 +60,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <summary>
     /// Create outbound stream
     /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode) : this(type, defaultStreamErrorCode, readStream: quicStream, quicStream)
+    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent) : this(type, defaultStreamErrorCode, readStream: quicStream, quicStream, addBytesSent)
     {
         if (NetEventSource.Log.IsEnabled())
         {
@@ -77,10 +80,10 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     }
 
 
-    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode)
-        => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode);
-    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode)
-        => new MsQuicWebTransportStream(type, quicStream, defaultStreamErrorCode);
+    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent)
+        => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode, addBytesSent);
+    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent)
+        => new MsQuicWebTransportStream(type, quicStream, defaultStreamErrorCode, addBytesSent);
 
     private void ReactToWritesClosedInQuicStream()
     {
@@ -364,6 +367,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
     {
+        _addBytesSent(count);
+
         try
         {
             return _quicStream.BeginWrite(buffer, offset, count, callback, state);
@@ -390,6 +395,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void WriteByte(byte value)
     {
+        _addBytesSent(1);
+
         try
         {
             _quicStream.WriteByte(value);
@@ -403,6 +410,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void Write(ReadOnlySpan<byte> buffer)
     {
+        _addBytesSent(buffer.Length);
+
         try
         {
             _quicStream.Write(buffer);
@@ -416,6 +425,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count)
     {
+        _addBytesSent(count);
+
         try
         {
             _quicStream.Write(buffer, offset, count);
@@ -431,6 +442,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
+        _addBytesSent(count);
+
         CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
 
         try
@@ -453,6 +466,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
     {
+        _addBytesSent(buffer.Length);
+
         CancellationTokenRegistration? ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
 
         try

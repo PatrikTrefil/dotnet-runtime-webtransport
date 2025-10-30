@@ -997,17 +997,17 @@ namespace System.Net.WebTransport
         public long Id { get { throw null; } }
         public string? SubProtocol { get { throw null; } }
         public WebTransportSessionState State { get { throw null; } }
-        public long UnidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
-        public long UnidirectionalStreamCountLimitForPeer { get { throw null; } }
+        public abstract long UnidirectionalStreamCountLimitProvidedByPeer { get; }
+        public abstract long UnidirectionalStreamCountLimitForPeer { get; }
         public abstract System.Threading.Tasks.ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-        public long BidirectionalStreamCountLimitProvidedByPeer { get { throw null; } }
-        public long BidirectionalStreamCountLimitForPeer { get { throw null; } set { } }
+        public abstract long BidirectionalStreamCountLimitProvidedByPeer { get; }
+        public abstract long BidirectionalStreamCountLimitForPeer { get; set; }
         public abstract System.Threading.Tasks.ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-        public long DataSentLimitProvidedByPeer { get { throw null; } }
-        public long DataSentLimitForPeer { get { throw null; } }
+        public abstract long DataSentLimitProvidedByPeer { get; }
+        public abstract long DataSentLimitForPeer { get; }
         public abstract System.Threading.Tasks.ValueTask SetDataSentLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
-        public long? CloseStatusCode { get { throw null; } }
-        public string? CloseStatusDescription { get { throw null; } }
+        public abstract long? CloseStatusCode { get; }
+        public abstract string? CloseStatusDescription { get; }
         public System.Threading.Tasks.ValueTask RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public abstract System.Threading.Tasks.ValueTask CloseAsync();
         public System.Threading.Tasks.ValueTask CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
@@ -1028,7 +1028,8 @@ namespace System.Net.WebTransport
         CallbackError = 7,
         UnsupportedProtocol = 8,
         HeaderError = 9,
-        RedirectRequired = 10
+        RedirectRequired = 10,
+        LimitExceeded = 11
     }
     public sealed partial class WebTransportException : Exception
     {

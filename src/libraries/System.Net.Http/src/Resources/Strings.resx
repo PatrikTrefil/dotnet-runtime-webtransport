@@ -672,4 +672,7 @@
   <data name="net_webtransport_stream_reading_not_allowed" xml:space="preserve">
     <value>Reading is not allowed on stream.</value>
   </data>
+  <data name="net_webtransport_data_limit_exceeded" xml:space="preserve">
+    <value>Session data sent limit exceeded.</value>
+  </data>
 </root>
