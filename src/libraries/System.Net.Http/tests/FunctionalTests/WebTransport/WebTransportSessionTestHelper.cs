@@ -44,7 +44,6 @@ internal static class WebTransportSessionTestHelper
     public static async Task<(List<QuicStream> OpenStreams, QuicStream RejectedStream)> OpenMorePendingStreamsThanAllowed(WebTransportServerSession serverSession, WebTransportStreamType streamType)
     {
         QuicStream? rejectedStream = null;
-        Exception? writesClosedRejectedStreamEx = null;
         List<QuicStream> pendingStreams = [];
         object lockObj = new();
         byte[] receiveBuffer = new byte[1];
@@ -61,14 +60,13 @@ internal static class WebTransportSessionTestHelper
                 {
                     await stream.WritesClosed;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     lock (lockObj)
                     {
                         if (rejectedStream == null)
                         {
                             rejectedStream = stream;
-                            writesClosedRejectedStreamEx = ex;
                             semaphore.Release();
                         }
                     }
