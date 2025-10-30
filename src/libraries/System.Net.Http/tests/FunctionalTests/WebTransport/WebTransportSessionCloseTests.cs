@@ -247,7 +247,10 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
             serverSession.ConnectStream.Write(applicationErrorCodeBuffer);
-            serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
+            if (expectedApplicationErrorMessage.Length > 0) // If the message is empty, the client could have already closed the stream and therefore the write would fail.
+            {
+                serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
+            }
 
             barrier.SignalAndWait();
         });
