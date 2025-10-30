@@ -466,7 +466,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
             Assert.Null(ex.CloseStatusCode);
         }
-        ;
     }
 
     [Fact]
