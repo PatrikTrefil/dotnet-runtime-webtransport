@@ -183,6 +183,10 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
 
     public override void ProcessReceived(MsQuicWebTransportSession session)
     {
+        if (session.BidirectionalStreamCountLimitProvidedByPeer > MaxBidirectionalStreams)
+        {
+            throw new CapsuleProtocolException("Peer tried to lower the bidirectional stream limit.");
+        }
         session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
     }
 
@@ -237,6 +241,10 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
 
     public override void ProcessReceived(MsQuicWebTransportSession session)
     {
+        if (session.UnidirectionalStreamCountLimitProvidedByPeer > MaxUnidirectionalStreams)
+        {
+            throw new CapsuleProtocolException("Peer tried to lower the unidirectional stream limit.");
+        }
         session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
     }
 
@@ -294,6 +302,10 @@ internal sealed class MaxDataCapsule : Capsule
 
     public override void ProcessReceived(MsQuicWebTransportSession session)
     {
+        if (session.DataSentLimitProvidedByPeer > MaxData)
+        {
+            throw new CapsuleProtocolException("Peer tried to lower the unidirectional stream limit.");
+        }
         session.DataSentLimitProvidedByPeer = MaxData;
     }
 

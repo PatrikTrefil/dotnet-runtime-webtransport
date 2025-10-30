@@ -10,25 +10,39 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: there are many synchronizations that will be redundant after we get RESET_STREAM_AT support - remove those once it is available
 
-public abstract class WebTransportTestBase: IAsyncDisposable
+public abstract class WebTransportTestBase : IAsyncDisposable
 {
-    public static bool IsWebTransportSupported => ClientWebTransportSession.IsSupported;
-    public virtual int TestTimeoutInMilliseconds => 200_000;
+    protected static bool IsWebTransportSupported => ClientWebTransportSession.IsSupported;
+    protected virtual int TestTimeoutInMilliseconds => 200_000;
 
-    internal readonly Http3LoopbackServer _httpServer;
+    protected readonly Http3LoopbackServer _httpServer;
     internal readonly WebTransportLoopbackServer _webTransportServer;
-    internal readonly HttpClient _client;
-    internal readonly Http3Options _http3Options = new Http3Options
+    protected readonly HttpClient _client;
+    protected readonly Http3Options _http3Options = new Http3Options
     {
         QuicConnectionIdleTimeout = TimeSpan.FromHours(1),
         MaxInboundUnidirectionalStreams = 150,
         MaxInboundBidirectionalStreams = 150,
     };
 
+    /// <remarks>
+    /// Default implementation provided by <see cref="WebTransportTestBase"/> is no limits.
+    /// </remarks>
+    internal virtual WebTransportHttpConnectionCreationOptions DefaultWebTransportHttpConnectionCreationOptions => new WebTransportHttpConnectionCreationOptions
+    {
+        MaxSessionCount = VariableLengthIntegerHelper.MaxValue,
+        InitialDataSentLimitForPeer = VariableLengthIntegerHelper.MaxValue,
+        InitialBidirectionalStreamCountLimitForPeer = VariableLengthIntegerHelper.MaxValue,
+        InitialUnidirectionalStreamCountLimitForPeer = VariableLengthIntegerHelper.MaxValue
+    };
+
     public WebTransportTestBase()
     {
         _httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
-        _webTransportServer = new WebTransportLoopbackServer(_httpServer);
+        _webTransportServer = new WebTransportLoopbackServer(
+            _httpServer,
+            DefaultWebTransportHttpConnectionCreationOptions
+            );
 
         var handler = new VersionHttpClientHandler(HttpVersion.Version30) { AllowAutoRedirect = false };
         handler.ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates;

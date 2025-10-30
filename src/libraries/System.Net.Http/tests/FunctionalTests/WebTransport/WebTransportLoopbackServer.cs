@@ -20,16 +20,6 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 
     public Uri Address => _httpServer.Address;
 
-    public WebTransportLoopbackServer(Http3LoopbackServer httpServer) : this(
-        httpServer,
-        new WebTransportHttpConnectionCreationOptions
-        {
-            // No limits by default
-            MaxSessionCount = VariableLengthIntegerHelper.MaxValue,
-            InitialDataSentLimitForPeer = VariableLengthIntegerHelper.MaxValue,
-        })
-    { }
-
     public WebTransportLoopbackServer(Http3LoopbackServer httpServer, WebTransportHttpConnectionCreationOptions defaultOptions)
     {
         ArgumentNullException.ThrowIfNull(httpServer);

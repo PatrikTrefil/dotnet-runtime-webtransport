@@ -11,14 +11,14 @@ using System.Collections.Generic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-// TODO: write test for opening more streams than allowed - suspension
-
 /// <summary>
 /// Contains tests for limits configuration of WebTransport sessions such as setting of maximum count of open unidirectional streams.
 /// </summary>
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTestBase
 {
+    internal override WebTransportHttpConnectionCreationOptions DefaultWebTransportHttpConnectionCreationOptions => new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 };
+
     private const long s_maxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
     private const long s_maxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
     private const long s_maxDataCapsuleCode = 0x190B4D3D;
@@ -409,7 +409,11 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                });
 
             WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
             WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
@@ -562,9 +566,14 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-
-            WriteMaxDataCapsule(serverSession.ConnectStream, maxDataSentLimit);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 1,
+                    InitialBidirectionalStreamCountLimitForPeer = 1,
+                    InitialDataSentLimitForPeer = maxDataSentLimit
+                });
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -605,9 +614,13 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-
-            WriteMaxDataCapsule(serverSession.ConnectStream, maxDataSentLimit);
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(new WebTransportHttpConnectionCreationOptions
+            {
+                MaxSessionCount = 1,
+                InitialUnidirectionalStreamCountLimitForPeer = 1,
+                InitialBidirectionalStreamCountLimitForPeer = 1,
+                InitialDataSentLimitForPeer = maxDataSentLimit
+            });
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -625,7 +638,6 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
         int firstLimit = 1;
         int secondLimit = maxDataSentLimit;
-        int thirdLimit = 0;
 
         Task clientTask = Task.Run(async () =>
         {
@@ -653,18 +665,17 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             Assert.Equal(WebTransportError.LimitExceeded, ex2.WebTransportError);
 
             barrier.SignalAndWait();
-
-            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == thirdLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
-
-            WebTransportException ex3 = await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[1]).AsTask());
-            Assert.Equal(WebTransportError.LimitExceeded, ex3.WebTransportError);
-
-            barrier.SignalAndWait();
         });
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 1,
+                    InitialBidirectionalStreamCountLimitForPeer = 1
+                });
 
             WriteMaxDataCapsule(serverSession.ConnectStream, firstLimit);
             await serverSession.ConnectStream.FlushAsync();
@@ -675,9 +686,105 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
+        });
 
-            WriteMaxDataCapsule(serverSession.ConnectStream, thirdLimit);
-            await serverSession.ConnectStream.FlushAsync();
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningMoreThanAllowedNumberOfStreamsSuspends(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            Task<WebTransportStream> streamTask = session.OpenOutboundStreamAsync(streamType).AsTask();
+
+            await Task.Delay(1000);
+
+            Assert.False(streamTask.IsCompleted);
+
+            barrier.SignalAndWait();
+
+            await using WebTransportStream stream = await streamTask;
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 0,
+                    InitialBidirectionalStreamCountLimitForPeer = 0
+                });
+
+            barrier.SignalAndWait();
+
+            switch (streamType)
+            {
+                case WebTransportStreamType.Unidirectional:
+                    WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
+                    break;
+                case WebTransportStreamType.Bidirectional:
+                    WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
+                    break;
+            }
+
+            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningAllowedNumberOfStreamsDoesNotSuspend(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = _webTransportServer.Address,
+                HttpMessageInvoker = _client,
+                DefaultStreamErrorCode = 0
+            });
+
+            await using WebTransportStream stream1 = await session.OpenOutboundStreamAsync(streamType).AsTask();
+            await using WebTransportStream stream2 = await session.OpenOutboundStreamAsync(streamType).AsTask();
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 2,
+                    InitialBidirectionalStreamCountLimitForPeer = 2
+                }
+                );
+
+            await using QuicStream stream1 = await serverSession.AcceptStreamFromServerAsync(streamType);
+            await using QuicStream stream2 = await serverSession.AcceptStreamFromServerAsync(streamType);
 
             barrier.SignalAndWait();
         });

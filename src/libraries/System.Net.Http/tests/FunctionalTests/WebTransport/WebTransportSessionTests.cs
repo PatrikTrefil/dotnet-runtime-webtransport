@@ -345,7 +345,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
         _http3Options.QuicConnectionKeepAliveInterval = TimeSpan.FromSeconds(1); // the keep alive is done by server in this test case, because System.Net.Http does not support client keep alive pings yet
 
         using var httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
-        await using WebTransportLoopbackServer webTransportServer = new(httpServer);
+        await using WebTransportLoopbackServer webTransportServer = new(httpServer, new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 });
 
         Task clientTask = Task.Run(async () =>
         {

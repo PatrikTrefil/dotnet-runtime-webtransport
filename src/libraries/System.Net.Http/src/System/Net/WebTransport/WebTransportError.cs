@@ -55,7 +55,7 @@ public enum WebTransportError
     /// </remarks>
     RedirectRequired = 10,
     /// <summary>
-    /// Indicates that <see cref="WebTransportSession.UnidirectionalStreamCountLimitProvidedByPeer"/>, <see cref="WebTransportSession.BidirectionalStreamCountLimitProvidedByPeer"/> or <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been exceeded.
+    /// Indicates that <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been exceeded.
     /// </summary>
     LimitExceeded = 11
 }
