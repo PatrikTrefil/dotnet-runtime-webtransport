@@ -106,12 +106,11 @@ internal enum Http3ErrorCode : long
     /// The encoder failed to interpret an decoder instruction received on the decoder stream.
     /// </summary>
     QPackDecoderStreamError = 0x202,
-    /// <summary>
-    /// WEBTRANSPORT_BUFFERED_STREAM_REJECTED (0x3994bd84)
-    /// When the number of buffered streams is exceeded, a stream SHALL be closed by sending
-    /// a RESET_STREAM and/or STOP_SENDING with the WEBTRANSPORT_BUFFERED_STREAM_REJECTED error code.
-    /// </summary>
-    WebTransportBufferedStreamRejected = 0x3994bd84,
+
+    #region WEBTRANSPORT_APPLICATION_ERROR range
+    // Description: WebTransport application error codes.
+    // Value: 0x52e4a40fa8db to 0x52e5ac983162 inclusive, with the exception of the codepoints of form 0x1f * N + 0x21.
+
     /// <summary>
     /// WEBTRANSPORT_SESSION_GONE (0x170d7b68)
     /// Upon learning that a WebTransport session has been terminated,
@@ -119,4 +118,12 @@ internal enum Http3ErrorCode : long
     /// of all of the streams associated with the session with this error code.
     /// </summary>
     WebtransportSessionGone = 0x170d7b68,
+    /// <summary>
+    /// WEBTRANSPORT_BUFFERED_STREAM_REJECTED (0x3994bd84)
+    /// When the number of buffered streams is exceeded, a stream SHALL be closed by sending
+    /// a RESET_STREAM and/or STOP_SENDING with the WEBTRANSPORT_BUFFERED_STREAM_REJECTED error code.
+    /// </summary>
+    WebTransportBufferedStreamRejected = 0x3994bd84,
+
+    #endregion
 }
