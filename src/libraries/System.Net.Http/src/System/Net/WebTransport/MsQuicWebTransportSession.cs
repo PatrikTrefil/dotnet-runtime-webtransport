@@ -834,7 +834,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private async ValueTask CleanupPendingAndOpenStreamsAsync(Http3ErrorCode httpErrorCode)
     {
-        ClosePendingStreamsChannels();
+        CompletePendingStreamsChannels();
 
         ValueTask pendingStreamTask = CloseAndCleanupPendingStreamsAsync(httpErrorCode);
 
@@ -843,7 +843,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         await pendingStreamTask.ConfigureAwait(false);
     }
 
-    private void ClosePendingStreamsChannels()
+    private void CompletePendingStreamsChannels()
     {
         WebTransportException? ex = GetExceptionForObjectState();
 
