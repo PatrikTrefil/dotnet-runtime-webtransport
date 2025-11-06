@@ -11,6 +11,8 @@ using System.Linq;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
+// TODO: split this file into multiple
+
 
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportStreamTests : WebTransportTestBase
@@ -134,12 +136,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -167,12 +164,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
             WebTransportStream stream;
             await using (stream = await session.OpenOutboundStreamAsync(streamType))
@@ -218,12 +210,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -252,12 +239,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
             clientInitiatedStream.Write(data);
 
@@ -290,12 +272,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
             clientInitiatedStream.Write(data);
             clientInitiatedStream.Abort(WebTransportAbortDirection.Both, 0);
@@ -330,12 +307,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             await clientInitiatedStream.WriteAsync(data, completeWrites: true);
@@ -366,12 +338,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await stream.ReadExactlyAsync(receivedData);
@@ -403,12 +370,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             serverInitiatedStream.Write(data);
 
@@ -448,12 +410,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             for (int i = 0; i < iterations; i++)
@@ -493,19 +450,9 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session1 = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
-            await using WebTransportSession session2 = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session2 = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
             await using WebTransportStream serverInitiatedStreamSession1 = await session1.AcceptInboundStreamAsync(streamType);
             serverInitiatedStreamSession1.Write(data);
@@ -536,12 +483,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
             stream.CompleteWrites();
@@ -574,12 +516,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
 
             await Assert.ThrowsAsync<EndOfStreamException>(() => stream.ReadExactlyAsync(new byte[1]).AsTask());
@@ -612,12 +549,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
 
             stream.CompleteWrites(); // writes are already completed, so this should be a no-op
@@ -644,12 +576,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
 
             await WebTransportStreamTestHelper.AssertWriteOperationsOnStreamThrowAsync<InvalidOperationException>(stream, null);
@@ -676,12 +603,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
 
             await WebTransportStreamTestHelper.AssertReadOperationsOnStreamThrowAnyAsync<InvalidOperationException>(stream, null);
@@ -708,12 +630,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
             byte[] receivedData = new byte[data.Length];
             await serverInitiatedStream.ReadExactlyAsync(receivedData);
@@ -746,12 +663,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             Assert.Throws<ArgumentOutOfRangeException>("abortDirection", () => serverInitiatedStream.Abort(invalidAbortDirection, 0));
@@ -795,12 +707,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -833,12 +740,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -877,12 +779,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -903,12 +800,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -948,12 +840,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -997,12 +884,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             barrier.SignalAndWait();
@@ -1040,12 +922,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
@@ -1076,12 +953,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             await serverInitiatedStream.DisposeAsync();
@@ -1116,7 +988,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = defaultErrorCode
+                DefaultStreamErrorCode = defaultErrorCode,
+                HttpVersion = HttpVersion.Version30
             });
 
             WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
@@ -1171,7 +1044,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = defaultErrorCode
+                DefaultStreamErrorCode = defaultErrorCode,
+                HttpVersion = HttpVersion.Version30
             });
 
             WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
@@ -1215,12 +1089,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(streamType);
 
             Assert.Throws<NotSupportedException>(() => serverInitiatedStream.Seek(0, SeekOrigin.Begin));
@@ -1255,12 +1124,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream serverInitiatedStream = await session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional);
             Assert.True(serverInitiatedStream.WritesClosed.IsCompletedSuccessfully);
 
@@ -1285,12 +1149,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             Assert.True(clientInitiatedStream.ReadsClosed.IsCompletedSuccessfully);
 
@@ -1317,12 +1176,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
             clientInitiatedStream.CompleteWrites();
@@ -1355,12 +1209,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
             clientInitiatedStream.CompleteWrites();
@@ -1393,12 +1242,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
             await clientInitiatedStream.WriteAsync(dataToSend, completeWrites: true);
@@ -1434,12 +1278,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
-            {
-                Uri = _webTransportServer.Address,
-                HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = 0
-            });
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
             await clientInitiatedStream.WriteAsync(dataToSend, completeWrites: false);
@@ -1479,7 +1318,8 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
             {
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
-                DefaultStreamErrorCode = defaultStreamErrorCode
+                DefaultStreamErrorCode = defaultStreamErrorCode,
+                HttpVersion = HttpVersion.Version30,
             });
             await using WebTransportStream clientInitiatedStream = await session.OpenOutboundStreamAsync(type);
 
@@ -1504,11 +1344,12 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
                     if (type == WebTransportStreamType.Bidirectional)
                     {
                         sideExpectedToBeOpen = clientInitiatedStream.ReadsClosed;
-                    } else
+                    }
+                    else
                     {
                         sideExpectedToBeOpen = null;
                     }
-                        break;
+                    break;
                 default:
                     throw new ArgumentException("Invalid abort direction", nameof(expectedClientAbortDirection));
             }

@@ -27,7 +27,8 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
         {
             HttpMessageInvoker = new HttpClient(),
             Uri = new Uri("https://example.com"),
-            DefaultStreamErrorCode = 0
+            DefaultStreamErrorCode = 0,
+            HttpVersion = HttpVersion.Version30,
         }));
     }
 

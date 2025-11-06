@@ -57,6 +57,8 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     private static readonly long s_validVarInt = 42;
     private static readonly long s_validApplicationErrorCode = 42;
     private static readonly HttpMessageInvoker s_validHttpMessageInvoker = new HttpClient();
+    private static readonly Version s_validHttpVersion = HttpVersion.Version30;
+    private static readonly HttpVersionPolicy s_validHttpVersionPolicy = HttpVersionPolicy.RequestVersionExact;
 
 
     [Theory]
@@ -68,21 +70,27 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt,
-            DefaultStreamErrorCode = s_validApplicationErrorCode
+            DefaultStreamErrorCode = s_validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             InitialBidirectionalStreamCountLimitForPeer = invalidVarInt,
-            DefaultStreamErrorCode = s_validApplicationErrorCode
+            DefaultStreamErrorCode = s_validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             InitialDataSentLimitForPeer = invalidVarInt,
-            DefaultStreamErrorCode = s_validApplicationErrorCode
+            DefaultStreamErrorCode = s_validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
 
@@ -95,7 +103,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             InitialUnidirectionalStreamCountLimitForPeer = s_validVarInt,
-            DefaultStreamErrorCode = validApplicationErrorCode
+            DefaultStreamErrorCode = validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         };
     }
 
@@ -109,7 +119,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
                 HttpMessageInvoker = s_validHttpMessageInvoker,
                 Uri = s_validUri,
                 InitialUnidirectionalStreamCountLimitForPeer = s_validVarInt,
-                DefaultStreamErrorCode = invalidApplicationErrorCode
+                DefaultStreamErrorCode = invalidApplicationErrorCode,
+                HttpVersion = s_validHttpVersion,
+                HttpVersionPolicy = s_validHttpVersionPolicy
             }
         );
     }
@@ -125,7 +137,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
                 HttpMessageInvoker = s_validHttpMessageInvoker,
                 Uri = s_validUri,
                 AvailableSubProtocols = [invalidSubprotocol],
-                DefaultStreamErrorCode = s_validVarInt
+                DefaultStreamErrorCode = s_validVarInt,
+                HttpVersion = s_validHttpVersion,
+                HttpVersionPolicy = s_validHttpVersionPolicy
             };
         });
     }
@@ -139,7 +153,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             AvailableSubProtocols = [validSubprotocol],
-            DefaultStreamErrorCode = s_validVarInt
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         };
     }
 
@@ -150,7 +166,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = null,
-            DefaultStreamErrorCode = s_validVarInt
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
 
@@ -162,7 +180,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
             GracefulShutdownHandler = null,
-            DefaultStreamErrorCode = s_validVarInt
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
 
@@ -173,7 +193,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = new Uri("http://example.com"),
-            DefaultStreamErrorCode = s_validVarInt
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
 
@@ -185,7 +207,9 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = relativeUri,
-            DefaultStreamErrorCode = s_validVarInt
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
 }

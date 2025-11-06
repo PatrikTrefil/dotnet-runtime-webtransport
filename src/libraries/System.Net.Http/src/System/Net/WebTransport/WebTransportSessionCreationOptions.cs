@@ -182,4 +182,27 @@ public sealed class WebTransportSessionCreationOptions
             field = value;
         }
     }
+
+    /// <summary>
+    /// HTTP version to use for the initial handshake of the WebTransport session.
+    /// </summary>
+    public required Version HttpVersion
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+
+            field = value;
+        }
+    }
+
+    /// <summary>
+    /// A policy that determines how <see cref="HttpVersion"/> is interpreted and how the final HTTP version is negotiated with the server.
+    /// </summary>
+    public HttpVersionPolicy HttpVersionPolicy
+    {
+        get;
+        init;
+    }
 }

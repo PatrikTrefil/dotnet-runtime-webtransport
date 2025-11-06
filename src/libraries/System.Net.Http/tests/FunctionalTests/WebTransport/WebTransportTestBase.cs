@@ -9,6 +9,8 @@ using System.Net.Http;
 namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: there are many synchronizations that will be redundant after we get RESET_STREAM_AT support - remove those once it is available
+// TODO: make the tests ready for being reused for other transport layers
+// TODO: add stream conformance tests
 
 public abstract class WebTransportTestBase : IAsyncDisposable
 {
@@ -24,6 +26,7 @@ public abstract class WebTransportTestBase : IAsyncDisposable
         MaxInboundUnidirectionalStreams = 150,
         MaxInboundBidirectionalStreams = 150,
     };
+    protected WebTransportSessionCreationOptions _defaultWebTransportSessionCreationOptions;
 
     /// <remarks>
     /// Default implementation provided by <see cref="WebTransportTestBase"/> is no limits.
@@ -44,9 +47,22 @@ public abstract class WebTransportTestBase : IAsyncDisposable
             DefaultWebTransportHttpConnectionCreationOptions
             );
 
-        var handler = new VersionHttpClientHandler(HttpVersion.Version30) { AllowAutoRedirect = false };
-        handler.ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates;
+        var handler = new VersionHttpClientHandler(HttpVersion.Version30)
+        {
+            AllowAutoRedirect = false,
+            ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates
+        };
         _client = new HttpClient(handler);
+
+        _defaultWebTransportSessionCreationOptions = new WebTransportSessionCreationOptions
+        {
+            Uri = _webTransportServer.Address,
+            HttpMessageInvoker = _client,
+            DefaultStreamErrorCode = 0,
+            HttpVersion = HttpVersion.Version30,
+            HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact
+        };
+
     }
 
     public async ValueTask DisposeAsync()

@@ -33,7 +33,8 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
                 AvailableSubProtocols = [expectedSubprotocol],
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = 0,
+                HttpVersion = HttpVersion.Version30,
             });
 
             Assert.Equal(expectedSubprotocol, session.SubProtocol);
@@ -64,7 +65,8 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols,
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = 0,
+                HttpVersion = HttpVersion.Version30,
             });
 
             Assert.Null(session.SubProtocol);
@@ -95,7 +97,8 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols,
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = 0,
+                HttpVersion = HttpVersion.Version30,
             }));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 
@@ -127,7 +130,8 @@ public class WebTransportSessionConfigurationSubprotocolTests : WebTransportTest
                 Uri = _webTransportServer.Address,
                 HttpMessageInvoker = _client,
                 AvailableSubProtocols = offeredSubprotocols,
-                DefaultStreamErrorCode = 0
+                DefaultStreamErrorCode = 0,
+                HttpVersion = HttpVersion.Version30,
             }));
             Assert.Equal(WebTransportError.HeaderError, ex.WebTransportError);
 

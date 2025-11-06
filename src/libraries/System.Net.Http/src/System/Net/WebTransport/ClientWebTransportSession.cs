@@ -38,15 +38,26 @@ public static class ClientWebTransportSession
     ///
     /// If the server responds with a redirect and the <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> does not automatically follow redirects,
     /// the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.RedirectRequired"/>.
+    ///
+    /// If the server responds with a non-success status code, the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.SessionConnectFailure"/>.
     /// </exception>
+    /// <exception cref="NotSupportedException">When the combination of <see cref="WebTransportSessionCreationOptions.HttpVersion"/> and <see cref="WebTransportSessionCreationOptions.HttpVersionPolicy"/> passed in the <paramref name="options"/> is not supported.</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public static async Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 
+        if (
+            (options.HttpVersion < HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrHigher) ||
+            (options.HttpVersion > HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrLower)
+            )
+        {
+            throw new NotSupportedException("The requested combination of HTTP version and policy is currently not supported");
+        }
+
         HttpRequestMessage requestMessage = new(HttpMethod.Connect, options.Uri)
         {
-            Version = HttpVersion.Version30,
+            Version = options.HttpVersion,
             VersionPolicy = HttpVersionPolicy.RequestVersionExact,
         };
         requestMessage.Options.Set(
