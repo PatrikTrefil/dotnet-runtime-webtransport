@@ -14,7 +14,6 @@ using System.Runtime.CompilerServices;
 
 namespace System.Net.WebTransport;
 
-// TODO: add limit on number of open uni/bi dir streams
 
 /// <summary>
 /// Implementation of a WebTransport session that uses <see cref="Quic"/>.
