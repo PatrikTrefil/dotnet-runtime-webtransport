@@ -987,10 +987,6 @@ namespace System.Net.WebTransport
     }
     public static class ClientWebTransportSession
     {
-        [Runtime.Versioning.SupportedOSPlatformGuard("windows")]
-        [Runtime.Versioning.SupportedOSPlatformGuard("linux")]
-        [Runtime.Versioning.SupportedOSPlatformGuard("osx")]
-        public static bool IsSupported { get { throw null; } }
         public static System.Threading.Tasks.Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, System.Threading.CancellationToken cancellationToken = default) { throw null; }
     }
     public abstract partial class WebTransportSession : IAsyncDisposable

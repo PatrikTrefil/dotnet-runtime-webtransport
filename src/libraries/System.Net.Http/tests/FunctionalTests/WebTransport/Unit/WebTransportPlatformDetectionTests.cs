@@ -31,20 +31,4 @@ public sealed class WebTransportPlatformDetectionTests : WebTransportTestBase
             HttpVersion = HttpVersion.Version30,
         }));
     }
-
-    [ConditionalFact(nameof(IsQuicSupported))]
-    [PlatformSpecific(TestPlatforms.Windows)]
-    public void SupportedWindowsPlatforms_IsSupportedIsTrue()
-    {
-        Assert.True(ClientWebTransportSession.IsSupported);
-    }
-
-
-    [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsInHelix))]
-    [PlatformSpecific(TestPlatforms.Linux)]
-    public void SupportedLinuxPlatforms_IsSupportedIsTrue()
-    {
-        _output.WriteLine($"Running on {PlatformDetection.GetDistroVersionString()}");
-        Assert.True(ClientWebTransportSession.IsSupported);
-    }
 }

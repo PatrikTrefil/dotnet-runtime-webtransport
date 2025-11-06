@@ -16,18 +16,6 @@ public static class ClientWebTransportSession
 {
     private const string s_extendedConnectProtocolName = "webtransport";
     private const string s_availableProtocolsHeaderName = "WT-Available-Protocols";
-    // TODO: IsSupported property is not for all WebTransport but only for WT over HTTP/3 - how to reflect this?
-    // TODO: we also need a property to check for support of WT over HTTP/3 on the server side as well (analogous to QuicListener.IsSupported)
-    /// <summary>
-    /// Gets a value that indicates whether WebTransport is supported for client scenarios on the current machine.
-    /// </summary>
-    /// <value>
-    /// <c>true</c> if <see cref="QuicConnection.IsSupported"/> returns true; otherwise, <c>false</c>.
-    /// </value>
-    [SupportedOSPlatformGuard("windows")]
-    [SupportedOSPlatformGuard("linux")]
-    [SupportedOSPlatformGuard("osx")]
-    public static bool IsSupported => QuicConnection.IsSupported;
 
     /// <summary>
     /// Create a WebTransport session using HTTP/3.

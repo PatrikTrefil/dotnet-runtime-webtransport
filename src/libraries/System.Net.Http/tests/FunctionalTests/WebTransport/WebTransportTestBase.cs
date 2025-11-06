@@ -5,6 +5,7 @@ using System.Net.Http.Functional.Tests;
 using System.Threading.Tasks;
 using System.Net.Test.Common;
 using System.Net.Http;
+using System.Net.Quic;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -14,7 +15,7 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 public abstract class WebTransportTestBase : IAsyncDisposable
 {
-    protected static bool IsWebTransportSupported => ClientWebTransportSession.IsSupported;
+    protected static bool IsWebTransportSupported => QuicConnection.IsSupported;
     protected virtual int TestTimeoutInMilliseconds => 200_000;
 
     protected readonly Http3LoopbackServer _httpServer;
