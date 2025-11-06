@@ -702,7 +702,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task InvalidAndNotSupportedOperationsThrow(WebTransportStreamType streamType)
+    public async Task InvalidOperationsThrow(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
 
