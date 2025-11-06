@@ -11,8 +11,8 @@ namespace System.Net.WebTransport.Functional.Tests;
 internal sealed class WebTransportServerSession : IAsyncDisposable
 {
     public long SessionId => ConnectStream.Id;
-    public Http3LoopbackConnection Connection { get; init; }
-    public QuicStream ConnectStream { get; init; }
+    public required Http3LoopbackConnection Connection { get; init; }
+    public required QuicStream ConnectStream { get; init; }
 
     /// <summary>
     /// Dispose the CONNECT stream.

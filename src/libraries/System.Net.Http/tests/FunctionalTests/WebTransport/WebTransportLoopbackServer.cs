@@ -14,8 +14,8 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 {
     private const string s_protocolPseudoHeaderValue = "webtransport";
     private readonly Http3LoopbackServer _httpServer;
-    private bool _disposedValue;
-    private List<WebTransportServerSession> _sessions = new List<WebTransportServerSession>();
+    private bool _isDisposed;
+    private readonly List<WebTransportServerSession> _sessions = new List<WebTransportServerSession>();
     private readonly WebTransportHttpConnectionCreationOptions _defaultOptions;
 
     public Uri Address => _httpServer.Address;
@@ -87,7 +87,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
 
     private async ValueTask DisposeAsyncCore(bool disposing)
     {
-        if (!_disposedValue)
+        if (!_isDisposed)
         {
             if (disposing)
             {
@@ -97,7 +97,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
                 }
             }
 
-            _disposedValue = true;
+            _isDisposed = true;
         }
     }
 
