@@ -644,7 +644,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
-    public override async ValueTask CloseAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -660,6 +660,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         CloseSessionBySendingFinOnConnectStream();
 
         await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+
+        await base.DisposeAsyncCore().ConfigureAwait(false);
     }
 
     private void CloseSessionBySendingFinOnConnectStream()

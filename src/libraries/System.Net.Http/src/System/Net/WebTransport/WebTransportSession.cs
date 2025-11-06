@@ -212,7 +212,11 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// Gracefully close the session without providing any additional information to the peer.
     /// </summary>
-    public abstract ValueTask CloseAsync();
+    public async ValueTask CloseAsync()
+    {
+        await DisposeAsyncCore().ConfigureAwait(false);
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// Gracefully close the session.
@@ -323,4 +327,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
 
         await CloseAsync().ConfigureAwait(false);
     }
+
+    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }

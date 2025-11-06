@@ -1011,7 +1011,7 @@ namespace System.Net.WebTransport
         public abstract long? CloseStatusCode { get; }
         public abstract string? CloseStatusDescription { get; }
         public System.Threading.Tasks.ValueTask RequestCloseAsync(System.Threading.CancellationToken cancellationToken = default) { throw null; }
-        public abstract System.Threading.Tasks.ValueTask CloseAsync();
+        public System.Threading.Tasks.ValueTask CloseAsync() { throw null; }
         public System.Threading.Tasks.ValueTask CloseAsync(long closeStatus, string statusDescription, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.ValueTask<WebTransportStream> OpenOutboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default) { throw null; }
         public System.Threading.Tasks.ValueTask<WebTransportStream> AcceptInboundStreamAsync(WebTransportStreamType type, System.Threading.CancellationToken cancellationToken = default) { throw null; }
