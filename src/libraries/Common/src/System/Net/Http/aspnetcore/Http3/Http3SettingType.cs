@@ -43,11 +43,11 @@ namespace System.Net.Http
         EnableConnect = 0x8,
 
         /// <summary>
-        /// SETTINGS_WEBTRANSPORT_MAX_SESSIONS
-        /// Indicates that the specified HTTP/3 endpoint is WebTransport-capable and the number of concurrent sessions it is willing to receive.
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA
+        /// Indicates the initial value for the session data limit for WebTransport sessions.
         /// </summary>
-        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-2"/>
-        WebTransportMaxSessions = 0xc671706a,
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-12.2.1"/>
+        WebTransportInitialMaxDataPerSession = 0x2b61,
 
         /// <summary>
         /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI
@@ -64,17 +64,17 @@ namespace System.Net.Http
         WebTransportInitialMaxBidirectionalStreamsPerSession = 0x2b65,
 
         /// <summary>
-        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA
-        /// Indicates the initial value for the session data limit for WebTransport sessions.
-        /// </summary>
-        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-12.2.1"/>
-        WebTransportInitialMaxDataPerSession = 0x2b61,
-
-        /// <summary>
         /// H3_DATAGRAM, default is 0 (off)
         /// indicates that the server suppprts sending individual datagrams over Http/3
         /// rather than just streams.
         /// </summary>
-        H3Datagram = 0xffd277
+        H3Datagram = 0xffd277,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_MAX_SESSIONS
+        /// Indicates that the specified HTTP/3 endpoint is WebTransport-capable and the number of concurrent sessions it is willing to receive.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-2"/>
+        WebTransportMaxSessions = 0xc671706a,
     }
 }
