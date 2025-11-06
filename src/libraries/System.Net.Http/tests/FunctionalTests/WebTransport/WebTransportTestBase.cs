@@ -10,8 +10,6 @@ using System.Net.Quic;
 namespace System.Net.WebTransport.Functional.Tests;
 
 // TODO: there are many synchronizations that will be redundant after we get RESET_STREAM_AT support - remove those once it is available
-// TODO: make the tests ready for being reused for other transport layers
-// TODO: add stream conformance tests
 
 public abstract class WebTransportTestBase : IAsyncDisposable
 {
