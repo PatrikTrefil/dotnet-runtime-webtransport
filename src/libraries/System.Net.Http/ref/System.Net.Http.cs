@@ -961,16 +961,16 @@ namespace System.Net.WebTransport
     public enum WebTransportSessionState
     {
         None = 0,
-        Open,
-        ClosedRemotely,
-        ClosedLocally,
-        AbortedLocally,
-        AbortedRemotely
+        Open = 1,
+        ClosedRemotely = 2,
+        ClosedLocally = 3,
+        AbortedLocally = 4,
+        AbortedRemotely = 5
     }
     public enum WebTransportStreamType
     {
-        Unidirectional,
-        Bidirectional
+        Unidirectional = 0,
+        Bidirectional = 1
     }
     public sealed partial class WebTransportSessionCreationOptions
     {
