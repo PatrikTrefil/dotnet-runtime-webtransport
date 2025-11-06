@@ -44,6 +44,23 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         VariableLengthIntegerStreamHelper.Write(stream, 0);
     }
 
+    private async Task AssertStreamAborted(QuicStream stream, QuicAbortDirection expectedAbortDirection, long expectedApplicationErrorCode)
+    {
+        if (expectedAbortDirection.HasFlag(QuicAbortDirection.Read))
+        {
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(async () => await stream.ReadsClosed);
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(expectedApplicationErrorCode, ex.ApplicationErrorCode);
+        }
+        if (expectedAbortDirection.HasFlag(QuicAbortDirection.Write))
+        {
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(async () => await stream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(expectedApplicationErrorCode, ex.ApplicationErrorCode);
+        }
+    }
+
+
     private static TheoryData<byte[], long> CreateCloseParameters()
     {
         TheoryData<byte[], long> data = new();
@@ -300,10 +317,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             serverSession.ConnectStream.CompleteWrites();
+
+            await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundUnidirectionalStream, QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
 
             barrier.SignalAndWait();
         });
@@ -353,10 +375,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             serverSession.ConnectStream.Abort(abortDirection, 0);
+
+            await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundUnidirectionalStream, QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
 
             barrier.SignalAndWait();
         });
@@ -406,8 +433,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
@@ -415,6 +442,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
             serverSession.ConnectStream.Write(applicationErrorCodeBuffer);
             serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
+
+            await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundUnidirectionalStream, QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
 
             barrier.SignalAndWait();
         });
@@ -493,10 +525,15 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await using QuicStream outboundUnidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
-            await using QuicStream unidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
-            await using QuicStream bidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+            await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
+            await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
             WriteDrainCapsule(serverSession.ConnectStream);
+
+            await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundUnidirectionalStream, QuicAbortDirection.Read, (long)Http3ErrorCode.WebtransportSessionGone);
+            await AssertStreamAborted(inboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
 
             barrier.SignalAndWait();
         });
@@ -508,7 +545,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
             Assert.Null(ex.CloseStatusCode);
         }
-        ;
     }
 
     [Fact]
