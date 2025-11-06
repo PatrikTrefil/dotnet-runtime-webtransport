@@ -259,6 +259,7 @@
     <Compile Include="WebTransport\WebTransportSessionTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionEstablishmentTests.cs" />
     <Compile Include="WebTransport\WebTransportStreamTests.cs" />
+    <Compile Include="WebTransport\WebTransportStreamAbortTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionCloseTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionConfigurationLimitsTests.cs" />
     <Compile Include="WebTransport\WebTransportSessionConfigurationSubprotocolTests.cs" />
