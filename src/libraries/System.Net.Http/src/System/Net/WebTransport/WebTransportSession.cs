@@ -275,7 +275,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     internal abstract void ReceiveClose(uint closeStatus, string statusDescription);
 
-    // TODO: implement throw if the maximum has been reached
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="WebTransportStream"/>.
     /// </summary>
