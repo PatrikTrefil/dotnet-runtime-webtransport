@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 
 namespace System.Net.WebTransport;
 
-// TODO: the documentation of MsQuicWebTransportStream is not visible to users - only WebTransportStream is public
 
 /// <summary>
 /// Implementation that uses System.Net.Quic
@@ -144,24 +143,6 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
 
     /// <inheritdoc/>
     public override bool CanWrite => !_isDisposed && _quicStream.CanWrite;
-
-    /// <inheritdoc/>
-    /// <summary>
-    /// Gets the length of the data available on the stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">In all cases.</exception>
-    public override long Length => throw new NotSupportedException();
-
-    /// <inheritdoc/>
-    /// <summary>
-    /// Gets or sets the position within the current stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">In all cases.</exception>
-    public override long Position
-    {
-        get => throw new NotSupportedException();
-        set => throw new NotSupportedException();
-    }
 
     public override Task ReadsClosed => _tcsReadsClosed.Task;
 
@@ -531,20 +512,6 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
         }
     }
-
-    /// <inheritdoc/>
-    /// <summary>
-    /// Sets the current position of the stream to the given value. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">In all cases.</exception>
-    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-    /// <inheritdoc/>
-    /// <summary>
-    /// Sets the length of the stream. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">In all cases.</exception>
-    public override void SetLength(long value) => throw new NotSupportedException();
 
     /// <remarks>Instead of passing the cancellation tokens to the QUIC stream operations we handle the cancellation request in this class. This gives us the possibility to apply the <see cref="_remappedDefaultStreamErrorCode"/>.</remarks>
     private CancellationTokenRegistration? RegisterCancellationCallback(QuicAbortDirection abortDirection, CancellationToken cancellationToken)

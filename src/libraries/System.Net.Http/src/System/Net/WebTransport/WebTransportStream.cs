@@ -75,6 +75,38 @@ public abstract class WebTransportStream : Stream
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
     public abstract Task WritesClosed { get; }
 
+    /// <inheritdoc/>
+    /// <summary>
+    /// Gets the length of the data available on the stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
+    public override long Length => throw new NotSupportedException();
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// Gets or sets the position within the current stream. This property is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// Sets the current position of the stream to the given value. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// Sets the length of the stream. This method is not currently supported and always throws a <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <exception cref="NotSupportedException">In all cases.</exception>
+    public override void SetLength(long value) => throw new NotSupportedException();
+
     protected override void Dispose(bool disposing)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
