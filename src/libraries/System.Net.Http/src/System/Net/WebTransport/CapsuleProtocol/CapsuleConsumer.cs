@@ -157,7 +157,13 @@ internal sealed class CapsuleConsumer : IDisposable
 
     public void Dispose()
     {
-        _isDisposed = true;
-        _buffer.Dispose();
+        if (!_isDisposed)
+        {
+            _buffer.Dispose();
+
+            _isDisposed = true;
+        }
+
+        GC.SuppressFinalize(this);
     }
 }
