@@ -3,7 +3,7 @@
 
 namespace System.Net.Http
 {
-    public enum Http3SettingType : long
+    internal enum Http3SettingType : long
     {
         /// <summary>
         /// SETTINGS_QPACK_MAX_TABLE_CAPACITY
