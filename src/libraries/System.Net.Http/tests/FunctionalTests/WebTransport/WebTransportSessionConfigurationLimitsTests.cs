@@ -19,11 +19,6 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 {
     internal override WebTransportHttpConnectionCreationOptions DefaultWebTransportHttpConnectionCreationOptions => new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 };
 
-    private const long s_maxUnidirectionalStreamLimitCapsuleCode = 0x190B4D40;
-    private const long s_maxBidirectionalStreamLimitCapsuleCode = 0x190B4D3F;
-    private const long s_maxDataCapsuleCode = 0x190B4D3D;
-    private const long s_unknownCapsuleCode = 0x12345678;
-
     private const int s_minValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
     private const int s_maxValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MaximumEncodedLength + 1;
 
@@ -84,33 +79,6 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         return theoryData;
     }
 
-    private void WriteMaxDataCapsule(Stream stream, long dataSentLimit)
-    {
-        VariableLengthIntegerStreamHelper.Write(stream, s_maxDataCapsuleCode);
-        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(dataSentLimit, valueBuffer);
-        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
-        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
-    }
-
-    private void WriteBidirectionalStreamLimitCapsule(Stream stream, long bidirectionalStreamLimit)
-    {
-        VariableLengthIntegerStreamHelper.Write(stream, s_maxBidirectionalStreamLimitCapsuleCode);
-        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(bidirectionalStreamLimit, valueBuffer);
-        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
-        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
-    }
-
-    private void WriteUnidirectionalStreamLimitCapsule(Stream stream, long unidirectionalStreamLimit)
-    {
-        VariableLengthIntegerStreamHelper.Write(stream, s_maxUnidirectionalStreamLimitCapsuleCode);
-        Span<byte> valueBuffer = stackalloc byte[VariableLengthIntegerStreamHelper.MaximumEncodedLength];
-        int valueSizeInBytes = VariableLengthIntegerHelper.EncodeVariableLengthInteger(unidirectionalStreamLimit, valueBuffer);
-        VariableLengthIntegerStreamHelper.Write(stream, valueSizeInBytes);
-        stream.Write(valueBuffer.Slice(0, valueSizeInBytes));
-    }
-
     [Fact]
     public async Task SetUnidirectionalStreamCountLimitSendsCorrectCapsule()
     {
@@ -127,7 +95,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             var (receivedMaxUnidirectionalStreams, bytesReadMaxUnidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedMaxUnidirectionalStreams);
             Assert.Equal(capsuleValueLength, bytesReadMaxUnidirectionalStreams);
 
@@ -161,7 +129,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             var (receivedMaxBidirectionalStreams, bytesReadMaxBidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedMaxBidirectionalStreams);
             Assert.Equal(capsuleValueLength, bytesReadMaxBidirectionalStreams);
 
@@ -195,7 +163,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(s_maxDataCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_maxDataCapsuleCode, capsuleCode);
             Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
             Assert.Equal(capsuleValueLength, bytesReadDataSentLimit);
 
@@ -315,15 +283,15 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             var (capsuleValueLength3, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
             var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode1);
+            Assert.Equal(CapsuleHelper.s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode1);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedUnidirectionalStreamCountLimit);
             Assert.Equal(capsuleValueLength1, bytesReadUnidirectional);
 
-            Assert.Equal(s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode2);
+            Assert.Equal(CapsuleHelper.s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode2);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedBidirectionalStreamCountLimit);
             Assert.Equal(capsuleValueLength2, bytesReadBidirectional);
 
-            Assert.Equal(s_maxDataCapsuleCode, capsuleCode3);
+            Assert.Equal(CapsuleHelper.s_maxDataCapsuleCode, capsuleCode3);
             Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
             Assert.Equal(capsuleValueLength3, bytesReadDataSentLimit);
 
@@ -375,9 +343,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
                     MaxSessionCount = 1,
                 });
 
-            WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
-            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
-            WriteMaxDataCapsule(serverSession.ConnectStream, expectedDataSentLimit);
+            CapsuleHelper.WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedUnidirectionalStreamCountLimit);
+            CapsuleHelper.WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedBidirectionalStreamCountLimit);
+            CapsuleHelper.WriteMaxDataCapsule(serverSession.ConnectStream, expectedDataSentLimit);
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -408,7 +376,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
+            CapsuleHelper.WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -439,7 +407,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
+            CapsuleHelper.WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -470,7 +438,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
+            CapsuleHelper.WriteMaxDataCapsule(serverSession.ConnectStream, expectedLimit);
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -607,12 +575,12 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
                     InitialBidirectionalStreamCountLimitForPeer = 1
                 });
 
-            WriteMaxDataCapsule(serverSession.ConnectStream, firstLimit);
+            CapsuleHelper.WriteMaxDataCapsule(serverSession.ConnectStream, firstLimit);
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
 
-            WriteMaxDataCapsule(serverSession.ConnectStream, secondLimit);
+            CapsuleHelper.WriteMaxDataCapsule(serverSession.ConnectStream, secondLimit);
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
@@ -660,10 +628,10 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             switch (streamType)
             {
                 case WebTransportStreamType.Unidirectional:
-                    WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
+                    CapsuleHelper.WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
                     break;
                 case WebTransportStreamType.Bidirectional:
-                    WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
+                    CapsuleHelper.WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, 1);
                     break;
             }
 
@@ -735,10 +703,10 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_unknownCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_unknownCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, capsuleValueSize);
             await serverSession.ConnectStream.WriteAsync(new byte[capsuleValueSize]);
-            WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
+            CapsuleHelper.WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit); // Write a valid capsule after the unknown one
             await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
@@ -770,7 +738,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxDataCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_maxDataCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             try
             {
@@ -812,7 +780,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxUnidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_maxUnidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             try
             {
@@ -853,7 +821,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_maxBidirectionalStreamLimitCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_maxBidirectionalStreamLimitCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             try
             {

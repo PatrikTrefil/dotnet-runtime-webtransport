@@ -271,6 +271,7 @@
     <Compile Include="WebTransport\WebTransportSessionTestHelper.cs" />
     <Compile Include="WebTransport\WebTransportStreamTestHelper.cs" />
     <Compile Include="WebTransport\WebTransportStreamTypeHelper.cs" />
+    <Compile Include="WebTransport\CapsuleHelper.cs" />
 
     <Compile Include="WebTransport\Unit\WebTransportTestBase.cs" />
     <Compile Include="WebTransport\Unit\WebTransportSessionCreationOptionsTests.cs" />

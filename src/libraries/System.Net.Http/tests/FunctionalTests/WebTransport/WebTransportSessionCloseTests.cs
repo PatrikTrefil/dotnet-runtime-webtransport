@@ -18,9 +18,6 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 {
-    private const long s_closeSessionCapsuleCode = 0x2843;
-    private const long s_drainSessionCapsuleCode = 0x78ae;
-
     private const int s_maxValidSizeOfCloseSessionCapsuleValue = 32 + 8192;
     private const int s_minValidSizeOfCloseSessionCapsuleValue = 32;
 
@@ -37,12 +34,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         VariableLengthIntegerHelper.MinValue - 1,
         VariableLengthIntegerHelper.MaxValue + 1,
     };
-
-    private static void WriteDrainCapsule(Stream stream)
-    {
-        VariableLengthIntegerStreamHelper.Write(stream, s_drainSessionCapsuleCode);
-        VariableLengthIntegerStreamHelper.Write(stream, 0);
-    }
 
     private async Task AssertStreamAborted(QuicStream stream, QuicAbortDirection expectedAbortDirection, long expectedApplicationErrorCode)
     {
@@ -120,7 +111,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Memory<byte> messageBuffer = new byte[capsuleValueLength - sizeof(uint)];
             await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
 
-            Assert.Equal(s_closeSessionCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_closeSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
             Assert.Equal(expectedApplicationErrorMessage, messageBuffer);
 
@@ -172,7 +163,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Memory<byte> messageBuffer = new byte[capsuleValueLength - sizeof(uint)];
             await serverSession.ConnectStream.ReadExactlyAsync(messageBuffer);
 
-            Assert.Equal(s_closeSessionCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_closeSessionCapsuleCode, capsuleCode);
             Assert.Equal(expectedApplicationErrorCode, receivedApplicationErrorCode);
             Assert.Equal(sizeof(uint) + messageBuffer.Length, capsuleValueLength);
             Assert.Equal(expectedApplicationErrorMessage, Encoding.UTF8.GetString(messageBuffer.ToArray()));
@@ -239,7 +230,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_closeSessionCapsuleCode);
             Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
             BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
@@ -436,12 +427,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_closeSessionCapsuleCode);
-            Span<byte> applicationErrorCodeBuffer = stackalloc byte[4];
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, expectedApplicationErrorMessage.Length + applicationErrorCodeBuffer.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(applicationErrorCodeBuffer, expectedApplicationErrorCode);
-            serverSession.ConnectStream.Write(applicationErrorCodeBuffer);
-            serverSession.ConnectStream.Write(expectedApplicationErrorMessage);
+            CapsuleHelper.WriteCloseSessionCapsule(serverSession.ConnectStream, expectedApplicationErrorMessage, expectedApplicationErrorCode);
 
             await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
             await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
@@ -473,7 +459,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
 
-            Assert.Equal(s_drainSessionCapsuleCode, capsuleCode);
+            Assert.Equal(CapsuleHelper.s_drainSessionCapsuleCode, capsuleCode);
             Assert.Equal(0, capsuleValueLength);
 
             barrier.SignalAndWait();
@@ -528,7 +514,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
 
-            WriteDrainCapsule(serverSession.ConnectStream);
+            CapsuleHelper.WriteDrainCapsule(serverSession.ConnectStream);
 
             await AssertStreamAborted(outboundUnidirectionalStream, QuicAbortDirection.Write, (long)Http3ErrorCode.WebtransportSessionGone);
             await AssertStreamAborted(outboundBidirectionalStream, QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
@@ -575,7 +561,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            WriteDrainCapsule(serverSession.ConnectStream);
+            CapsuleHelper.WriteDrainCapsule(serverSession.ConnectStream);
 
             barrier.SignalAndWait();
         });
@@ -623,7 +609,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            WriteDrainCapsule(serverSession.ConnectStream);
+            CapsuleHelper.WriteDrainCapsule(serverSession.ConnectStream);
 
             await wasHandlerCalledSemaphore.WaitAsync();
 
@@ -738,7 +724,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_drainSessionCapsuleCode);
             int invalidLength = 1;
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
@@ -773,7 +759,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, s_drainSessionCapsuleCode);
+            VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, CapsuleHelper.s_drainSessionCapsuleCode);
             VariableLengthIntegerStreamHelper.Write(serverSession.ConnectStream, invalidLength);
             serverSession.ConnectStream.Write(new byte[invalidLength]);
             await serverSession.ConnectStream.FlushAsync();
@@ -848,7 +834,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             barrier.SignalAndWait(); // Wait for the client to complete session creation
 
-            WriteDrainCapsule(serverSession.ConnectStream);
+            CapsuleHelper.WriteDrainCapsule(serverSession.ConnectStream);
 
             barrier.SignalAndWait(); // Wait for the client to close the session
 
@@ -1103,7 +1089,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             QuicStream pendingStream = openStreams.First(stream => !stream.WritesClosed.IsCompleted); // Get one pending stream and assert it will be closed after the session is closed
 
-            WriteDrainCapsule(serverSession.ConnectStream);
+            CapsuleHelper.WriteDrainCapsule(serverSession.ConnectStream);
 
             List<QuicException> exceptions = new();
             exceptions.Add(Assert.Throws<QuicException>(() => serverSession.ConnectStream.ReadByte()));
