@@ -34,7 +34,7 @@ namespace System.Net.Http
         HttpProtocolError,
 
         /// <summary>
-        /// Extended CONNECT for WebSockets over HTTP/2 is not supported by the peer.
+        /// Extended CONNECT for requested protocol is not supported by the peer.
         /// </summary>
         ExtendedConnectNotSupported,
 
@@ -67,20 +67,5 @@ namespace System.Net.Http
         /// The response exceeded a pre-configured limit such as <see cref="HttpClient.MaxResponseContentBufferSize"/> or <see cref="HttpClientHandler.MaxResponseHeadersLength"/>.
         /// </summary>
         ConfigurationLimitExceeded,
-
-        /// <summary>
-        /// The request message using extended CONNECT does not contain a factory for an instance of an HTTP/3 extended connect manager.
-        /// </summary>
-        MissingExtendedConnectManager,
-
-        /// <summary>
-        /// The validation of server settings using the provided HTTP/3 extended connect manager failed.
-        /// </summary>
-        ServerSettingsValidationFailed,
-
-        /// <summary>
-        /// The validation of the extended CONNECT request using the provided HTTP/3 extended connect manager failed.
-        /// </summary>
-        ExtendedConnectRequestValidationFailed
     }
 }

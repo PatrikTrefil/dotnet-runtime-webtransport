@@ -18,7 +18,7 @@ public static class ClientWebTransportSession
     private const string s_availableProtocolsHeaderName = "WT-Available-Protocols";
 
     /// <summary>
-    /// Create a WebTransport session using HTTP/3.
+    /// Create a WebTransport session.
     /// </summary>
     /// <exception cref="ArgumentNullException">When <paramref name="options"/> is <c>null</c>.</exception>
     /// <exception cref="WebTransportException">
@@ -27,7 +27,25 @@ public static class ClientWebTransportSession
     /// If the server responds with a redirect and the <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> does not automatically follow redirects,
     /// the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.RedirectRequired"/>.
     ///
-    /// If the server responds with a non-success status code, the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.SessionConnectFailure"/>.
+    /// The method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.SessionConnectFailure"/> in the following scenarios:
+    /// <list type="bullet">
+    /// <item>
+    /// <term>The HTTP request fails.</term>
+    /// <description>We do not receive a response from the server.</description>
+    /// </item>
+    /// <item>
+    /// <term>The server does not support WebTransport over the negotiated HTTP version.</term>
+    /// <description>The server does not indicate support for WebTransport during HTTP connection establishment.</description>
+    /// </item>
+    /// <item>
+    /// <term>The server performs in invalid WebTransport handshake.</term>
+    /// <description>The server does not comply with the protocol.</description>
+    /// </item>
+    /// <item>The server responds with a status code different from 200.</item>
+    /// <description>Response with any other status code results in an exception. An exception is not thrown if the provided <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> automatically follows redirects.</description>
+    /// <item>The maximum number of open WebTransport sessions has been reached.</item>
+    /// <description>We have already opened the maximum number of open WebTransport sessions over the HTTP connection.</description>
+    /// </list>
     /// </exception>
     /// <exception cref="NotSupportedException">When the combination of <see cref="WebTransportSessionCreationOptions.HttpVersion"/> and <see cref="WebTransportSessionCreationOptions.HttpVersionPolicy"/> passed in the <paramref name="options"/> is not supported.</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>

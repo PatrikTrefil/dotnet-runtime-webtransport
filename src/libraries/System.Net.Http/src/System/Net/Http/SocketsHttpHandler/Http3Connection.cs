@@ -321,7 +321,7 @@ namespace System.Net.Http
                 request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory? valueFactory);
                 if (valueFactory == null)
                 {
-                    throw new HttpRequestException(HttpRequestError.MissingExtendedConnectManager, SR.net_missing_extended_connect_manager);
+                    throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_missing_extended_connect_manager);
                 }
 
                 await InitialSettingsReceived.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -353,7 +353,7 @@ namespace System.Net.Http
                 }
                 catch (Exception e)
                 {
-                    throw new HttpRequestException(HttpRequestError.ServerSettingsValidationFailed, SR.net_server_settings_validation_failed, e);
+                    throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_server_settings_validation_failed, e);
                 }
                 try
                 {
@@ -361,7 +361,7 @@ namespace System.Net.Http
                 }
                 catch (Exception e)
                 {
-                    throw new HttpRequestException(HttpRequestError.ExtendedConnectRequestValidationFailed, SR.net_extended_connect_request_validation_failed, e);
+                    throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_extended_connect_request_validation_failed, e);
                 }
             }
 

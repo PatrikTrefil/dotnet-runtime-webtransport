@@ -272,9 +272,6 @@ namespace System.Net.Http
         InvalidResponse = 9,
         ResponseEnded = 10,
         ConfigurationLimitExceeded = 11,
-        MissingExtendedConnectManager = 12,
-        ServerSettingsValidationFailed = 13,
-        ExtendedConnectRequestValidationFailed = 14
     }
     public partial class HttpRequestException : System.Exception
     {
