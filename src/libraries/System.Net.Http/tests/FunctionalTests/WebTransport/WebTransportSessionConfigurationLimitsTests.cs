@@ -5,7 +5,6 @@ using System.Net.Test.Common;
 using System.Threading.Tasks;
 using Xunit;
 using System.Threading;
-using System.IO;
 using System.Net.Quic;
 using System.Collections.Generic;
 
@@ -89,15 +88,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+            long receivedMaxUnidirectionalStreams = await CapsuleHelper.ReadUnidirectionalStreamLimitCapsule(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            var (receivedMaxUnidirectionalStreams, bytesReadMaxUnidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            Assert.Equal(CapsuleHelper.s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedMaxUnidirectionalStreams);
-            Assert.Equal(capsuleValueLength, bytesReadMaxUnidirectionalStreams);
 
             barrier.SignalAndWait();
         });
@@ -123,15 +116,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+            long receivedMaxBidirectionalStreams = await CapsuleHelper.ReadBidirectionalStreamLimitCapsule(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            var (receivedMaxBidirectionalStreams, bytesReadMaxBidirectionalStreams) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            Assert.Equal(CapsuleHelper.s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode);
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedMaxBidirectionalStreams);
-            Assert.Equal(capsuleValueLength, bytesReadMaxBidirectionalStreams);
 
             barrier.SignalAndWait();
         });
@@ -157,15 +144,9 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            var (capsuleCode, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+            long receivedDataSent = await CapsuleHelper.ReadMaxDataCapsule(serverSession.ConnectStream);
 
-            var (capsuleValueLength, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            Assert.Equal(CapsuleHelper.s_maxDataCapsuleCode, capsuleCode);
-            Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
-            Assert.Equal(capsuleValueLength, bytesReadDataSentLimit);
+            Assert.Equal(expectedDataSentLimit, receivedDataSent);
 
             barrier.SignalAndWait();
         });
@@ -268,32 +249,17 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            // Unidirectional Stream Count Limit Capsule
-            var (capsuleCode1, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (capsuleValueLength1, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (receivedUnidirectionalStreamCountLimit, bytesReadUnidirectional) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
+            var receivedUnidirectionalStreamCountLimit = await CapsuleHelper.ReadUnidirectionalStreamLimitCapsule(serverSession.ConnectStream);
 
-            // Bidirectional Stream Count Limit Capsule
-            var (capsuleCode2, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (capsuleValueLength2, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (receivedBidirectionalStreamCountLimit, bytesReadBidirectional) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            // Max Data Sent Limit Capsule
-            var (capsuleCode3, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (capsuleValueLength3, _) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-            var (receivedDataSentLimit, bytesReadDataSentLimit) = await VariableLengthIntegerStreamHelper.ReadAsync(serverSession.ConnectStream);
-
-            Assert.Equal(CapsuleHelper.s_maxUnidirectionalStreamLimitCapsuleCode, capsuleCode1);
             Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedUnidirectionalStreamCountLimit);
-            Assert.Equal(capsuleValueLength1, bytesReadUnidirectional);
 
-            Assert.Equal(CapsuleHelper.s_maxBidirectionalStreamLimitCapsuleCode, capsuleCode2);
+            var receivedBidirectionalStreamCountLimit = await CapsuleHelper.ReadBidirectionalStreamLimitCapsule(serverSession.ConnectStream);
+
             Assert.Equal(expectedBidirectionalStreamCountLimit, receivedBidirectionalStreamCountLimit);
-            Assert.Equal(capsuleValueLength2, bytesReadBidirectional);
 
-            Assert.Equal(CapsuleHelper.s_maxDataCapsuleCode, capsuleCode3);
+            var receivedDataSentLimit = await CapsuleHelper.ReadMaxDataCapsule(serverSession.ConnectStream);
+
             Assert.Equal(expectedDataSentLimit, receivedDataSentLimit);
-            Assert.Equal(capsuleValueLength3, bytesReadDataSentLimit);
 
             barrier.SignalAndWait();
         });
