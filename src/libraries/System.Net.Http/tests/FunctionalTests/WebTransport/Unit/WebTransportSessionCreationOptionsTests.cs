@@ -189,7 +189,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     [Fact]
     public void UsingNonHttpsUriThrows()
     {
-        Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
+        Assert.Throws<ArgumentException>("value", () => new WebTransportSessionCreationOptions()
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = new Uri("http://example.com"),
@@ -203,7 +203,7 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     public void UsingRelativeUriThrows()
     {
         Uri relativeUri = new("/a/b/c", UriKind.Relative);
-        Assert.Throws<ArgumentException>(() => new WebTransportSessionCreationOptions()
+        Assert.Throws<ArgumentException>("value", () => new WebTransportSessionCreationOptions()
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = relativeUri,
