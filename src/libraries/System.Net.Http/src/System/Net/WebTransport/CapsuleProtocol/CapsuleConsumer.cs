@@ -100,7 +100,7 @@ internal sealed class CapsuleConsumer : IDisposable
             _buffer.Commit(bytesReadCapsuleValue);
         }
 
-        Capsule? capsule = DeserializeCapsuleValue(capsuleCode, _buffer.ActiveMemory.Slice(0, capsuleLengthInt));
+        Capsule? capsule = DeserializeCapsuleValue(capsuleCode, _buffer.ActiveSpan.Slice(0, capsuleLengthInt));
 
         _buffer.Discard(capsuleLengthInt);
 
@@ -114,7 +114,7 @@ internal sealed class CapsuleConsumer : IDisposable
     /// <param name="capsuleBuffer">Buffer that contains the data deserialize. There must be no extra data.</param>
     /// <returns>Deserialized capsule or null if the <paramref name="capsuleCode"/> is unknown.</returns>
     /// <exception cref="CapsuleProtocolException">If the capsule value is invalid.</exception>
-    private static Capsule? DeserializeCapsuleValue(long capsuleCode, ReadOnlyMemory<byte> capsuleBuffer)
+    private static Capsule? DeserializeCapsuleValue(long capsuleCode, ReadOnlySpan<byte> capsuleBuffer)
     {
         return capsuleCode switch
         {

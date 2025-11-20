@@ -68,7 +68,7 @@ internal sealed class CloseSessionCapsule : Capsule
         session.ReceiveClose(ApplicationErrorCode, applicationErrorMessageString);
     }
 
-    public static CloseSessionCapsule Deserialize(ReadOnlyMemory<byte> buffer)
+    public static CloseSessionCapsule Deserialize(ReadOnlySpan<byte> buffer)
     {
         long applicationErrorMessageLength = buffer.Length - s_applicationErrorMessageOffset;
 
@@ -77,7 +77,7 @@ internal sealed class CloseSessionCapsule : Capsule
             throw new CapsuleProtocolException("Application error message length exceeded");
         }
 
-        bool isReadOfApplicationErrorCodeSuccessful = BinaryPrimitives.TryReadUInt32BigEndian(buffer.Span, out uint applicationErrorCode);
+        bool isReadOfApplicationErrorCodeSuccessful = BinaryPrimitives.TryReadUInt32BigEndian(buffer, out uint applicationErrorCode);
         if (!isReadOfApplicationErrorCodeSuccessful)
         {
             throw new CapsuleProtocolException("Invalid connect stream data received");
@@ -139,7 +139,7 @@ internal sealed class DrainSessionCapsule : Capsule
         session.ReceiveDrain();
     }
 
-    public static DrainSessionCapsule Deserialize(ReadOnlyMemory<byte> buffer)
+    public static DrainSessionCapsule Deserialize(ReadOnlySpan<byte> buffer)
     {
         if (buffer.Length != 0)
         {
@@ -191,9 +191,9 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
     }
 
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
-    public static MaxBidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
+    public static MaxBidirectionalStreamsCapsule Deserialize(ReadOnlySpan<byte> buffer)
     {
-        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxBidirectionalStreams, out int maxBidirectionalStreamsBytesRead);
+        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer, out long maxBidirectionalStreams, out int maxBidirectionalStreamsBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxBidirectionalStreamsBytesRead)
         {
@@ -249,9 +249,9 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
     }
 
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
-    public static MaxUnidirectionalStreamsCapsule Deserialize(ReadOnlyMemory<byte> buffer)
+    public static MaxUnidirectionalStreamsCapsule Deserialize(ReadOnlySpan<byte> buffer)
     {
-        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxUnidirectionalStream, out int maxUnidirectionalStreamsBytesRead);
+        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer, out long maxUnidirectionalStream, out int maxUnidirectionalStreamsBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxUnidirectionalStreamsBytesRead)
         {
@@ -310,9 +310,9 @@ internal sealed class MaxDataCapsule : Capsule
     }
 
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
-    public static MaxDataCapsule Deserialize(ReadOnlyMemory<byte> buffer)
+    public static MaxDataCapsule Deserialize(ReadOnlySpan<byte> buffer)
     {
-        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer.Span, out long maxData, out int maxDataBytesRead);
+        bool isReadSuccessful = VariableLengthIntegerHelper.TryRead(buffer, out long maxData, out int maxDataBytesRead);
 
         if (!isReadSuccessful || buffer.Length != maxDataBytesRead)
         {
