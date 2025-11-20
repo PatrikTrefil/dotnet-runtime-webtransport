@@ -77,7 +77,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        Debug.Assert(_isSettingsValidationDone == true);
+        Debug.Assert(_isSettingsValidationDone);
 
         long sessionId = connectStream.Id;
 
