@@ -24,8 +24,6 @@ internal sealed class ConcatenatedStream : Stream
     /// <exception cref="ArgumentNullException">When <paramref name="stream"/> is null</exception>
     public ConcatenatedStream(ArrayBuffer buffer, Stream stream)
     {
-        ArgumentNullException.ThrowIfNull(stream);
-
         _buffer = buffer;
         _stream = stream;
     }

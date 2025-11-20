@@ -21,10 +21,6 @@ internal sealed class CapsuleConsumer : IDisposable
 
     public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  MsQuicWebTransportSession session)
     {
-        ArgumentNullException.ThrowIfNull(capsuleStream);
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(capsuleStreamBuffer);
-
         _capsuleStream = capsuleStream;
         _session = session;
         _buffer = new(initialSize: capsuleStreamBuffer.Length, usePool: true);

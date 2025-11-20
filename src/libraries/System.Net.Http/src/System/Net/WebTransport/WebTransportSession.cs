@@ -24,8 +24,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
     internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler,  string? subProtocol, long defaultStreamErrorCode)
     {
-        ArgumentNullException.ThrowIfNull(gracefulShutdownHandler);
-
         VariableLengthIntegerValidator.ThrowIfInvalid(id);
         VariableLengthIntegerValidator.ThrowIfInvalid(defaultStreamErrorCode);
 
@@ -245,8 +243,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         {
             throw new ArgumentOutOfRangeException(nameof(closeStatus), SR.net_webtransport_invalid_close_status);
         }
-
-        ArgumentNullException.ThrowIfNull(statusDescription);
 
         byte[] statusDescriptionUtf8 = _utf8Encoding.GetBytes(statusDescription);
 

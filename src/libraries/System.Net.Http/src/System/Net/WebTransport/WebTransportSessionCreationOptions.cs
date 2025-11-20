@@ -19,8 +19,6 @@ public sealed class WebTransportSessionCreationOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
-
             if (!value.IsAbsoluteUri)
             {
                 throw new ArgumentException(SR.net_webtransport_uri_not_absolute, nameof(value));
@@ -58,12 +56,7 @@ public sealed class WebTransportSessionCreationOptions
     public Func<WebTransportSession, Task> GracefulShutdownHandler
     {
         get;
-        init
-        {
-            ArgumentNullException.ThrowIfNull(value);
-
-            field = value;
-        }
+        init;
     } = async (session) => await session.CloseAsync();
 
     /// <summary>
@@ -189,12 +182,7 @@ public sealed class WebTransportSessionCreationOptions
     public required Version HttpVersion
     {
         get;
-        init
-        {
-            ArgumentNullException.ThrowIfNull(value);
-
-            field = value;
-        }
+        init;
     }
 
     /// <summary>

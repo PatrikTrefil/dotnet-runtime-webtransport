@@ -51,8 +51,6 @@ public static class ClientWebTransportSession
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public static async Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(options);
-
         if (
             (options.HttpVersion < HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrHigher) ||
             (options.HttpVersion > HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrLower)

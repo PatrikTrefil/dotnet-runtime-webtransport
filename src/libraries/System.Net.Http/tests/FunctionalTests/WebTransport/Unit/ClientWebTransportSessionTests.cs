@@ -16,13 +16,6 @@ public class ClientWebTransportSessionTests : WebTransportTestBase
         { new Version(0, 0, 0), HttpVersionPolicy.RequestVersionExact }
     };
 
-    [Fact]
-    public async Task ConnectAsyncThrowsWhenCalledWithNullOptions()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>("options", () => ClientWebTransportSession.ConnectAsync(null));
-    }
-
-
     [Theory]
     [MemberData(nameof(s_invalidVersionRequirements))]
     public async Task ConnectAsyncThrowsWhenRequiringDifferentHttpVersionThan30(Version version, HttpVersionPolicy policy)

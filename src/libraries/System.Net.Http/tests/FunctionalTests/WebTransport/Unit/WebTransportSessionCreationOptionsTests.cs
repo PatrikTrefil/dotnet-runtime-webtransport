@@ -160,33 +160,6 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     }
 
     [Fact]
-    public void SettingUriToNullThrows()
-    {
-        Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
-        {
-            HttpMessageInvoker = s_validHttpMessageInvoker,
-            Uri = null,
-            DefaultStreamErrorCode = s_validVarInt,
-            HttpVersion = s_validHttpVersion,
-            HttpVersionPolicy = s_validHttpVersionPolicy
-        });
-    }
-
-    [Fact]
-    public void SettingShutdownHandlerToNullThrows()
-    {
-        Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
-        {
-            HttpMessageInvoker = s_validHttpMessageInvoker,
-            Uri = s_validUri,
-            GracefulShutdownHandler = null,
-            DefaultStreamErrorCode = s_validVarInt,
-            HttpVersion = s_validHttpVersion,
-            HttpVersionPolicy = s_validHttpVersionPolicy
-        });
-    }
-
-    [Fact]
     public void UsingNonHttpsUriThrows()
     {
         Assert.Throws<ArgumentException>("value", () => new WebTransportSessionCreationOptions()

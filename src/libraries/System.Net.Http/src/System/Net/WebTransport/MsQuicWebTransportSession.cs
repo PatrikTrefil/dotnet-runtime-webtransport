@@ -64,12 +64,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         string? subprotocol,
         long defaultStreamErrorCode) : base(id, gracefulShutdownHandler, subprotocol, defaultStreamErrorCode)
     {
-        ArgumentNullException.ThrowIfNull(connectionManager);
-        ArgumentNullException.ThrowIfNull(connectStream);
-        ArgumentNullException.ThrowIfNull(controlStreamBuffer);
-        ArgumentNullException.ThrowIfNull(pendingUnidirectionalStreams);
-        ArgumentNullException.ThrowIfNull(pendingBidirectionalStreams);
-
         _connectStream = connectStream;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;

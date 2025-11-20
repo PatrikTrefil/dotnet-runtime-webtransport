@@ -18,8 +18,6 @@ internal sealed class CapsuleSender
 
     public CapsuleSender(QuicStream capsuleStream)
     {
-        ArgumentNullException.ThrowIfNull(capsuleStream);
-
         _capsuleStream = capsuleStream;
     }
 
@@ -36,8 +34,6 @@ internal sealed class CapsuleSender
         {
             NetEventSource.SendCapsuleAsyncStarted(this, $"Sending capsule of type 0x{capsule.Code:X} (completeWrites: {completeWrites})");
         }
-
-        ArgumentNullException.ThrowIfNull(capsule);
 
         await SendCapsuleAsyncCore(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
 
