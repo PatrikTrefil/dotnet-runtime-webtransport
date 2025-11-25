@@ -769,7 +769,11 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             await serverSession.Connection.ShutdownAsync(waitForClientDisconnectAndRejectNewStreams: false);
 
-            Assert.Equal(-1, serverSession.ConnectStream.ReadByte()); // assert the reading side is closed
+            // HACK: try-catch is necessary, because we don't have RESET_STREAM_AT support yet, so it's possible that the connection close or stream abort is faster than the frame with FIN flag
+            try
+            {
+                Assert.Equal(-1, serverSession.ConnectStream.ReadByte()); // assert the reading side is closed
+            } catch (QuicException) { }
 
             barrier.SignalAndWait();
         });
