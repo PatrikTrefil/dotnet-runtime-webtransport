@@ -20,6 +20,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 {
 
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
+    public static readonly TheoryData<long> s_invalidStreamCountLimits = [-1, s_maxOpenWebTransportStreamsPerType + 1];
 
     public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
         (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
@@ -35,16 +36,40 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
-    public async Task InvalidVariableLengthIntegerPassedToSessionConfigurationPropertiesThrows(long invalidVarInt)
+    public async Task InvalidVariableLengthIntegerPassedToSessionDataSentLimitThrows(long invalidVarInt)
     {
         using Barrier barrier = new(2);
 
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
-            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidVarInt));
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_invalidStreamCountLimits))]
+    public async Task InvalidValuePassedToStreamCountLimitsThrows(long invalidStreamCountLimit)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidStreamCountLimit));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidStreamCountLimit));
 
             barrier.SignalAndWait();
         });

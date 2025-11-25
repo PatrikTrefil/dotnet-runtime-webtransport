@@ -40,7 +40,7 @@ internal sealed class WebTransportLoopbackServer : IAsyncDisposable
         return await AcceptWebTransportServerSessionAsync(connection, subprotocolToRespondWith);
     }
 
-    private async Task<Http3LoopbackConnection> AcceptWebTransportEnabledConnection(WebTransportHttpConnectionCreationOptions options)
+    public async Task<Http3LoopbackConnection> AcceptWebTransportEnabledConnection(WebTransportHttpConnectionCreationOptions options)
     {
         List<Http3SettingsEntry> settings = [
             new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },

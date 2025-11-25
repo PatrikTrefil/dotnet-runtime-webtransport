@@ -3,7 +3,7 @@
 
 namespace System.Net.WebTransport.Functional.Tests;
 
-internal class WebTransportHttpConnectionCreationOptions
+public class WebTransportHttpConnectionCreationOptions
 {
     public required long MaxSessionCount { get; init; }
     public long InitialUnidirectionalStreamCountLimitForPeer { get; init; } = 0;

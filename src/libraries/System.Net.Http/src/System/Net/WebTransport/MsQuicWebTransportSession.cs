@@ -136,13 +136,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         get => Interlocked.Read(ref field);
         internal set
         {
-            // HACK: make the value <= int.MaxValue so that we can use SemaphoreSlim
-            int newValue = value > int.MaxValue ? int.MaxValue : (int)value;
+            ThrowHelper.ValidateStreamCountLimit(value);
+
+            int newValue = (int)value;
             int increase = newValue - (int)Interlocked.Read(ref field);
             if (increase > 0)
             {
                 _unidirectionalStreamSemaphore.Release(increase);
             }
+
             Interlocked.Exchange(ref field, newValue);
         }
     }
@@ -158,13 +160,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         get => Interlocked.Read(ref field);
         internal set
         {
-            // HACK: make the value <= int.MaxValue so that we can use SemaphoreSlim
-            int newValue = value > int.MaxValue ? int.MaxValue : (int)value;
+            ThrowHelper.ValidateStreamCountLimit(value);
+
+            int newValue = (int)value;
             int increase = newValue - (int)Interlocked.Read(ref field);
             if (increase > 0)
             {
                 _bidirectionalStreamSemaphore.Release(increase);
             }
+
             Interlocked.Exchange(ref field, newValue);
         }
     }
@@ -253,13 +257,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 {
                     if (ex is CapsuleProtocolException)
                     {
-                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid capsule received on CONNECT stream. Closing session...");
+                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid or unsupported configuration received on CONNECT stream. Aborting session...");
 
                         MarkSessionAsClosed(WebTransportSessionState.AbortedLocally, null, null);
                     }
                     else if (ex is QuicException qex && qex.QuicError is QuicError.ConnectionAborted or QuicError.StreamAborted)
                     {
-                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream closed. Closing session if not already closed...");
+                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream aborted. Aborting session if not already closed...");
 
                         MarkSessionAsClosed(WebTransportSessionState.AbortedRemotely, null, null);
                     }
@@ -355,6 +359,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
+        ThrowHelper.ValidateStreamCountLimit(limit);
+
         ThrowIfInvalidState();
 
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);
@@ -371,6 +377,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     public override async ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        ThrowHelper.ValidateStreamCountLimit(limit);
 
         ThrowIfInvalidState();
         VariableLengthIntegerValidator.ThrowIfInvalid(limit);

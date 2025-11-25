@@ -104,16 +104,16 @@ public sealed class WebTransportSessionCreationOptions
     /// </summary>
     /// <value>
     /// Default value is zero.
-    /// The value must be in the range [0, 2^62).
+    /// The value must be in the range [0, 65535).
     /// </value>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 65535).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
     public long InitialUnidirectionalStreamCountLimitForPeer
     {
         get;
         init
         {
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            ThrowHelper.ValidateStreamCountLimit(value);
             field = value;
         }
     }
@@ -124,16 +124,16 @@ public sealed class WebTransportSessionCreationOptions
     /// </summary>
     /// <value>
     /// Default value is zero.
-    /// The value must be in the range [0, 2^62).
+    /// The value must be in the range [0, 65535).
     /// </value>
-    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 2^62).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the value is not in the range [0, 65535).</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
     public long InitialBidirectionalStreamCountLimitForPeer
     {
         get;
         init
         {
-            VariableLengthIntegerValidator.ThrowIfInvalid(value);
+            ThrowHelper.ValidateStreamCountLimit(value);
             field = value;
         }
     }

@@ -17,6 +17,8 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
     public static readonly TheoryData<long> s_validVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue, VariableLengthIntegerHelper.MaxValue];
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
 
+    public static readonly TheoryData<long> s_invalidStreamCountLimits = [-1, 65535];
+
     private const char nonasciiChar = (char)129;
 
     // https://www.rfc-editor.org/rfc/rfc8941
@@ -63,31 +65,37 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
 
     [Theory]
     [MemberData(nameof(s_invalidVariableLengthIntegers))]
-    public void InvalidVariableLengthIntegerUsedToCreateInitialSessionConfigurationThrows(long invalidVarInt)
+    public void InvalidVariableLengthIntegerUsedForInitialDataSentLimitThrows(long invalidVarInt)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
         {
             HttpMessageInvoker = s_validHttpMessageInvoker,
             Uri = s_validUri,
-            InitialUnidirectionalStreamCountLimitForPeer = invalidVarInt,
-            DefaultStreamErrorCode = s_validApplicationErrorCode,
-            HttpVersion = s_validHttpVersion,
-            HttpVersionPolicy = s_validHttpVersionPolicy
-        });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
-        {
-            HttpMessageInvoker = s_validHttpMessageInvoker,
-            Uri = s_validUri,
-            InitialBidirectionalStreamCountLimitForPeer = invalidVarInt,
-            DefaultStreamErrorCode = s_validApplicationErrorCode,
-            HttpVersion = s_validHttpVersion,
-            HttpVersionPolicy = s_validHttpVersionPolicy
-        });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
-        {
-            HttpMessageInvoker = s_validHttpMessageInvoker,
-            Uri = s_validUri,
             InitialDataSentLimitForPeer = invalidVarInt,
+            DefaultStreamErrorCode = s_validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(s_invalidStreamCountLimits))]
+    public void InvalidVariableLengthIntegerUsedForInitiaStreamCountLimitsThrows(long invalidStreamCountLimit)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialUnidirectionalStreamCountLimitForPeer = invalidStreamCountLimit,
+            DefaultStreamErrorCode = s_validApplicationErrorCode,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            InitialBidirectionalStreamCountLimitForPeer = invalidStreamCountLimit,
             DefaultStreamErrorCode = s_validApplicationErrorCode,
             HttpVersion = s_validHttpVersion,
             HttpVersionPolicy = s_validHttpVersionPolicy

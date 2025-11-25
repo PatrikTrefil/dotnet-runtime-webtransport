@@ -187,7 +187,13 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
         {
             throw new CapsuleProtocolException("Peer tried to lower the bidirectional stream limit.");
         }
-        session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
+        try
+        {
+            session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
+        } catch (ArgumentException e)
+        {
+            throw new CapsuleProtocolException($"Unsupported maximum unidirectional stream count limit  received ({MaxBidirectionalStreams}).", e);
+        }
     }
 
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>
@@ -245,7 +251,12 @@ internal sealed class MaxUnidirectionalStreamsCapsule : Capsule
         {
             throw new CapsuleProtocolException("Peer tried to lower the unidirectional stream limit.");
         }
-        session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
+        try {
+            session.UnidirectionalStreamCountLimitProvidedByPeer = MaxUnidirectionalStreams;
+        } catch (ArgumentException e)
+        {
+            throw new CapsuleProtocolException($"Unsupported maximum unidirectional stream count limit  received ({MaxUnidirectionalStreams}).", e);
+        }
     }
 
     /// <exception cref="CapsuleProtocolException">When the received length does not match the payload length</exception>

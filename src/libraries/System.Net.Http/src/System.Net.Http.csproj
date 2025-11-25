@@ -189,6 +189,7 @@
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
     <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
+    <Compile Include="System\Net\WebTransport\ThrowHelper.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'windows' and '$(TargetPlatformIdentifier)' != 'osx' and '$(TargetPlatformIdentifier)' != 'linux'">

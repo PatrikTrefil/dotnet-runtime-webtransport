@@ -38,6 +38,25 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             return Task.CompletedTask;
         }
     ];
+
+    public static readonly TheoryData<WebTransportHttpConnectionCreationOptions> s_clientUnsupportedWebTransportHttpConnectionCreationOptions = new()
+    {
+         new WebTransportHttpConnectionCreationOptions
+         {
+             MaxSessionCount = 1,
+             InitialUnidirectionalStreamCountLimitForPeer = 0,
+             InitialBidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType + 1,
+             InitialDataSentLimitForPeer = 0,
+         },
+         new WebTransportHttpConnectionCreationOptions
+         {
+             MaxSessionCount = 1,
+             InitialUnidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType + 1,
+             InitialBidirectionalStreamCountLimitForPeer = 0,
+             InitialDataSentLimitForPeer = 0,
+         }
+    };
+
     public static readonly TheoryData<WebTransportStreamType, int> s_maxDataSentLimitThrowsTestParameters = MaxDataSentLimitThrowsParameters(includeZero: true);
     public static readonly TheoryData<WebTransportStreamType, int, Func<WebTransportStream, int, Task>> s_maxDataSentLimitDoesNotThrowTestParameters = MaxDataSentLimitParameters(includeZero: false);
 
@@ -343,6 +362,47 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
             CapsuleHelper.WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, expectedLimit);
+
+            await serverSession.ConnectStream.FlushAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task ReceiveStreamLimitCapsuleWithUnsupportedValueAbortsSession(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        long unsupportedLimit = s_maxOpenWebTransportStreamsPerType + 1;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            switch (streamType)
+            {
+                case WebTransportStreamType.Unidirectional:
+                    CapsuleHelper.WriteUnidirectionalStreamLimitCapsule(serverSession.ConnectStream, unsupportedLimit);
+                    break;
+                case WebTransportStreamType.Bidirectional:
+                    CapsuleHelper.WriteBidirectionalStreamLimitCapsule(serverSession.ConnectStream, unsupportedLimit);
+                    break;
+            }
 
             await serverSession.ConnectStream.FlushAsync();
 
@@ -905,6 +965,31 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
                     InitialBidirectionalStreamCountLimitForPeer = expectedBidirectionalStreamsCountLimitByPeer,
                     InitialDataSentLimitForPeer = expectedDataSentLimitByPeer
                 });
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_clientUnsupportedWebTransportHttpConnectionCreationOptions))]
+    public async Task SessionEstablishmentFailsWitClientUnsupportedSessionConfigurationLimits(WebTransportHttpConnectionCreationOptions clientUnsupportedOptions)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
+
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _webTransportServer.AcceptWebTransportEnabledConnection(clientUnsupportedOptions);
 
             barrier.SignalAndWait();
         });
