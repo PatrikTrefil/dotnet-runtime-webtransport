@@ -200,30 +200,30 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             State = WebTransportSessionState.Open;
         }
 
-        _ = ReactToWritesClosedOnConnectStream();
+        _ = ReactToWritesClosedAbortivelyOnConnectStream();
         _ = ProcessIncomingCapsules();
     }
 
-    private async Task ReactToWritesClosedOnConnectStream()
+    private async Task ReactToWritesClosedAbortivelyOnConnectStream()
     {
         try
         {
             await _connectStream.WritesClosed.ConfigureAwait(false);
         }
-        catch (Exception) { }
-
-
-        lock (SyncLock)
+        catch (Exception)
         {
-            if (State == WebTransportSessionState.Open)
+            lock (SyncLock)
             {
-                if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed while session is open. Closing session...");
+                if (State == WebTransportSessionState.Open)
+                {
+                    if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream writes closed while session is open. Closing session...");
 
-                MarkSessionAsClosed(WebTransportSessionState.AbortedRemotely, null, null);
+                    MarkSessionAsClosed(WebTransportSessionState.AbortedRemotely, null, null);
+                }
             }
-        }
 
-        await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+            await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+        }
     }
 
     private async Task ProcessIncomingCapsules()
@@ -255,6 +255,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 if (State == WebTransportSessionState.Open)
                 {
+                    // TODO: store the exception and rethrow it
                     if (ex is CapsuleProtocolException)
                     {
                         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid or unsupported configuration received on CONNECT stream. Aborting session...");
@@ -650,20 +651,22 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
+        bool needsToSendFinOnConnectStream = false;
         lock (SyncLock)
         {
-            if (State != WebTransportSessionState.Open)
+            if (State == WebTransportSessionState.Open)
             {
-                return;
+                MarkSessionAsClosed(WebTransportSessionState.ClosedLocally, null, null);
+                needsToSendFinOnConnectStream = true;
             }
-            MarkSessionAsClosed(WebTransportSessionState.ClosedLocally, null, null);
         }
 
-        CloseSessionBySendingFinOnConnectStream();
+        if (needsToSendFinOnConnectStream)
+        {
+            CloseSessionBySendingFinOnConnectStream();
+        }
 
         await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
-
-        await base.DisposeAsyncCore().ConfigureAwait(false);
     }
 
     private void CloseSessionBySendingFinOnConnectStream()
@@ -674,11 +677,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             _connectStream.CompleteWrites();
         }
-        catch (QuicException ex)
+        catch (Exception ex)
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
 
-            throw new WebTransportException(WebTransportError.TransportLayerError, SR.net_webtransport_transport_layer_error, ex);
+            _connectStream.Abort(QuicAbortDirection.Write, 0);
         }
 
         _connectStream.Abort(QuicAbortDirection.Read, 0);
@@ -809,7 +812,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     }
 
     /// <summary>
-    /// Method for cleaning up the session after it has been marked as closed.
+    /// Method for cleaning up the session after it the closing handshake has been performed and the session has been marked as closed.
     /// </summary>
     /// <remarks>May be called multiple times.</remarks>
     /// <param name="errorCodeForStreams">Error code used to abort all <see cref="QuicStream"/> instances associated with this session.</param>
@@ -818,13 +821,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         if (!_isCleanedUp)
         {
             await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
-            _connectionManager.RemoveSession(_connectStream);
+            _connectionManager.RemoveSession(_connectStream); // _connectStream will be disposed by the _connectionManager
             _capsuleConsumer.Dispose();
             _unidirectionalStreamSemaphore.Dispose();
             _bidirectionalStreamSemaphore.Dispose();
 
             _isCleanedUp = true;
         }
+
+        await base.DisposeAsyncCore().ConfigureAwait(false);
     }
 
     private async ValueTask CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode httpErrorCode)

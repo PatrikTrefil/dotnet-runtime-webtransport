@@ -263,8 +263,10 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// </param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <remarks>This methods releases the resources held by the session just as a call of <see cref="CloseAsync()"/> would. The delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> is best-effort.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
+    /// <exception cref="WebTransportException">When the delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> fails. The resources held by the session are released even if the delivery fails.</exception>
     protected abstract ValueTask CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default);
 
     /// <summary>
