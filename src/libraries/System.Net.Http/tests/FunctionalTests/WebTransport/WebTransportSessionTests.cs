@@ -20,7 +20,7 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 {
 
     public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
-    public static readonly TheoryData<long> s_invalidStreamCountLimits = [-1, s_maxOpenWebTransportStreamsPerType + 1];
+    public static readonly TheoryData<long> s_invalidStreamCountLimits = [-1, MaxOpenWebTransportStreamsPerType + 1];
 
     public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
         (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),

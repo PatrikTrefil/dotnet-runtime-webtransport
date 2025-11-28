@@ -22,4 +22,21 @@ internal static class ThrowHelper
         }
     }
 
+    /// <summary>
+    /// Validates the session count limit is supported by MsQuic.
+    /// </summary>
+    /// <seealso href="https://microsoft.github.io/msquic/msquicdocs/docs/Streams.html#stream-id-flow-control"/>
+    /// <exception cref="WebTransportException">When the values is not in the range (0, 65535).</exception>
+    internal static void ValidateSessionCountLimit(long value)
+    {
+        if (value == 0)
+        {
+            throw new WebTransportException(WebTransportError.HeaderError, SR.net_webtransport_server_does_not_support_webtransport_over_http3);
+        }
+
+        if (value > s_maxOpenQuicStreamsPerType)
+        {
+            throw new WebTransportException(WebTransportError.HeaderError, SR.Format(SR.net_webtransport_unsupported_maximum_session_count, value));
+        }
+    }
 }

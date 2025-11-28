@@ -27,6 +27,9 @@ public static class ClientWebTransportSession
     /// If the server responds with a redirect and the <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> does not automatically follow redirects,
     /// the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.RedirectRequired"/>.
     ///
+    /// If the server responds with an unsupported maximum session count, the method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.LimitExceeded"/>.
+    /// When establishing a session using HTTP/3, the maximum session count values in the range [0, 65535).
+    ///
     /// The method will throw a <see cref="WebTransportException"/> with error code <see cref="WebTransportError.SessionConnectFailure"/> in the following scenarios:
     /// <list type="bullet">
     /// <item>

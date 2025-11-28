@@ -45,13 +45,13 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
          {
              MaxSessionCount = 1,
              InitialUnidirectionalStreamCountLimitForPeer = 0,
-             InitialBidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType + 1,
+             InitialBidirectionalStreamCountLimitForPeer = MaxOpenWebTransportStreamsPerType + 1,
              InitialDataSentLimitForPeer = 0,
          },
          new WebTransportHttpConnectionCreationOptions
          {
              MaxSessionCount = 1,
-             InitialUnidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType + 1,
+             InitialUnidirectionalStreamCountLimitForPeer = MaxOpenWebTransportStreamsPerType + 1,
              InitialBidirectionalStreamCountLimitForPeer = 0,
              InitialDataSentLimitForPeer = 0,
          }
@@ -377,7 +377,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
     public async Task ReceiveStreamLimitCapsuleWithUnsupportedValueAbortsSession(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
-        long unsupportedLimit = s_maxOpenWebTransportStreamsPerType + 1;
+        long unsupportedLimit = MaxOpenWebTransportStreamsPerType + 1;
 
         Task clientTask = Task.Run(async () =>
         {

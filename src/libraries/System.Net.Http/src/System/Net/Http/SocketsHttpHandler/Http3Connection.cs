@@ -27,15 +27,8 @@ namespace System.Net.Http
         private Task? _connectionClosedTask;
 
         private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
-        internal Dictionary<long, long> NonHttpSettings { get; } = new();
 
-        private static readonly TaskCompletionSourceWithCancellation<bool> s_settingsReceivedSingleton = CreateSuccessfullyCompletedTcs();
-        private TaskCompletionSourceWithCancellation<bool>? _initialSettingsReceived;
-        private Task InitialSettingsReceived =>
-            _initialSettingsReceived?.Task ??
-            Interlocked.CompareExchange(ref _initialSettingsReceived, new(), null)?.Task ??
-            _initialSettingsReceived.Task;
-
+        private readonly TaskCompletionSourceWithCancellation<Dictionary<long, List<long>>> _nonHttpSettings = new();
         // Keep a collection of requests around so we can process GOAWAY.
         private readonly Dictionary<QuicStream, Http3RequestStream> _activeRequests = new Dictionary<QuicStream, Http3RequestStream>();
 
@@ -324,7 +317,7 @@ namespace System.Net.Http
                     throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_missing_extended_connect_manager);
                 }
 
-                await InitialSettingsReceived.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await _nonHttpSettings.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 if (!IsConnectEnabled)
                 {
@@ -349,7 +342,7 @@ namespace System.Net.Http
 
                 try
                 {
-                    extendedconnectManager.ValidateAndProcessServerSettings(NonHttpSettings);
+                    extendedconnectManager.ValidateAndProcessServerSettings(_nonHttpSettings.Task.Result);
                 }
                 catch (Exception e)
                 {
@@ -908,21 +901,30 @@ namespace System.Net.Http
                 {
                     // Read the first frame of the control stream. Per spec:
                     // A SETTINGS frame MUST be sent as the first frame of each control stream.
-
-                    (Http3FrameType? frameType, long payloadLength) = await ReadFrameEnvelopeAsync().ConfigureAwait(false);
-
-                    if (frameType == null)
+                    Http3FrameType? frameType;
+                    long payloadLength;
+                    try
                     {
-                        // Connection closed prematurely, expected SETTINGS frame.
-                        throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.ClosedCriticalStream);
-                    }
+                        (frameType, payloadLength) = await ReadFrameEnvelopeAsync().ConfigureAwait(false);
 
-                    if (frameType != Http3FrameType.Settings)
+                        if (frameType == null)
+                        {
+                            // Connection closed prematurely, expected SETTINGS frame.
+                            throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.ClosedCriticalStream);
+                        }
+
+                        if (frameType != Http3FrameType.Settings)
+                        {
+                            throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.MissingSettings);
+                        }
+
+                        await ProcessSettingsFrameAsync(payloadLength).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
                     {
-                        throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.MissingSettings);
+                        _nonHttpSettings.TrySetException(ex);
+                        throw;
                     }
-
-                    await ProcessSettingsFrameAsync(payloadLength).ConfigureAwait(false);
 
                     // Read subsequent frames.
 
@@ -1016,6 +1018,8 @@ namespace System.Net.Http
 
             async ValueTask ProcessSettingsFrameAsync(long settingsPayloadLength)
             {
+                Dictionary<long, List<long>> nonHttpSettings = new();
+
                 while (settingsPayloadLength != 0)
                 {
                     long settingId, settingValue;
@@ -1078,16 +1082,20 @@ namespace System.Net.Http
                             }
                             break;
                         default:
-                            NonHttpSettings.Add(settingId, settingValue);
+                            List<long>? settingValueList;
+
+                            if (!nonHttpSettings.TryGetValue(settingId, out settingValueList))
+                            {
+                                settingValueList = new();
+                                nonHttpSettings.Add(settingId, settingValueList);
+                            }
+
+                            settingValueList.Add(settingValue);
                             break;
                     }
                 }
-                if (_initialSettingsReceived is null)
-                {
-                    Interlocked.CompareExchange(ref _initialSettingsReceived, s_settingsReceivedSingleton, null);
-                }
-                // Set result in case if CompareExchange lost the race
-                _initialSettingsReceived.TrySetResult(true);
+
+                _nonHttpSettings.TrySetResult(nonHttpSettings);
             }
 
             async ValueTask ProcessGoAwayFrameAsync(long goawayPayloadLength)
@@ -1145,12 +1153,6 @@ namespace System.Net.Http
                     payloadLength -= readLength;
                 }
             }
-        }
-        private static TaskCompletionSourceWithCancellation<bool> CreateSuccessfullyCompletedTcs()
-        {
-            var tcs = new TaskCompletionSourceWithCancellation<bool>();
-            tcs.TrySetResult(true);
-            return tcs;
         }
     }
 

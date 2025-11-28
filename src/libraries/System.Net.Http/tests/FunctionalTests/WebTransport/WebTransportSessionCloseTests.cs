@@ -51,7 +51,6 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         }
     }
 
-
     private static TheoryData<byte[], long> CreateCloseParameters()
     {
         TheoryData<byte[], long> data = new();

@@ -13,7 +13,9 @@ namespace System.Net.WebTransport.Functional.Tests;
 
 public abstract class WebTransportTestBase : IAsyncDisposable
 {
-    public const long s_maxOpenWebTransportStreamsPerType = 65534;
+    public const long MaxOpenQuicStreamsPerType = 65534;
+    public const long MaxOpenWebTransportStreamsPerType = MaxOpenQuicStreamsPerType;
+    public const long MaxOpenWebTransportSessions = MaxOpenQuicStreamsPerType;
 
     protected static bool IsWebTransportSupported => QuicConnection.IsSupported;
     protected virtual int TestTimeoutInMilliseconds => 200_000;
@@ -34,10 +36,10 @@ public abstract class WebTransportTestBase : IAsyncDisposable
     /// </remarks>
     internal virtual WebTransportHttpConnectionCreationOptions DefaultWebTransportHttpConnectionCreationOptions => new WebTransportHttpConnectionCreationOptions
     {
-        MaxSessionCount = VariableLengthIntegerHelper.MaxValue,
+        MaxSessionCount = MaxOpenWebTransportSessions,
         InitialDataSentLimitForPeer = VariableLengthIntegerHelper.MaxValue,
-        InitialBidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType,
-        InitialUnidirectionalStreamCountLimitForPeer = s_maxOpenWebTransportStreamsPerType,
+        InitialBidirectionalStreamCountLimitForPeer = MaxOpenWebTransportStreamsPerType,
+        InitialUnidirectionalStreamCountLimitForPeer = MaxOpenWebTransportStreamsPerType,
     };
 
     public WebTransportTestBase()
@@ -63,7 +65,6 @@ public abstract class WebTransportTestBase : IAsyncDisposable
             HttpVersion = HttpVersion.Version30,
             HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact
         };
-
     }
 
     public async ValueTask DisposeAsync()

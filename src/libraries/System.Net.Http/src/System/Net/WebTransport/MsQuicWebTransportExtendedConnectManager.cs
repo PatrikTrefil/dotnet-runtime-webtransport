@@ -198,7 +198,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         stream.Dispose();
     }
 
-    public override void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings)
+    public override void ValidateAndProcessServerSettings(Dictionary<long, List<long>> serverSettings)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -232,23 +232,31 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    private void ValidateAndProcessServerSettingsCore(Dictionary<long, long> serverSettings)
+    private void ValidateAndProcessServerSettingsCore(Dictionary<long, List<long>> serverSettings)
     {
-        bool maxSessionsSettingRetrievalSuccess = serverSettings.TryGetValue((long)Http3SettingType.WebTransportMaxSessions, out long value);
+        _maxSessionsCount = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportMaxSessions, 0);
 
-        if (!maxSessionsSettingRetrievalSuccess || value == 0)
-        {
-            throw new WebTransportException(WebTransportError.HeaderError, SR.net_webtransport_server_does_not_support_webtransport_over_http3);
-        }
+        ThrowHelper.ValidateSessionCountLimit(_maxSessionsCount);
 
-        _initialMaxUnidirectionalStreamsPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, 0);
-        _initialMaxBidirectionalStreamsPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, 0);
-        _initialMaxDataPerSession = serverSettings.GetValueOrDefault((long)Http3SettingType.WebTransportInitialMaxDataPerSession, 0);
+        _initialMaxUnidirectionalStreamsPerSession = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, 0);
+        _initialMaxBidirectionalStreamsPerSession = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, 0);
+        _initialMaxDataPerSession = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportInitialMaxDataPerSession, 0);
 
         ThrowHelper.ValidateStreamCountLimit(_initialMaxUnidirectionalStreamsPerSession, nameof(serverSettings));
         ThrowHelper.ValidateStreamCountLimit(_initialMaxBidirectionalStreamsPerSession, nameof(serverSettings));
+    }
 
-        _maxSessionsCount = value;
+    private static long GetAndValidateSettingValue(Dictionary<long, List<long>> serverSettings, Http3SettingType settingType, long defaultValue)
+    {
+        serverSettings.TryGetValue((long)settingType, out List<long>? settingValues);
+
+        if (settingValues?.Count > 1)
+        {
+            string valuesSerialized = string.Join(", ", settingValues);
+            throw new WebTransportException(WebTransportError.HeaderError, SR.Format(SR.net_webtransport_too_many_header_values, settingType, valuesSerialized));
+        }
+
+        return settingValues?[0] ?? defaultValue;
     }
 
     void IMsQuicWebTransportSessionConnectionManager.RemoveSession(QuicStream connectStream)

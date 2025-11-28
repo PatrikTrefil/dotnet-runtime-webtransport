@@ -16,6 +16,32 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 {
+    public static readonly TheoryData<Http3SettingsEntry[]> s_serverSettingsWithDuplicatedEntries = [
+        [
+            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 },
+            ],
+        [
+            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxUnidirectionalStreamsPerSession, Value = 1 },
+            ],
+        [
+            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, Value = 1 },
+            ],
+        [
+            new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportMaxSessions, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxDataPerSession, Value = 1 },
+            new Http3SettingsEntry { SettingId = Http3SettingType.WebTransportInitialMaxDataPerSession, Value = 1 },
+            ],
+    ];
+
     [Fact]
     public async Task SessionEstablishmentWithValidHandshakeSucceeds()
     {
