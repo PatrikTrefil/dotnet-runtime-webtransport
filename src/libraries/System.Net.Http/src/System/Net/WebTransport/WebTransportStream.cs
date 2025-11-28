@@ -26,43 +26,6 @@ public abstract class WebTransportStream : Stream
     /// </summary>
     public WebTransportStreamType Type { get; }
 
-
-    protected internal WebTransportStream(WebTransportStreamType type)
-    {
-        Debug.Assert(Enum.IsDefined(type));
-
-        Type = type;
-    }
-
-    /// <summary>
-    /// Gracefully completes the writing side of the stream.
-    /// </summary>
-    /// <remarks>
-    /// Equivalent to using <see cref="WriteAsync(ReadOnlyMemory{byte}, bool, CancellationToken)"/> with <c>completeWrites: true</c>.
-    /// </remarks>
-    public abstract void CompleteWrites();
-
-    /// <inheritdoc/>
-    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        => WriteAsync(buffer, completeWrites: false, cancellationToken);
-
-    /// <summary>
-    /// Asynchronously writes a sequence of bytes to the current stream, advances the current position within this stream by the number of bytes written, and monitors cancellation requests.
-    /// </summary>
-    /// <param name="buffer">The region of memory to write data from.</param>
-    /// <param name="completeWrites"><c>true</c> to notify the peer about gracefully closing the write side; otherwise, <c>false</c>.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
-    public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Aborts either the reading, writing, or both sides of the stream.
-    /// </summary>
-    /// <param name="abortDirection">The direction of the stream to abort.</param>
-    /// <param name="errorCode">The error code with which to abort the stream. The value must be in the range [0, 2^32).</param>
-    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="errorCode"/> is not in the range [0, 2^32).</exception>
-    /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
-    public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
-
     /// <summary>
     /// Gets a <see cref="Task"/> that will complete once the reading side has been closed (gracefully or abortively).
     /// </summary>
@@ -92,6 +55,64 @@ public abstract class WebTransportStream : Stream
         get => throw new NotSupportedException();
         set => throw new NotSupportedException();
     }
+
+    protected internal WebTransportStream(WebTransportStreamType type)
+    {
+        Debug.Assert(Enum.IsDefined(type));
+
+        Type = type;
+    }
+
+    #region Writes
+
+    /// <summary>
+    /// Gracefully completes the writing side of the stream.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to using <see cref="WriteAsync(ReadOnlyMemory{byte}, bool, CancellationToken)"/> with <c>completeWrites: true</c>.
+    /// </remarks>
+    public abstract void CompleteWrites();
+
+    /// <inheritdoc/>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        => WriteAsync(buffer, completeWrites: false, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously writes a sequence of bytes to the current stream, advances the current position within this stream by the number of bytes written, and monitors cancellation requests.
+    /// </summary>
+    /// <param name="buffer">The region of memory to write data from.</param>
+    /// <param name="completeWrites"><c>true</c> to notify the peer about gracefully closing the write side; otherwise, <c>false</c>.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default);
+
+    /// <inheritdoc/>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public abstract override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state);
+
+    /// <inheritdoc/>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public abstract override void WriteByte(byte value);
+
+    /// <inheritdoc/>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public abstract override void Write(ReadOnlySpan<byte> buffer);
+
+    /// <inheritdoc/>
+    /// <exception cref="WebTransportException">When the <see cref="WebTransportSession.DataSentLimitProvidedByPeer"/> has been reached.</exception>
+    public abstract override void Write(byte[] buffer, int offset, int count);
+
+    #endregion
+
+    /// <summary>
+    /// Aborts either the reading, writing, or both sides of the stream.
+    /// </summary>
+    /// <param name="abortDirection">The direction of the stream to abort.</param>
+    /// <param name="errorCode">The error code with which to abort the stream. The value must be in the range [0, 2^32).</param>
+    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="errorCode"/> is not in the range [0, 2^32).</exception>
+    /// <exception cref="ObjectDisposedException">When calling setter on a closed session.</exception>
+    public abstract void Abort(WebTransportAbortDirection abortDirection, long errorCode);
 
     /// <inheritdoc/>
     /// <summary>
