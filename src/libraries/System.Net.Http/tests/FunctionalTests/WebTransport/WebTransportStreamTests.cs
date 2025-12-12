@@ -422,7 +422,7 @@ public sealed class WebTransportStreamTests : WebTransportTestBase
     [Theory]
     [InlineData(WebTransportStreamType.Unidirectional)]
     [InlineData(WebTransportStreamType.Bidirectional)]
-    public async Task ReadsAfterEndOfStreamIsReachThrow(WebTransportStreamType streamType)
+    public async Task ReadsAfterEndOfStreamIsReachedThrow(WebTransportStreamType streamType)
     {
         using Barrier barrier = new(2);
 
