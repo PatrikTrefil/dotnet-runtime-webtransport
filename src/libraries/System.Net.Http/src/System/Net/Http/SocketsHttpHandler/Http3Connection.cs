@@ -25,10 +25,14 @@ namespace System.Net.Http
         private readonly byte[]? _altUsedEncodedHeader;
         private QuicConnection? _connection;
         private Task? _connectionClosedTask;
+        /// <summary>
+        /// 0 means no, 1 means yes.
+        /// </summary>
+        private long _canReceiveBidirectionalStream;
 
         private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
 
-        private readonly TaskCompletionSourceWithCancellation<Dictionary<long, List<long>>> _nonHttpSettings = new();
+        private readonly TaskCompletionSourceWithCancellation<Dictionary<long, List<long>>> _nonHttpSettingsTcs = new();
         // Keep a collection of requests around so we can process GOAWAY.
         private readonly Dictionary<QuicStream, Http3RequestStream> _activeRequests = new Dictionary<QuicStream, Http3RequestStream>();
 
@@ -311,13 +315,14 @@ namespace System.Net.Http
             Http3ExtendedConnectManager? extendedconnectManager = null;
             if (request.IsExtendedConnectRequest)
             {
+                Interlocked.Exchange(ref _canReceiveBidirectionalStream, 1);
                 request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory? valueFactory);
                 if (valueFactory == null)
                 {
                     throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_missing_extended_connect_manager);
                 }
 
-                await _nonHttpSettings.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                Dictionary<long, List<long>> nonHttpSettings = await _nonHttpSettingsTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 if (!IsConnectEnabled)
                 {
@@ -342,7 +347,7 @@ namespace System.Net.Http
 
                 try
                 {
-                    extendedconnectManager.ValidateAndProcessServerSettings(_nonHttpSettings.Task.Result);
+                    extendedconnectManager.ValidateAndProcessServerSettings(nonHttpSettings);
                 }
                 catch (Exception e)
                 {
@@ -717,31 +722,23 @@ namespace System.Net.Http
             {
                 try
                 {
+                    if (stream.CanWrite && Interlocked.Read(ref _canReceiveBidirectionalStream) == 0)
+                    {
+                        // Clients MUST treat receipt of a server-initiated bidirectional stream as a connection error of type H3_STREAM_CREATION_ERROR unless such an extension has been negotiated.
+                        // https://www.rfc-editor.org/rfc/rfc9114.html#name-bidirectional-streams
+                        if (NetEventSource.Log.IsEnabled())
+                        {
+                            NetEventSource.Info(this, $"Ignoring server-initiated bidirectional stream, because no extension that uses server-initated bidirectional streams has been negotiated.");
+                        }
+
+                        throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
+                    }
+
                     buffer = new ArrayBuffer(initialSize: 32, usePool: true);
 
                     int bytesRead;
-
-                    try
-                    {
-                        bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
-                    }
-                    catch (QuicException ex) when (ex.QuicError == QuicError.StreamAborted)
-                    {
-                        // Treat identical to receiving 0. See below comment.
-                        bytesRead = 0;
-                    }
-
-                    if (bytesRead == 0)
-                    {
-                        // https://www.rfc-editor.org/rfc/rfc9114.html#name-unidirectional-streams
-                        // A sender can close or reset a unidirectional stream unless otherwise specified. A receiver MUST
-                        // tolerate unidirectional streams being closed or reset prior to the reception of the unidirectional
-                        // stream header.
-                        return;
-                    }
-                    buffer.Commit(bytesRead);
-
                     long streamType;
+
                     while (!VariableLengthIntegerHelper.TryRead(buffer.ActiveSpan, out streamType, out bytesRead))
                     {
                         buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
@@ -749,8 +746,16 @@ namespace System.Net.Http
 
                         if (bytesRead == 0)
                         {
-                            streamType = -1;
-                            break;
+                            // https://www.rfc-editor.org/rfc/rfc9114.html#name-unidirectional-streams
+                            // A sender can close or reset a unidirectional stream unless otherwise specified. A receiver MUST
+                            // tolerate unidirectional streams being closed or reset prior to the reception of the unidirectional
+                            // stream header.
+                            if (NetEventSource.Log.IsEnabled())
+                            {
+                                NetEventSource.Info(this, $"Ignoring server-initiated unidirectional stream, because it was closed or reset prior to the reception of the stream header.");
+                            }
+
+                            return;
                         }
 
                         buffer.Commit(bytesRead);
@@ -922,7 +927,7 @@ namespace System.Net.Http
                     }
                     catch (Exception ex)
                     {
-                        _nonHttpSettings.TrySetException(ex);
+                        _nonHttpSettingsTcs.TrySetException(ex);
                         throw;
                     }
 
@@ -1095,7 +1100,7 @@ namespace System.Net.Http
                     }
                 }
 
-                _nonHttpSettings.TrySetResult(nonHttpSettings);
+                _nonHttpSettingsTcs.TrySetResult(nonHttpSettings);
             }
 
             async ValueTask ProcessGoAwayFrameAsync(long goawayPayloadLength)
