@@ -600,7 +600,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
     }
 
     [Fact]
-    private async Task SessionIsUsableAfterGoawayIsReceivedAndProcessed()
+    public async Task SessionIsUsableAfterGoawayIsReceivedAndProcessed()
     {
         using Barrier barrier = new(2);
         using SemaphoreSlim wasHandlerCalledSemaphore = new(0, 2);
