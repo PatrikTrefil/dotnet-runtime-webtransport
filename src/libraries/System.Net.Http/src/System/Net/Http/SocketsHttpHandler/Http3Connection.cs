@@ -742,7 +742,14 @@ namespace System.Net.Http
                     while (!VariableLengthIntegerHelper.TryRead(buffer.ActiveSpan, out streamType, out bytesRead))
                     {
                         buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
-                        bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
+                        try
+                        {
+                            bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
+                        } catch (QuicException ex) when (ex.QuicError == QuicError.StreamAborted)
+                        {
+                            // Treat identical to receiving 0. See below comment.
+                            bytesRead = 0;
+                        }
 
                         if (bytesRead == 0)
                         {
