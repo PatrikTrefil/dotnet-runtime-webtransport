@@ -25,10 +25,8 @@ namespace System.Net.Http
         private readonly byte[]? _altUsedEncodedHeader;
         private QuicConnection? _connection;
         private Task? _connectionClosedTask;
-        /// <summary>
-        /// 0 means no, 1 means yes.
-        /// </summary>
-        private long _canReceiveBidirectionalStream;
+        private long _successfulExtendedConnectRequestCount;
+        private bool CanServerInitiatedStreamsBeReceived => Interlocked.Read(ref _successfulExtendedConnectRequestCount) > 0;
 
         private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
 
@@ -315,7 +313,8 @@ namespace System.Net.Http
             Http3ExtendedConnectManager? extendedconnectManager = null;
             if (request.IsExtendedConnectRequest)
             {
-                Interlocked.Exchange(ref _canReceiveBidirectionalStream, 1);
+                Interlocked.Increment(ref _successfulExtendedConnectRequestCount);
+
                 request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory? valueFactory);
                 if (valueFactory == null)
                 {
@@ -461,6 +460,8 @@ namespace System.Net.Http
             }
             catch (Exception ex)
             {
+                Interlocked.Decrement(ref _successfulExtendedConnectRequestCount);
+
                 extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
 
                 if (ex is QuicException qex && qex.QuicError == QuicError.OperationAborted)
@@ -722,7 +723,7 @@ namespace System.Net.Http
             {
                 try
                 {
-                    if (stream.CanWrite && Interlocked.Read(ref _canReceiveBidirectionalStream) == 0)
+                    if (stream.CanWrite && !CanServerInitiatedStreamsBeReceived)
                     {
                         // Clients MUST treat receipt of a server-initiated bidirectional stream as a connection error of type H3_STREAM_CREATION_ERROR unless such an extension has been negotiated.
                         // https://www.rfc-editor.org/rfc/rfc9114.html#name-bidirectional-streams
@@ -753,6 +754,12 @@ namespace System.Net.Http
 
                         if (bytesRead == 0)
                         {
+                            // We only support WebTransport over HTTP/3, which requires RESET_STREAM_AT, which means this must be a bidirectional stream of a type that has not been negotiated, so we should throw.
+                            if (stream.CanWrite)
+                            {
+                                throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
+                            }
+
                             // https://www.rfc-editor.org/rfc/rfc9114.html#name-unidirectional-streams
                             // A sender can close or reset a unidirectional stream unless otherwise specified. A receiver MUST
                             // tolerate unidirectional streams being closed or reset prior to the reception of the unidirectional
@@ -862,11 +869,16 @@ namespace System.Net.Http
                                 }
                             }
 
-                            // Unknown stream type. Per spec, these must be ignored and aborted but not be considered a connection-level error.
+                            if (stream.CanWrite)
+                            {
+                                throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
+                            }
+
+                            // Unknown stream type of a unidirectional stream. Per spec, these must be ignored and aborted but not be considered a connection-level error.
 
                             if (NetEventSource.Log.IsEnabled())
                             {
-                                NetEventSource.Info(this, $"Ignoring server-initiated stream of unknown type {streamType}.");
+                                NetEventSource.Info(this, $"Ignoring server-initiated unidirectional stream of unknown type {streamType}.");
                             }
 
                             stream.Abort(QuicAbortDirection.Read, (long)Http3ErrorCode.StreamCreationError);
