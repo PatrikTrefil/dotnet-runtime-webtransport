@@ -123,8 +123,6 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
-
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
             await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
@@ -140,7 +138,16 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
 
         Task serverTask = Task.Run(async () =>
         {
-            await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+            await using Http3LoopbackConnection connection = await _webTransportServer.AcceptWebTransportEnabledConnection(
+                new WebTransportHttpConnectionCreationOptions {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 1,
+                    InitialBidirectionalStreamCountLimitForPeer = 1,
+                    InitialDataSentLimitForPeer = 20
+                });
+
+            HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+            QuicStream connectStream = connection.CurrentStream.Stream;
 
             QuicStreamType quicStreamType = streamType switch
             {
@@ -149,8 +156,8 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
                 _ => throw new ArgumentOutOfRangeException(nameof(streamType), "Invalid stream type")
             };
 
-            long nextSessionId = (int)backgroundSession.SessionId + 4;
-            await using QuicStream stream = await backgroundSession.Connection.OpenQuicStreamAsync(quicStreamType);
+            long nextSessionId = 0;
+            await using QuicStream stream = await connection.OpenQuicStreamAsync(quicStreamType);
 
             long streamTypeOrSignalValue = WebTransportStreamTypeHelper.GetStreamTypeOrSignalValue(streamType);
 
@@ -158,7 +165,9 @@ public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDispo
             VariableLengthIntegerStreamHelper.Write(stream, nextSessionId);
             await stream.WriteAsync(dataToSend);
 
-            await using WebTransportServerSession session = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
+            await connection.SendResponseAsync(content: null, isFinal: false);
+
+            await using WebTransportServerSession session = new() { Connection = connection, ConnectStream = connectStream };
 
             Debug.Assert(session.SessionId == nextSessionId, $"Session ID prediction failed (expected: {nextSessionId}, received: {session.SessionId}).");
 
