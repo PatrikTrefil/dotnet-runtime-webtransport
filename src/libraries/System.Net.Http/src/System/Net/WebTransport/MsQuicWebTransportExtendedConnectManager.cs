@@ -130,24 +130,32 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
     public override async Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream)
     {
-        int bytesRead;
-        long sessionId;
-        while (!VariableLengthIntegerHelper.TryRead(buffer.ActiveSpan, out sessionId, out bytesRead))
+        try
         {
-            buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
-            bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
-
-            if (bytesRead == 0)
+            int bytesRead;
+            long sessionId;
+            while (!VariableLengthIntegerHelper.TryRead(buffer.ActiveSpan, out sessionId, out bytesRead))
             {
-                sessionId = -1;
-                break;
+                buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
+                bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
+
+                if (bytesRead == 0)
+                {
+                    sessionId = -1;
+                    break;
+                }
+
+                buffer.Commit(bytesRead);
             }
+            buffer.Discard(bytesRead);
 
-            buffer.Commit(bytesRead);
+            ProcessReceivedStreamForSessionAsync(streamType, buffer, stream, sessionId);
+        } catch (Exception)
+        {
+            await stream.DisposeAsync().ConfigureAwait(false);
+            buffer.Dispose();
+            throw;
         }
-        buffer.Discard(bytesRead);
-
-        ProcessReceivedStreamForSessionAsync(streamType, buffer, stream, sessionId);
     }
 
     private void ProcessReceivedStreamForSessionAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream, long sessionId)
