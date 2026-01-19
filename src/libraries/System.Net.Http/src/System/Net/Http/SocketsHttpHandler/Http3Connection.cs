@@ -755,10 +755,11 @@ namespace System.Net.Http
                         if (bytesRead == 0)
                         {
                             // We only support WebTransport over HTTP/3, which requires RESET_STREAM_AT, which means this must be a bidirectional stream of a type that has not been negotiated, so we should throw.
-                            if (stream.CanWrite)
-                            {
-                                throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
-                            }
+                            // HACK: this should be uncommented after support for RESET_STREAM_AT is added
+                            //if (stream.CanWrite)
+                            //{
+                            //    throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.StreamCreationError);
+                            //}
 
                             // https://www.rfc-editor.org/rfc/rfc9114.html#name-unidirectional-streams
                             // A sender can close or reset a unidirectional stream unless otherwise specified. A receiver MUST
