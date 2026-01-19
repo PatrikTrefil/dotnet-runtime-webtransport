@@ -36,7 +36,7 @@ internal sealed class ConcatenatedStream : Stream
         get
         {
             ObjectDisposedException.ThrowIf(_isDisposed, this);
-            return BufferMemory.Length + _stream.Length;
+            return _buffer.ActiveLength + _stream.Length;
         }
     }
     public override long Position
