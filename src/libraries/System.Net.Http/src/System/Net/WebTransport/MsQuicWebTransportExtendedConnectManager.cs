@@ -242,8 +242,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         _initialMaxBidirectionalStreamsPerSession = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportInitialMaxBidirectionalStreamsPerSession, 0);
         _initialMaxDataPerSession = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportInitialMaxDataPerSession, 0);
 
-        ThrowHelper.ValidateStreamCountLimit(_initialMaxUnidirectionalStreamsPerSession, nameof(serverSettings));
-        ThrowHelper.ValidateStreamCountLimit(_initialMaxBidirectionalStreamsPerSession, nameof(serverSettings));
+        ThrowHelper.ValidateStreamCountLimit(_initialMaxUnidirectionalStreamsPerSession);
+        ThrowHelper.ValidateStreamCountLimit(_initialMaxBidirectionalStreamsPerSession);
     }
 
     private static long GetAndValidateSettingValue(Dictionary<long, List<long>> serverSettings, Http3SettingType settingType, long defaultValue)
