@@ -74,7 +74,7 @@ internal abstract class Http3ExtendedConnectManager
     /// </summary>
     /// <param name="streamType">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="buffer">Contains the initial part of the stream data. The buffer ownership is given to the method.</param>
-    /// <param name="stream">The received stream</param>
+    /// <param name="stream">The received stream. The stream ownership is given to the method.</param>
     public abstract Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream);
 
     /// <summary>
