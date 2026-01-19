@@ -225,7 +225,13 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The maximum length of the message after the encoding is 1024 bytes.
     /// </param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
-    /// <remarks>The delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> is best-effort.</remarks>
+    /// <remarks>
+    /// The delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> is best-effort.
+    ///
+    /// In case the underlying HTTP connection is only used by this session and the session is closed using this method,
+    /// the the underlying HTTP connection is closed immediately after sending the <paramref name="closeStatus"/> and <paramref name="statusDescription"/>.
+    /// It is possible the peer receives the HTTP connection closure before receiving the <paramref name="closeStatus"/> and <paramref name="statusDescription"/>.
+    /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     /// <exception cref="ArgumentException">Thrown when the <paramref name="statusDescription"/> is longer than 1024 bytes after encoding.</exception>
