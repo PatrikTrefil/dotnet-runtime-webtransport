@@ -471,6 +471,60 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Theory]
+    [MemberData(nameof(s_serverSettingsWithDuplicatedEntries))]
+    public async Task SessionEstablishmentFailsWhenTheServerSendsSettingEntriesMultipleTimes(Http3SettingsEntry[] serverSettingsWithDuplicatedEntries)
+    {
+        using Barrier barrier = new(2);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(serverSettingsWithDuplicatedEntries);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(MaxOpenWebTransportSessions + 1)]
+    [InlineData(VariableLengthIntegerHelper.MaxValue)]
+    public async Task SessionEstablishmentFailsWhenServerSendsUnsupportedMaxSessionCountLimit(long invalidValueForWebTransportMaxSessionsSetting)
+    {
+        using Barrier barrier = new(2);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _httpServer.EstablishConnectionAsync(
+                new Http3SettingsEntry
+                {
+                    SettingId = Http3SettingType.WebTransportMaxSessions,
+                    Value = invalidValueForWebTransportMaxSessionsSetting
+                });
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(async () => await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+
+            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
     [Fact]
     public async Task SessionEstablishmentFailsWhenTheServerHasWebTransportMaxSessionsSettingSetToZero()
     {
