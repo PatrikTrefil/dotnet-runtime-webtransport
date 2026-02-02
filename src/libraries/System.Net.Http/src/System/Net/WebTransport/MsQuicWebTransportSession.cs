@@ -57,7 +57,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         long id,
         IMsQuicWebTransportSessionConnectionManager connectionManager,
         QuicStream connectStream,
-        byte[] controlStreamBuffer,
+        ArrayBuffer connectStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
         Channel<ChannelItem> pendingBidirectionalStreams,
         Func<WebTransportSession, Task> gracefulShutdownHandler,
@@ -68,7 +68,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
         _connectionManager = connectionManager;
-        _capsuleConsumer = new CapsuleConsumer(connectStream, controlStreamBuffer, this);
+        _capsuleConsumer = new CapsuleConsumer(connectStream, connectStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
 
 

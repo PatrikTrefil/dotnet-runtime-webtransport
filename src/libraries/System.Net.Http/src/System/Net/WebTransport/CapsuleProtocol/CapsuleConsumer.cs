@@ -10,22 +10,26 @@ namespace System.Net.WebTransport;
 /// <summary>
 /// Reads and processes capsules from a capsule stream.
 /// </summary>
-internal sealed class CapsuleConsumer : IDisposable
+/// <remarks>Resources owned by this class are automatically disposed when an exception is thrown during <see cref="ProcessNextCapsule"/>.</remarks>
+internal sealed class CapsuleConsumer
 {
-    private bool _isDisposed;
     private readonly Stream _capsuleStream;
     private readonly MsQuicWebTransportSession _session;
     // Don't make the _buffer readonly - mutable struct
     private ArrayBuffer _buffer;
     private const int s_maxCapsuleSize = 10_000; // Maximum possible capsule size of known capsule types in bytes
 
-    public CapsuleConsumer(Stream capsuleStream, byte[] capsuleStreamBuffer,  MsQuicWebTransportSession session)
+    /// <param name="capsuleStream">Stream with capsule data. The ownership of <paramref name="capsuleStream"/> is not passed to the created instance of <see cref="CapsuleConsumer"/>.</param>
+    /// <param name="capsuleStreamBuffer">
+    /// Buffer with pre-read data from the <paramref name="capsuleStream"/>. The ownership of this buffer is passed to the created instance of <see cref="CapsuleConsumer"/>.
+    /// The created instance is therefore responsible for the disposal of the <paramref name="capsuleStreamBuffer"/>.
+    /// </param>
+    /// <param name="session">Session that owns this instance.</param>
+    public CapsuleConsumer(Stream capsuleStream, ArrayBuffer capsuleStreamBuffer, MsQuicWebTransportSession session)
     {
         _capsuleStream = capsuleStream;
         _session = session;
-        _buffer = new(initialSize: capsuleStreamBuffer.Length, usePool: true);
-        capsuleStreamBuffer.CopyTo(_buffer.AvailableSpan);
-        _buffer.Commit(capsuleStreamBuffer.Length);
+        _buffer = capsuleStreamBuffer;
     }
 
     /// <exception cref="EndOfStreamException">When the end of stream has been reached. This can only happen if the stream was closed gracefully.</exception>
@@ -54,22 +58,28 @@ internal sealed class CapsuleConsumer : IDisposable
     /// Processes the next capsule in the provided capsule stream.
     /// If a capsule with unknown capsule code is received, the capsule is dropped and the call ends.
     /// </summary>
-    /// <exception cref="ObjectDisposedException">When calling method on a disposed object.</exception>
     /// <exception cref="EndOfStreamException">When the capsule stream is cleanly terminated.</exception>
     /// <exception cref="CapsuleProtocolException">If the next capsule value is invalid.</exception>
     public async Task ProcessNextCapsule()
     {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        Capsule? capsule = await DeserializeCapsule().ConfigureAwait(false);
-
-        if (capsule != null)
+        try
         {
-            capsule.ProcessReceived(_session);
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Capsule processed");
-        } else
+            Capsule? capsule = await DeserializeCapsule().ConfigureAwait(false);
+
+            if (capsule != null)
+            {
+                capsule.ProcessReceived(_session);
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Capsule deserialization and processing finished.");
+            }
+            else
+            {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Unknown capsule dropped");
+            }
+        }
+        catch (Exception)
         {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.CapsuleDeserializationAndProccessingCompleted(this, "Unknown capsule dropped");
+            _buffer.Dispose();
+            throw;
         }
     }
 
@@ -149,17 +159,5 @@ internal sealed class CapsuleConsumer : IDisposable
         }
 
         await _capsuleStream.ReadExactlyAsync(_buffer.AvailableMemory.Slice(0, (int)bytesToSkip)).ConfigureAwait(false);
-    }
-
-    public void Dispose()
-    {
-        if (!_isDisposed)
-        {
-            _buffer.Dispose();
-
-            _isDisposed = true;
-        }
-
-        GC.SuppressFinalize(this);
     }
 }
