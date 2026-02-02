@@ -28,6 +28,11 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     private readonly TaskCompletionSource _tcsWritesClosed = new();
 
     private readonly Action<long> _addBytesSent = addBytesSent;
+    /// <summary>
+    /// <see cref="QuicStream.Abort(QuicAbortDirection, long)"/> and <see cref="QuicStream.DisposeAsync"/> and <see cref="QuicStream.Dispose(bool)"/> may not run at the same time.
+    /// To prevent this we use this lock.
+    /// </summary>
+    private readonly Lock _abortDisposeLock = new();
 
     /// <summary>
     /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="WebTransportStream.DisposeAsync()"/>.
@@ -166,7 +171,10 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        _quicStream.Abort(abortDirection, (long)httpErrorCode);
+        lock (_abortDisposeLock)
+        {
+            _quicStream.Abort(abortDirection, (long)httpErrorCode);
+        }
     }
 
     public override void Abort(WebTransportAbortDirection abortDirection, long errorCode)
@@ -179,6 +187,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         long remappedErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(errorCode);
         try
         {
+            // Doesn't need to acquire _abortLock lock, because the use should never call WebTransportStream.Abort and WebTransportStream.DisposeAsync in parallel
             _quicStream.Abort(quicAbortDirection, remappedErrorCode);
         }
         catch (QuicException quicException)
@@ -571,7 +580,10 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             if (disposing)
             {
                 // The write side is closed gracefully by QuicStream.Dispose/DisposeAsync
-                _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
+                lock (_abortDisposeLock)
+                {
+                    _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
+                }
                 _readStream.Dispose();
                 _quicStream.Dispose();
             }
@@ -585,7 +597,10 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         if (!_isDisposed)
         {
             // The write side is closed gracefully by QuicStream.Dispose/DisposeAsync
-            _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
+            lock (_abortDisposeLock)
+            {
+                _quicStream.Abort(QuicAbortDirection.Read, _remappedDefaultStreamErrorCode);
+            }
             await _quicStream.DisposeAsync().ConfigureAwait(false);
             await _readStream.DisposeAsync().ConfigureAwait(false);
         }
