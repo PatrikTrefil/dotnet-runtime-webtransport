@@ -14,11 +14,15 @@ namespace System.Net.WebTransport;
 internal sealed class ConcatenatedStream : Stream
 {
     private Memory<byte> BufferMemory => _buffer.ActiveMemory;
-    private readonly ArrayBuffer _buffer;
+    // Don't make the _buffer readonly - mutable struct
+    private ArrayBuffer _buffer;
+    /// <summary>
+    /// Necessary to prevent double return of array to array pool.
+    /// </summary>
+    private readonly Lock _bufferLock = new();
     private readonly Stream _stream;
     private bool _isMemoryRead;
     private int _memoryPosition;
-
     private bool _isDisposed;
 
     /// <exception cref="ArgumentNullException">When <paramref name="stream"/> is null</exception>
@@ -31,14 +35,7 @@ internal sealed class ConcatenatedStream : Stream
     public override bool CanRead => !_isDisposed && _stream.CanRead;
     public override bool CanSeek => false;
     public override bool CanWrite => false;
-    public override long Length
-    {
-        get
-        {
-            ObjectDisposedException.ThrowIf(_isDisposed, this);
-            return _buffer.ActiveLength + _stream.Length;
-        }
-    }
+    public override long Length => throw new NotSupportedException();
     public override long Position
     {
         get
@@ -94,14 +91,17 @@ internal sealed class ConcatenatedStream : Stream
         int bytesToReadFromMemory = 0;
         if (!_isMemoryRead)
         {
-            bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
-            BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).CopyTo(buffer);
-            _memoryPosition += bytesToReadFromMemory;
-
-            if (_memoryPosition == BufferMemory.Length)
+            lock (_bufferLock)
             {
-                _isMemoryRead = true;
-                _buffer.Dispose();
+                bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
+                BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).CopyTo(buffer);
+                _memoryPosition += bytesToReadFromMemory;
+
+                if (_memoryPosition == BufferMemory.Length && bytesToReadFromMemory > 0)
+                {
+                    _isMemoryRead = true;
+                    _buffer.ClearAndReturnBuffer();
+                }
             }
         }
 
@@ -122,14 +122,17 @@ internal sealed class ConcatenatedStream : Stream
         int bytesToReadFromMemory = 0;
         if (!_isMemoryRead)
         {
-            bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
-            BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).Span.CopyTo(buffer);
-            _memoryPosition += bytesToReadFromMemory;
-
-            if (_memoryPosition == BufferMemory.Length)
+            lock (_bufferLock)
             {
-                _isMemoryRead = true;
-                _buffer.Dispose();
+                bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
+                BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).Span.CopyTo(buffer);
+                _memoryPosition += bytesToReadFromMemory;
+
+                if (_memoryPosition == BufferMemory.Length && bytesToReadFromMemory > 0)
+                {
+                    _isMemoryRead = true;
+                    _buffer.ClearAndReturnBuffer();
+                }
             }
         }
 
@@ -175,7 +178,10 @@ internal sealed class ConcatenatedStream : Stream
             if (disposing)
             {
                 _stream.Dispose();
-                _buffer.Dispose();
+                lock (_bufferLock)
+                {
+                    _buffer.Dispose();
+                }
             }
         }
 
