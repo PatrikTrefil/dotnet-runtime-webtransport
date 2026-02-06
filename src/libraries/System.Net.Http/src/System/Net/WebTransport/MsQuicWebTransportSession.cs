@@ -37,6 +37,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
     private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
+    /// <summary>
+    /// Used to make <see cref="DisposeAsyncCore"/> thread-safe.
+    /// </summary>
+    /// <remarks>
+    /// We use a semaphore instead of compare-and-exchange operations to make sure, that when call of <see cref="DisposeAsyncCore"/> finishes, all resources have been released.
+    /// We use a semaphore instead of a standard lock to, because we need to use await in the clean up.
+    /// </remarks>
+    private readonly SemaphoreSlim _cleanUpSemaphore = new(1, 1);
     private bool _isCleanedUp;
 
     /// <summary>
@@ -651,42 +659,21 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        bool needsToSendFinOnConnectStream = false;
         lock (SyncLock)
         {
             if (State == WebTransportSessionState.Open)
             {
                 MarkSessionAsClosed(WebTransportSessionState.ClosedLocally, null, null);
-                needsToSendFinOnConnectStream = true;
             }
         }
 
-        if (needsToSendFinOnConnectStream)
-        {
-            CloseSessionBySendingFinOnConnectStream();
-        }
-
+        // Graceful close (sending FIN on the CONNECT stream) is performed inside CleanUpSessionAsync
+        // rather than here to avoid a race condition. Background tasks (ProcessIncomingCapsules,
+        // ReactToWritesClosedAbortivelyOnConnectStream) may call CleanUpSessionAsync concurrently,
+        // which could dispose _connectStream while we're still trying to use it here.
+        // By moving the graceful close inside the semaphore-protected cleanup, we ensure all
+        // _connectStream operations are properly serialized.
         await CleanUpSessionAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
-    }
-
-    private void CloseSessionBySendingFinOnConnectStream()
-    {
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncStarted(this);
-
-        try
-        {
-            _connectStream.CompleteWrites();
-        }
-        catch (Exception ex)
-        {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
-
-            _connectStream.Abort(QuicAbortDirection.Write, 0);
-        }
-
-        _connectStream.Abort(QuicAbortDirection.Read, 0);
-
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncCompleted(this);
     }
 
     protected override async ValueTask CloseAsyncCore(long closeStatus, byte[] statusDescription, CancellationToken cancellationToken = default)
@@ -818,23 +805,54 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <param name="errorCodeForStreams">Error code used to abort all <see cref="QuicStream"/> instances associated with this session.</param>
     private async ValueTask CleanUpSessionAsync(Http3ErrorCode errorCodeForStreams)
     {
+        await _cleanUpSemaphore.WaitAsync().ConfigureAwait(false);
+
         if (!_isCleanedUp)
         {
-            await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+            bool tryClosingGracefully;
+            lock (SyncLock)
+            {
+                tryClosingGracefully = State == WebTransportSessionState.ClosedLocally;
+            }
+
+            await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone, tryClosingGracefully).ConfigureAwait(false);
             _connectionManager.RemoveSession(_connectStream); // _connectStream will be disposed by the _connectionManager
-            _capsuleConsumer.Dispose();
             _unidirectionalStreamSemaphore.Dispose();
             _bidirectionalStreamSemaphore.Dispose();
 
             _isCleanedUp = true;
         }
 
+        _cleanUpSemaphore.Release();
+
         await base.DisposeAsyncCore().ConfigureAwait(false);
     }
 
-    private async ValueTask CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode httpErrorCode)
+    private async ValueTask CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode httpErrorCode, bool tryClosingGracefully)
     {
-        _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+        if (tryClosingGracefully)
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncStarted(this);
+
+            try
+            {
+                _connectStream.CompleteWrites();
+            }
+            catch (Exception ex)
+            {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+
+                _connectStream.Abort(QuicAbortDirection.Write, 0);
+            }
+
+            _connectStream.Abort(QuicAbortDirection.Read, 0);
+
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.CloseBySendingFinAsyncCompleted(this);
+        }
+        else
+        {
+            _connectStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
+        }
 
         await CleanupPendingAndOpenStreamsAsync(httpErrorCode).ConfigureAwait(false);
     }
