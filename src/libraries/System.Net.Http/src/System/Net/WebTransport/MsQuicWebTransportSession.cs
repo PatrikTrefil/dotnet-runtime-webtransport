@@ -32,7 +32,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
     private Channel<ChannelItem>? _pendingBidirectionalStreams;
 
-    private List<MsQuicWebTransportStream>? _openStreams = [];
+    private readonly List<MsQuicWebTransportStream> _openStreams = [];
 
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
@@ -484,26 +484,20 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private void AddToOpenStreamsOtherwiseRejectAndDisposeStream(MsQuicWebTransportStream stream)
     {
-        try
+        lock (SyncLock)
         {
-            lock (SyncLock)
+            Exception? e = GetExceptionForObjectState();
+
+            if (e is null)
             {
-                ThrowIfInvalidState();
-                if (_openStreams != null)
-                {
-                    _openStreams.Add(stream);
-                }
-                else
-                {
-                    RejectAndDisposeStream(stream);
-                }
+                _openStreams.Add(stream);
             }
-        }
-        catch (Exception ex)
-        {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
-            RejectAndDisposeStream(stream);
-            throw;
+            else
+            {
+                RejectAndDisposeStream(stream);
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
+                throw e;
+            }
         }
 
         static void RejectAndDisposeStream(MsQuicWebTransportStream streamToReject)
@@ -644,10 +638,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         lock (SyncLock)
         {
-            if (_openStreams != null)
-            {
-                _openStreams.Remove(stream);
-            }
+            _openStreams.Remove(stream);
         }
     }
 
@@ -878,17 +869,10 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         lock (SyncLock)
         {
-            if (_openStreams == null)
-            {
-                return;
-            }
-
             foreach (MsQuicWebTransportStream item in _openStreams)
             {
                 item.AbortQuicStream(QuicAbortDirection.Both, httpErrorCode);
             }
-
-            _openStreams = null;
         }
     }
 
