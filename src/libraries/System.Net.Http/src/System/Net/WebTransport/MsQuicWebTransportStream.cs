@@ -208,6 +208,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         try
         {
             return _readStream.BeginRead(buffer, offset, count, callback, state);
@@ -221,6 +223,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override int EndRead(IAsyncResult asyncResult)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         try
         {
             return _readStream.EndRead(asyncResult);
@@ -234,6 +238,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override int Read(byte[] buffer, int offset, int count)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         try
         {
             return _readStream.Read(buffer, offset, count);
@@ -247,6 +253,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override int ReadByte()
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         try
         {
             return _readStream.ReadByte();
@@ -278,6 +286,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         CancellationTokenRegistration ctr = RegisterCancellationCallback(QuicAbortDirection.Read, cancellationToken);
         await using (ctr.ConfigureAwait(false))
         {
@@ -348,6 +358,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(count);
 
         try
@@ -363,6 +375,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void EndWrite(IAsyncResult asyncResult)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         try
         {
             _quicStream.EndWrite(asyncResult);
@@ -376,6 +390,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void WriteByte(byte value)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(1);
 
         try
@@ -391,6 +407,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void Write(ReadOnlySpan<byte> buffer)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(buffer.Length);
 
         try
@@ -406,6 +424,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(count);
 
         try
@@ -424,6 +444,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(count);
 
         CancellationTokenRegistration ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
@@ -443,6 +465,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         _addBytesSent(buffer.Length);
 
         CancellationTokenRegistration ctr = RegisterCancellationCallback(QuicAbortDirection.Write, cancellationToken);
