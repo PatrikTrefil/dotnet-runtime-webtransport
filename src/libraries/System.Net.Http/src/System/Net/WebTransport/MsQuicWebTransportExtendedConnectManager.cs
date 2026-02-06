@@ -220,6 +220,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 {
                     if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, _validationException);
 
+                    throw _validationException;
                 }
             }
 
