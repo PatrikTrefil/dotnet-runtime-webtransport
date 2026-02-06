@@ -56,6 +56,7 @@ public abstract class WebTransportTestBase : IAsyncDisposable
             ServerCertificateCustomValidationCallback = TestHelper.AllowAllCertificates
         };
         _client = new HttpClient(handler);
+        _client.Timeout = TimeSpan.FromSeconds(20);
 
         _defaultWebTransportSessionCreationOptions = new WebTransportSessionCreationOptions
         {
