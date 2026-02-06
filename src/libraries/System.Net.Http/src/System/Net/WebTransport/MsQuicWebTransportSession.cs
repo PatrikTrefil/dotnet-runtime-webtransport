@@ -95,10 +95,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     public override string? CloseStatusDescription
     {
-        get
-        {
-            lock (SyncLock) { return field; }
-        }
+        // Lock not required for getter because this property is only read after the thread reading it has observed the session as closed, which requires acquiring the SyncLock, which ensures memory synchronization.
+        get;
         protected set
         {
             Debug.Assert(SyncLock.IsHeldByCurrentThread);
@@ -109,10 +107,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     public override long? CloseStatusCode
     {
-        get
-        {
-            lock (SyncLock) { return field; }
-        }
+        // Lock not required for getter because this property is only read after the thread reading it has observed the session as closed, which requires acquiring the SyncLock, which ensures memory synchronization.
+        get;
         protected set
         {
             Debug.Assert(SyncLock.IsHeldByCurrentThread);
