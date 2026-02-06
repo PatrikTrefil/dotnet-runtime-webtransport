@@ -71,5 +71,5 @@ internal sealed class Http3ExtendedConnectContent : HttpContent
         return false;
     }
 
-    internal override bool AllowDuplex => true; // TODO: there is a comment that is has to be false in the base class?
+    internal override bool AllowDuplex => false;
 }
