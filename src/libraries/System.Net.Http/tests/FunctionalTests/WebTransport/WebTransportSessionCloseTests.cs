@@ -348,6 +348,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using WebTransportStream outboundUnidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional);
             await using WebTransportStream outboundBidirectionalStream = await session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional);
 
+            barrier.SignalAndWait();
+
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
             Assert.Equal(WebTransportSessionState.AbortedRemotely, session.State);
@@ -370,6 +372,8 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await using QuicStream outboundBidirectionalStream = await serverSession.OpenStreamFromServerAsync(WebTransportStreamType.Bidirectional);
             await using QuicStream inboundUnidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Unidirectional);
             await using QuicStream inboundBidirectionalStream = await serverSession.AcceptStreamFromServerAsync(WebTransportStreamType.Bidirectional);
+
+            barrier.SignalAndWait();
 
             serverSession.ConnectStream.Abort(abortDirection, 0);
 
