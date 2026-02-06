@@ -100,7 +100,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                _tcsWritesClosed.SetException(ExceptionHandler(ex));
+                _tcsWritesClosed.SetException(ExceptionWrapper(ex));
             }
         });
     }
@@ -116,7 +116,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                _tcsReadsClosed.SetException(ExceptionHandler(ex));
+                _tcsReadsClosed.SetException(ExceptionWrapper(ex));
             }
         });
     }
@@ -192,7 +192,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw ExceptionHandler(quicException);
+            throw ExceptionWrapper(quicException);
         }
     }
 
@@ -214,7 +214,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -227,7 +227,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -240,7 +240,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -253,7 +253,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -268,7 +268,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -287,7 +287,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                throw ExceptionHandler(ex, cancellationToken);
+                throw ExceptionWrapper(ex, cancellationToken);
             }
         }
     }
@@ -306,7 +306,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                throw ExceptionHandler(ex, cancellationToken);
+                throw ExceptionWrapper(ex, cancellationToken);
             }
         }
     }
@@ -356,7 +356,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -369,7 +369,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -384,7 +384,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException ex)
         {
-            throw ExceptionHandler(ex);
+            throw ExceptionWrapper(ex);
         }
     }
 
@@ -399,7 +399,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw ExceptionHandler(quicException);
+            throw ExceptionWrapper(quicException);
         }
     }
 
@@ -414,7 +414,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw ExceptionHandler(quicException);
+            throw ExceptionWrapper(quicException);
         }
     }
 
@@ -435,7 +435,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                throw ExceptionHandler(ex, cancellationToken);
+                throw ExceptionWrapper(ex, cancellationToken);
             }
         }
     }
@@ -454,7 +454,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException ex)
             {
-                throw ExceptionHandler(ex, cancellationToken);
+                throw ExceptionWrapper(ex, cancellationToken);
             }
         }
     }
@@ -474,7 +474,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
         catch (QuicException quicException)
         {
-            throw ExceptionHandler(quicException);
+            throw ExceptionWrapper(quicException);
         }
     }
 
@@ -495,7 +495,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
             catch (QuicException quicException)
             {
-                throw ExceptionHandler(quicException, cancellationToken);
+                throw ExceptionWrapper(quicException, cancellationToken);
             }
         }
     }
@@ -513,7 +513,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         return default;
     }
 
-    private Exception ExceptionHandler(QuicException quicException, CancellationToken cancellationToken = default)
+    private Exception ExceptionWrapper(QuicException quicException, CancellationToken cancellationToken = default)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, quicException);
 
