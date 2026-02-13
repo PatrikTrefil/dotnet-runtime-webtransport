@@ -124,7 +124,15 @@ public static class ClientWebTransportSession
             selectedSubprotocol,
             options.DefaultStreamErrorCode);
 
-        await SetInitialOptionsForPeerAsync(session, options, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SetInitialOptionsForPeerAsync(session, options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await session.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
 
         return session;
     }
