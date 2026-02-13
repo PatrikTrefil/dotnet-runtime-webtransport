@@ -947,7 +947,7 @@ namespace System.Net.WebTransport
 {
     public abstract partial class WebTransportStream : System.IO.Stream
     {
-        protected internal WebTransportStream() { }
+        protected internal WebTransportStream(WebTransportStreamType type) { }
         public abstract long StreamId { get; }
         public abstract System.Threading.Tasks.Task ReadsClosed { get; }
         public abstract System.Threading.Tasks.Task WritesClosed { get; }
