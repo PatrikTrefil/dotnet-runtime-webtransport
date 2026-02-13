@@ -130,7 +130,7 @@ public static class ClientWebTransportSession
         }
         catch (Exception)
         {
-            await session.DisposeAsync().ConfigureAwait(false);
+            await session.CloseAsync().ConfigureAwait(false);
             throw;
         }
 
