@@ -59,7 +59,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// over the lifetime of the session by this endpoint.
     /// The value may be changed during the lifetime of the session.
     /// </summary>
-    /// <value>The value must be in the range [0, 65535).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract long UnidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
@@ -67,7 +67,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// A count of the cumulative number of unidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// </summary>
-    /// <value>The value must be in the range [0, 65535).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <remarks>The value may be updated using <see cref="SetUnidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract long UnidirectionalStreamCountLimitForPeer { get; protected set; }
@@ -78,7 +78,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="limit">The new value for <see cref="UnidirectionalStreamCountLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the range [0, 65535).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the supported range [0, 65535).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
@@ -88,7 +88,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// over the lifetime of the session by this endpoint.
     /// The value may be changed during the lifetime of the session.
     /// </summary>
-    /// <value>The value must be in the range [0, 65535).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract long BidirectionalStreamCountLimitProvidedByPeer { get; internal set; }
 
@@ -96,7 +96,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// A count of the cumulative number of bidirectional streams that can be opened
     /// over the lifetime of the session by the remote endpoint.
     /// </summary>
-    /// <value>The value must be in the range [0, 65535).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <remarks>The value may be updated using <see cref="SetBidirectionalStreamCountLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract long BidirectionalStreamCountLimitForPeer { get; protected set; }
@@ -107,7 +107,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="limit">The new value for <see cref="BidirectionalStreamCountLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the range [0, 65535).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the supported range [0, 65535).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_streams-capsule"/>
     public abstract ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
@@ -118,7 +118,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <value>The value must be in the range [0, 2^62).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public abstract long DataSentLimitProvidedByPeer { get; internal set; }
 
@@ -128,7 +128,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The stream header is excluded from this limit so that this limit does not prevent the sending
     /// of information that is essential in linking new streams to a specific WebTransport session.
     /// </summary>
-    /// <value>The value must be in the range [0, 2^62).</value>
+    /// <value>Supported values are in the range [0, 65535).</value>
     /// <remarks>The value may be updated using <see cref="SetDataSentLimitForPeerAsync(long, CancellationToken)"/>.</remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-wt_max_data-capsule"/>
     public abstract long DataSentLimitForPeer { get; protected set; }
@@ -139,7 +139,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <param name="limit">The new value for <see cref="DataSentLimitForPeer"/></param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="WebTransportException">When the session's <see cref="State"/> is not <see cref="WebTransportSessionState.Open"/> or the operation fails.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the range [0, 65535).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When the <paramref name="limit"/> is not in the supported range [0, 65535).</exception>
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public abstract ValueTask SetDataSentLimitForPeerAsync(long limit, CancellationToken cancellationToken = default);
 
