@@ -43,11 +43,15 @@ internal sealed class CapsuleSender
     private async Task SendCapsuleAsyncCore(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)
     {
         byte[] arrayPoolBuffer = ArrayPool<byte>.Shared.Rent(capsule.TotalLength); // TODO: does this make sense for small capsules?
-
-        capsule.Serialize(arrayPoolBuffer.AsSpan(0, capsule.TotalLength));
-        await _capsuleStream.WriteAsync(arrayPoolBuffer.AsMemory(0, capsule.TotalLength), completeWrites, cancellationToken).ConfigureAwait(false);
-        await _capsuleStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-
-        ArrayPool<byte>.Shared.Return(arrayPoolBuffer);
+        try
+        {
+            capsule.Serialize(arrayPoolBuffer.AsSpan(0, capsule.TotalLength));
+            await _capsuleStream.WriteAsync(arrayPoolBuffer.AsMemory(0, capsule.TotalLength), completeWrites, cancellationToken).ConfigureAwait(false);
+            await _capsuleStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(arrayPoolBuffer);
+        }
     }
 }
