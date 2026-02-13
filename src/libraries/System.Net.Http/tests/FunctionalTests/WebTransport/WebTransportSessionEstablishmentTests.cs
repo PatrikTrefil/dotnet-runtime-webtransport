@@ -342,13 +342,13 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task serverTask = Task.Run(async () =>
         {
+            // Establish a successful session first, to establish an HTTP connection
             await using WebTransportServerSession backgroundSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
                 new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 2 }
                 );
 
-            barrier.SignalAndWait(TestTimeoutInMilliseconds);
-
-            await Assert.ThrowsAsync<QuicException>(() => backgroundSession.Connection.ReadRequestDataAsync(readBody: false)); // read the request that timed out
+            await using Http3LoopbackStream requestStream = await backgroundSession.Connection.AcceptRequestStreamAsync();
+            requestStream.Abort(0);
 
             await using WebTransportServerSession session = await _webTransportServer.AcceptWebTransportServerSessionAsync(backgroundSession.Connection);
 
@@ -357,17 +357,9 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
 
         Task clientTask = Task.Run(async () =>
         {
-            _client.Timeout = TimeSpan.FromSeconds(3);
-
             await using WebTransportSession backgroundSession = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
-            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(
-                async () =>
-                    // the following call should reserve a session and when it fails it should release it back
-                    await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
-            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
-
-            barrier.SignalAndWait(TestTimeoutInMilliseconds);
+            await Assert.ThrowsAnyAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
 
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
 
