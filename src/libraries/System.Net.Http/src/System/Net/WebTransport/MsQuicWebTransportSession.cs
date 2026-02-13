@@ -468,7 +468,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, defaultStreamErrorCode, AddBytesSent);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, DefaultStreamErrorCode, AddBytesSent);
 
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
 
@@ -539,7 +539,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     streamSemaphore.Release();
                     throw;
                 }
-                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, defaultStreamErrorCode, AddBytesSent);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -758,7 +758,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         try
         {
-            await gracefulShutdownHandler().ConfigureAwait(false);
+            await GracefulShutdownHandler().ConfigureAwait(false);
         }
         catch (Exception e)
         {

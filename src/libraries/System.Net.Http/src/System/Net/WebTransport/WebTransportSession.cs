@@ -16,8 +16,8 @@ namespace System.Net.WebTransport;
 public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _utf8Encoding = Encoding.UTF8;
-    protected readonly Func<Task> gracefulShutdownHandler;
-    protected readonly long defaultStreamErrorCode;
+    protected Func<Task> GracefulShutdownHandler { get; }
+    protected long DefaultStreamErrorCode { get; }
 
 
     /// <exception cref="WebTransportException">When <paramref name="id"/> or <paramref name="defaultStreamErrorCode"/> is not in the range [0, 2^62).</exception>
@@ -30,8 +30,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         Id = id;
 
         SubProtocol = subProtocol;
-        this.gracefulShutdownHandler = () => gracefulShutdownHandler(this);
-        this.defaultStreamErrorCode = defaultStreamErrorCode;
+        GracefulShutdownHandler = () => gracefulShutdownHandler(this);
+        DefaultStreamErrorCode = defaultStreamErrorCode;
     }
 
     /// <summary>
