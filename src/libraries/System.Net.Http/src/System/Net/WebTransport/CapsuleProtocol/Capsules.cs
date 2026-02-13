@@ -47,7 +47,7 @@ internal sealed class CloseSessionCapsule : Capsule
 
     private const int s_applicationErrorCodeSize = sizeof(uint);
     private const int s_applicationErrorMessageOffset = s_applicationErrorCodeSize;
-    private const int s_applicationErrorMessageLengthInBytesLimit = 8192;
+    private const int s_applicationErrorMessageLengthInBytesLimit = 1024;
 
     protected override int ValueLength => s_applicationErrorCodeSize + ApplicationErrorMessage.Length;
 
