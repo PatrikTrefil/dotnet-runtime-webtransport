@@ -996,7 +996,7 @@ namespace System.Net.WebTransport
         public abstract long UnidirectionalStreamCountLimitForPeer { get; }
         public abstract System.Threading.Tasks.ValueTask SetUnidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
         public abstract long BidirectionalStreamCountLimitProvidedByPeer { get; }
-        public abstract long BidirectionalStreamCountLimitForPeer { get; set; }
+        public abstract long BidirectionalStreamCountLimitForPeer { get; }
         public abstract System.Threading.Tasks.ValueTask SetBidirectionalStreamCountLimitForPeerAsync(long limit, System.Threading.CancellationToken cancellationToken = default);
         public abstract long DataSentLimitProvidedByPeer { get; }
         public abstract long DataSentLimitForPeer { get; }
