@@ -115,7 +115,7 @@ internal sealed class CloseSessionCapsule : Capsule
 
 internal sealed class DrainSessionCapsule : Capsule
 {
-    private static DrainSessionCapsule s_instance = new();
+    private static DrainSessionCapsule? s_instance;
     public static DrainSessionCapsule Instance
     {
         get
