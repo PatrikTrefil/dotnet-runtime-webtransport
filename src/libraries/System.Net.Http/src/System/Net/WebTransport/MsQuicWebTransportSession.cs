@@ -599,6 +599,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             _ => throw new ArgumentOutOfRangeException(paramName, streamType, SR.Format(SR.net_webtransport_invalid_stream_type, streamType))
         };
     }
+
     private static Task CleanUpWebTransportStreamWhenClosed(MsQuicWebTransportStream stream, Action<MsQuicWebTransportStream> cleanUpAction)
     {
         return Task.Run(async () =>
