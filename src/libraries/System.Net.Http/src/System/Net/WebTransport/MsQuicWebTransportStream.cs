@@ -598,6 +598,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     {
         if (!_isDisposed)
         {
+            _isDisposed = true;
+
             // The write side is closed gracefully by QuicStream.Dispose/DisposeAsync
             lock (_abortDisposeLock)
             {
