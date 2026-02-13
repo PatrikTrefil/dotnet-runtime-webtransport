@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Microsoft ResX Schema
+
+    Version 2.0
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
+    associated with the data types.
+
+    Example:
+
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+
+    There are any number of "resheader" rows that contain simple
+    name/value pairs.
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
+    mimetype set.
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
+    extensible. For a given mimetype the value must be set accordingly:
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
+    read any of the formats listed below.
+
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="PlatformNotSupported_NetWebTransport" xml:space="preserve">
+    <value>System.Net.WebTransport is not supported on this platform.</value>
+  </data>
+  <data name="net_webtransport_stream_invalid_application_error_code" xml:space="preserve">
+    <value>Stream aborted with invalid application error code {0}.</value>
+  </data>
+  <data name="net_webtransport_stream_aborted" xml:space="preserve">
+    <value>The stream has beed aborted.</value>
+  </data>
+  <data name="net_webtransport_transport_layer_error" xml:space="preserve">
+    <value>Transport layer error occurred.</value>
+  </data>
+  <data name="net_webtransport_stream_writing_not_allowed" xml:space="preserve">
+    <value>Writing is not allowed on stream.</value>
+  </data>
+  <data name="net_webtransport_internal_error" xml:space="preserve">
+    <value>An internal error has occurred.</value>
+  </data>
+  <data name="net_webtransport_stream_invalid_abort_direction" xml:space="preserve">
+    <value>Invalid abort direction value.</value>
+  </data>
+  <data name="net_webtransport_multiple_subprotocols_selected" xml:space="preserve">
+    <value>Multiple WT-Protocol headers received from the server.</value>
+  </data>
+  <data name="net_webtransport_server_selected_protocol_not_offered" xml:space="preserve">
+    <value>The server selected a protocol '{0}' that was not offered by the client.</value>
+  </data>
+  <data name="net_webtransport_session_connect_failed" xml:space="preserve">
+    <value>Failed to create a WebTransport session.</value>
+  </data>
+  <data name="net_webtransport_session_connect_failed_with_status_code" xml:space="preserve">
+    <value>The server's response to the extended CONNECT request has status code {0}.</value>
+  </data>
+  <data name="net_webtransport_invalid_stream_type" xml:space="preserve">
+    <value>Invalid stream type {0}.</value>
+  </data>
+  <data name="net_webtransport_operation_aborted" xml:space="preserve">
+    <value>Operation aborted.</value>
+  </data>
+  <data name="net_webtransport_session_closed_by_peer" xml:space="preserve">
+    <value>Session has been closed by peer.</value>
+  </data>
+  <data name="net_webtransport_invalid_subprotocol_value" xml:space="preserve">
+    <value>The value at index {0} is not a valid token.</value>
+  </data>
+  <data name="net_webtransport_uri_scheme_not_https" xml:space="preserve">
+    <value>The URI scheme must be 'https'.</value>
+  </data>
+  <data name="net_webtransport_invalid_variable_length_integer" xml:space="preserve">
+    <value>The value must be in the range [0, 2^62).</value>
+  </data>
+  <data name="net_webtransport_invalid_char_in_token" xml:space="preserve">
+    <value>The token contains an invalid character '{0}' at index {1}.</value>
+  </data>
+  <data name="net_webtransport_invalid_starting_char_in_token" xml:space="preserve">
+    <value>The token does not start with an ASCII letter or '*'.</value>
+  </data>
+  <data name="net_webtransport_invalid_close_status" xml:space="preserve">
+    <value>The value has to be in range [0, 2^32).</value>
+  </data>
+  <data name="net_webtransport_invalid_status_description_length" xml:space="preserve">
+    <value>The status description is longer than 1024 bytes after encoding.</value>
+  </data>
+  <data name="net_webtransport_maximum_number_of_sessions_reached" xml:space="preserve">
+    <value>Maximum number of allowed sessions reached.</value>
+  </data>
+  <data name="net_webtransport_server_does_not_support_webtransport_over_http3" xml:space="preserve">
+    <value>Server does not support WebTransport over HTTP/3.</value>
+  </data>
+  <data name="net_webtransport_uri_not_absolute" xml:space="preserve">
+    <value>URI of the WebTransport endpoint must be absolute.</value>
+  </data>
+  <data name="net_webtransport_session_connect_redirect_required" xml:space="preserve">
+    <value>A redirect is required to create the session.</value>
+  </data>
+  <data name="net_webtransport_stream_reading_not_allowed" xml:space="preserve">
+    <value>Reading is not allowed on stream.</value>
+  </data>
+  <data name="net_webtransport_data_limit_exceeded" xml:space="preserve">
+    <value>Session data sent limit exceeded.</value>
+  </data>
+  <data name="net_webtransport_too_many_header_values" xml:space="preserve">
+    <value>Too many header values for header {0} ({1})</value>
+  </data>
+  <data name="net_webtransport_unsupported_maximum_session_count" xml:space="preserve">
+    <value>Maximum session count offered by the server is not supported ({0}). The limit must be within [0, 65535) range.</value>
+  </data>
+  <data name="net_webtransport_invalid_stream_count_limit" xml:space="preserve">
+    <value>The value {0} is not within the valid range [0, 65535).</value>
+  </data>
+</root>

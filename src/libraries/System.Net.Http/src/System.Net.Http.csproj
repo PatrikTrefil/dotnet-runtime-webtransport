@@ -24,6 +24,10 @@
     <EmitCompilerGeneratedFiles Condition="'$(Configuration)' == 'Debug' and '$(TargetPlatformIdentifier)' == 'browser'">true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="Properties\InternalsVisibleTo.cs" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
     <Compile Include="System\Net\Http\ByteArrayContent.cs" />
     <Compile Include="System\Net\Http\CancellationHelper.cs" />
@@ -164,36 +168,6 @@
              Link="Common\System\Obsoletions.cs" />
     <Compile Include="$(CommonPath)System\Net\CredentialCacheKey.cs"
              Link="Common\System\Net\CredentialCacheKey.cs" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' or '$(TargetPlatformIdentifier)' == 'osx' or '$(TargetPlatformIdentifier)' == 'linux'">
-    <Compile Include="System\Net\WebTransport\WebTransportSession.cs" />
-    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSession.cs" />
-    <Compile Include="System\Net\WebTransport\IMsQuicWebTransportSessionConnectionManager.cs" />
-    <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportSessionCreationOptions.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
-    <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
-    <Compile Include="System\Net\WebTransport\MsQuicWebTransportStream.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
-    <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
-    <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
-    <Compile Include="System\Net\WebTransport\NetEventSource.WebTransport.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
-    <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
-    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleConsumer.cs" />
-    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleSender.cs" />
-    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules.cs" />
-    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
-    <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
-    <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
-    <Compile Include="System\Net\WebTransport\ThrowHelper.cs" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'windows' and '$(TargetPlatformIdentifier)' != 'osx' and '$(TargetPlatformIdentifier)' != 'linux'">
-    <Compile Include="System\Net\WebTransport\WebTransportSession.Unsupported.cs" />
   </ItemGroup>
 
   <!-- SocketsHttpHandler implementation -->

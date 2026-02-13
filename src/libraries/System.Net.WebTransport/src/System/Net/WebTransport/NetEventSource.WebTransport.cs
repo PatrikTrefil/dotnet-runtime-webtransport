@@ -1,23 +1,19 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Runtime.CompilerServices;
 
-namespace System.Net;
+namespace System.Net.WebTransport;
 
-// TODO: maybe some events should be visible to the user? (so not in Private.InternalDiagnostics)
-
-// TODO: uncomment when WT is separated from System.Net.Http
-// TODO: once separated add to TestEventListener
-//[EventSource(Name = "Private.InternalDiagnostics.System.Net.WebTransport")]
+[EventSource(Name = "Private.InternalDiagnostics.System.Net.WebTransport")]
 internal sealed partial class NetEventSource
 {
-    private const int WtTraceId = HandlerErrorId + 1;
-    private const int SessionMessageId = WtTraceId + 1;
-    private const int StreamMessageId = SessionMessageId + 1;
-    private const int CloseSessionStartId = StreamMessageId + 1;
+    #region Event IDs
+
+    private const int WtTraceId = NextAvailableEventId;
+    private const int CloseSessionStartId = WtTraceId + 1;
     private const int CloseSessionStopId = CloseSessionStartId + 1;
     private const int OpenOutboundStreamStartId = CloseSessionStopId + 1;
     private const int OpenOutboundStreamStopId = OpenOutboundStreamStartId + 1;
@@ -27,6 +23,8 @@ internal sealed partial class NetEventSource
     private const int CapsuleDeserializationAndProcessingStopId = CapsuleDeserializationAndProcessingStartId + 1;
     private const int SendCapsuleAsyncStartId = CapsuleDeserializationAndProcessingStopId + 1;
     private const int SendCapsuleAsyncStopId = SendCapsuleAsyncStartId + 1;
+
+    #endregion
 
     #region Debug messages
 

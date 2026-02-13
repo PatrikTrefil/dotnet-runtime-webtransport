@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>$(NetCoreAppCurrent)-windows;$(NetCoreAppCurrent)-linux;$(NetCoreAppCurrent)-osx;$(NetCoreAppCurrent)</TargetFrameworks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- CS0436: Local internal types (SR) shadow identically-named internal types exposed from
+         System.Net.Http via InternalsVisibleTo + SkipUseReferenceAssembly. The local definitions
+         are always the correct ones to use. -->
+    <NoWarn>$(NoWarn);CS0436;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- DesignTimeBuild requires all the TargetFramework Derived Properties to not be present in the first property group. -->
+  <PropertyGroup>
+    <TargetPlatformIdentifier>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</TargetPlatformIdentifier>
+    <GeneratePlatformNotSupportedAssemblyMessage Condition="'$(TargetPlatformIdentifier)' == ''">SR.PlatformNotSupported_NetWebTransport</GeneratePlatformNotSupportedAssemblyMessage>
+    <ApiExclusionListPath Condition="'$(TargetPlatformIdentifier)' == ''">ExcludeApiList.PNSE.txt</ApiExclusionListPath>
+  </PropertyGroup>
+
+  <!-- Source files -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleConsumer.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleSender.cs" />
+    <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
+    <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
+    <Compile Include="System\Net\WebTransport\IMsQuicWebTransportSessionConnectionManager.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportStream.cs" />
+    <Compile Include="System\Net\WebTransport\NetEventSource.Common.Associate.cs" />
+    <Compile Include="System\Net\WebTransport\NetEventSource.Common.cs" />
+    <Compile Include="System\Net\WebTransport\NetEventSource.WebTransport.cs" />
+    <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
+    <Compile Include="System\Net\WebTransport\ThrowHelper.cs" />
+    <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSessionCreationOptions.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
+  </ItemGroup>
+
+  <!-- Unsupported platforms -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == ''">
+    <Compile Include="System\Net\WebTransport\WebTransportSession.Unsupported.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Collections\src\System.Collections.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Diagnostics.Tracing\src\System.Diagnostics.Tracing.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Memory\src\System.Memory.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Http\src\System.Net.Http.csproj" SkipUseReferenceAssembly="true" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Primitives\src\System.Net.Primitives.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Quic\src\System.Net.Quic.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Runtime\src\System.Runtime.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Runtime.InteropServices\src\System.Runtime.InteropServices.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Threading\src\System.Threading.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Threading.Channels\src\System.Threading.Channels.csproj" />
+  </ItemGroup>
+
+</Project>
