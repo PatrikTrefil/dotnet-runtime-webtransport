@@ -135,6 +135,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     #region Session configuration
 
+    /// <remarks>This field can be read during a write operation (always reads a valid value). This field can not be written to by two threads at the same time.</remarks>
     public override long UnidirectionalStreamCountLimitProvidedByPeer
     {
         get => Interlocked.Read(ref field);
@@ -159,6 +160,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         protected set => Interlocked.Exchange(ref field, value);
     }
 
+    /// <remarks>This field can be read during a write operation (always reads a valid value). This field can not be written to by two threads at the same time.</remarks>
     public override long BidirectionalStreamCountLimitProvidedByPeer
     {
         get => Interlocked.Read(ref field);
