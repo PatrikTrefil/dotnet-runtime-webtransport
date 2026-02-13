@@ -192,7 +192,7 @@ internal sealed class MaxBidirectionalStreamsCapsule : Capsule
             session.BidirectionalStreamCountLimitProvidedByPeer = MaxBidirectionalStreams;
         } catch (ArgumentException e)
         {
-            throw new CapsuleProtocolException($"Unsupported maximum unidirectional stream count limit  received ({MaxBidirectionalStreams}).", e);
+            throw new CapsuleProtocolException($"Unsupported maximum bidirectional stream count limit received ({MaxBidirectionalStreams}).", e);
         }
     }
 
@@ -315,7 +315,7 @@ internal sealed class MaxDataCapsule : Capsule
     {
         if (session.DataSentLimitProvidedByPeer > MaxData)
         {
-            throw new CapsuleProtocolException("Peer tried to lower the unidirectional stream limit.");
+            throw new CapsuleProtocolException("Peer tried to lower the data limit.");
         }
         session.DataSentLimitProvidedByPeer = MaxData;
     }
