@@ -18,7 +18,7 @@ internal static class ThrowHelper
     {
         if (value < 0 || value > s_maxOpenQuicStreamsPerType)
         {
-            throw new ArgumentOutOfRangeException(paramName, $"'{paramName}' should be within [0, 65535) range."); // TODO: move to strings.resx
+            throw new ArgumentOutOfRangeException(paramName, SR.Format(SR.net_webtransport_invalid_stream_count_limit, value));
         }
     }
 

@@ -675,4 +675,13 @@
   <data name="net_webtransport_data_limit_exceeded" xml:space="preserve">
     <value>Session data sent limit exceeded.</value>
   </data>
+  <data name="net_webtransport_too_many_header_values" xml:space="preserve">
+    <value>Too many header values for header {0} ({1})</value>
+  </data>
+  <data name="net_webtransport_unsupported_maximum_session_count" xml:space="preserve">
+    <value>Maximum session count offered by the server is not supported ({0}). The limit must be within [0, 65535) range.</value>
+  </data>
+  <data name="net_webtransport_invalid_stream_count_limit" xml:space="preserve">
+    <value>The value {0} is not within the valid range [0, 65535).</value>
+  </data>
 </root>
