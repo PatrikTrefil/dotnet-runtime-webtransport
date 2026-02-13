@@ -247,7 +247,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 NetEventSource.Trace(this, "CONNECT stream closed cleanly by peer. Closing session...");
             }
 
-            // Clean termination of the CONNECT stream should be equivalent to status code 0 and description equal to an emtpy string
+            // Clean termination of the CONNECT stream should be equivalent to status code 0 and description equal to an empty string
             // https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-6-9
             ReceiveClose(0, "");
         }
@@ -348,7 +348,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
             // RFC: The delivery of the error code and string MAY be best-effort.
-            // Therefore, we just close the session without the delivery of the error code and description in the finnaly block;
+            // Therefore, we just close the session without the delivery of the error code and description in the finally block;
             throw;
         }
         finally

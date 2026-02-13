@@ -187,7 +187,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         long remappedErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(errorCode);
         try
         {
-            // Doesn't need to acquire _abortLock lock, because the use should never call WebTransportStream.Abort and WebTransportStream.DisposeAsync in parallel
+            // Doesn't need to acquire _abortDisposeLock lock, because the user should never call WebTransportStream.Abort and WebTransportStream.DisposeAsync in parallel
             _quicStream.Abort(quicAbortDirection, remappedErrorCode);
         }
         catch (QuicException quicException)
