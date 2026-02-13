@@ -87,7 +87,7 @@ public static class ClientWebTransportSession
             };
             response = await sendTask.ConfigureAwait(false);
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             throw new WebTransportException(WebTransportError.SessionConnectFailure, SR.net_webtransport_session_connect_failed, e);
         }
