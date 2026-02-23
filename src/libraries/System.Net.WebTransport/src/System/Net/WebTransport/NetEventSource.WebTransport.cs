@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Runtime.CompilerServices;
 
-namespace System.Net.WebTransport;
+namespace System.Net;
 
 [EventSource(Name = "Private.InternalDiagnostics.System.Net.WebTransport")]
 internal sealed partial class NetEventSource

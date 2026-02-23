@@ -128,8 +128,15 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         return sessionAndChannels.Session;
     }
 
-    public override async Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream)
+    public override async Task ProcessReceivedStreamAsync(QuicStreamType streamType, byte[] initialData, QuicStream stream)
     {
+        ArrayBuffer buffer = new(initialSize: initialData.Length, usePool: true);
+        if (initialData.Length > 0)
+        {
+            initialData.CopyTo(buffer.AvailableSpan);
+            buffer.Commit(initialData.Length);
+        }
+
         try
         {
             int bytesRead;
@@ -206,7 +213,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         stream.Dispose();
     }
 
-    public override void ValidateAndProcessServerSettings(Dictionary<long, List<long>> serverSettings)
+    public override void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
@@ -242,7 +249,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    private void ValidateAndProcessServerSettingsCore(Dictionary<long, List<long>> serverSettings)
+    private void ValidateAndProcessServerSettingsCore(Dictionary<long, long> serverSettings)
     {
         _maxSessionsCount = GetAndValidateSettingValue(serverSettings, Http3SettingType.WebTransportMaxSessions, 0);
 
@@ -256,17 +263,9 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         ThrowHelper.ValidateStreamCountLimit(_initialMaxBidirectionalStreamsPerSession);
     }
 
-    private static long GetAndValidateSettingValue(Dictionary<long, List<long>> serverSettings, Http3SettingType settingType, long defaultValue)
+    private static long GetAndValidateSettingValue(Dictionary<long, long> serverSettings, Http3SettingType settingType, long defaultValue)
     {
-        serverSettings.TryGetValue((long)settingType, out List<long>? settingValues);
-
-        if (settingValues?.Count > 1)
-        {
-            string valuesSerialized = string.Join(", ", settingValues);
-            throw new WebTransportException(WebTransportError.HeaderError, SR.Format(SR.net_webtransport_too_many_header_values, settingType, valuesSerialized));
-        }
-
-        return settingValues?[0] ?? defaultValue;
+        return serverSettings.TryGetValue((long)settingType, out long settingValue) ? settingValue : defaultValue;
     }
 
     void IMsQuicWebTransportSessionConnectionManager.RemoveSession(QuicStream connectStream)

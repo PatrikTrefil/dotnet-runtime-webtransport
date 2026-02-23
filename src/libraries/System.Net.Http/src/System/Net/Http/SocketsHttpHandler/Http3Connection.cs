@@ -30,7 +30,7 @@ namespace System.Net.Http
 
         private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
 
-        private readonly TaskCompletionSourceWithCancellation<Dictionary<long, List<long>>> _nonHttpSettingsTcs = new();
+        private readonly TaskCompletionSourceWithCancellation<Dictionary<long, long>> _nonHttpSettingsTcs = new();
         // Keep a collection of requests around so we can process GOAWAY.
         private readonly Dictionary<QuicStream, Http3RequestStream> _activeRequests = new Dictionary<QuicStream, Http3RequestStream>();
 
@@ -321,7 +321,7 @@ namespace System.Net.Http
                     throw new HttpRequestException(HttpRequestError.ExtendedConnectNotSupported, SR.net_missing_extended_connect_manager);
                 }
 
-                Dictionary<long, List<long>> nonHttpSettings = await _nonHttpSettingsTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                Dictionary<long, long> nonHttpSettings = await _nonHttpSettingsTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 if (!IsConnectEnabled)
                 {
@@ -861,9 +861,8 @@ namespace System.Net.Http
                             {
                                 if (streamType == extendedConnectManager.UnidirectionalStreamType || streamType == extendedConnectManager.BidirectionalStreamSignalValue)
                                 {
-                                    ArrayBuffer arrayBufferCopy = buffer;
-                                    buffer = default;
-                                    await extendedConnectManager.ProcessReceivedStreamAsync(stream.Type, arrayBufferCopy, stream).ConfigureAwait(false);
+                                    byte[] initialData = buffer.ActiveMemory.ToArray();
+                                    await extendedConnectManager.ProcessReceivedStreamAsync(stream.Type, initialData, stream).ConfigureAwait(false);
                                     handedOverToExtendedConnectManager = true;
                                     return;
                                 }
@@ -1042,7 +1041,8 @@ namespace System.Net.Http
 
             async ValueTask ProcessSettingsFrameAsync(long settingsPayloadLength)
             {
-                Dictionary<long, List<long>> nonHttpSettings = new();
+                HashSet<long> seenSettings = new();
+                Dictionary<long, long> nonHttpSettings = new();
 
                 while (settingsPayloadLength != 0)
                 {
@@ -1078,6 +1078,13 @@ namespace System.Net.Http
 
                     if (NetEventSource.Log.IsEnabled()) Trace($"Applying setting {(Http3SettingType)settingId}={settingValue}");
 
+                    if (!seenSettings.Add(settingId))
+                    {
+                        // RFC 9114 section 7.2.4: The same setting identifier MUST NOT occur more than once in the SETTINGS frame.
+                        // A receiver MAY treat duplicate identifiers as a connection error of type H3_SETTINGS_ERROR.
+                        throw HttpProtocolException.CreateHttp3ConnectionException(Http3ErrorCode.SettingsError);
+                    }
+
                     switch ((Http3SettingType)settingId)
                     {
                         case Http3SettingType.MaxHeaderListSize:
@@ -1106,15 +1113,7 @@ namespace System.Net.Http
                             }
                             break;
                         default:
-                            List<long>? settingValueList;
-
-                            if (!nonHttpSettings.TryGetValue(settingId, out settingValueList))
-                            {
-                                settingValueList = new();
-                                nonHttpSettings.Add(settingId, settingValueList);
-                            }
-
-                            settingValueList.Add(settingValue);
+                            nonHttpSettings[settingId] = settingValue;
                             break;
                     }
                 }

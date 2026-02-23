@@ -12,15 +12,16 @@ namespace System.Net.Http;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
-internal sealed class Http3ExtendedConnectContent : HttpContent
+public sealed class Http3ExtendedConnectContent : HttpContent
 {
-    private ArrayBuffer? _connectStreamBuffer;
-    public ArrayBuffer ConnectStreamBuffer
+    private byte[]? _connectStreamBuffer;
+    public byte[] ConnectStreamBuffer
     {
         get => _connectStreamBuffer ?? throw new InvalidOperationException("Connect stream buffer has not been set");
         internal set
         {
-            Debug.Assert(_connectStreamBuffer == null, $"{nameof(ConnectStream)} can only be set once");
+            Debug.Assert(value != null, $"{nameof(ConnectStreamBuffer)} cannot be null");
+            Debug.Assert(_connectStreamBuffer == null, $"{nameof(ConnectStreamBuffer)} can only be set once");
 
             _connectStreamBuffer = value;
         }

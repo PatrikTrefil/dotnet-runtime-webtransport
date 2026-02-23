@@ -24,10 +24,6 @@
     <EmitCompilerGeneratedFiles Condition="'$(Configuration)' == 'Debug' and '$(TargetPlatformIdentifier)' == 'browser'">true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Properties\InternalsVisibleTo.cs" />
-  </ItemGroup>
-
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
     <Compile Include="System\Net\Http\ByteArrayContent.cs" />
     <Compile Include="System\Net\Http\CancellationHelper.cs" />

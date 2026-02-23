@@ -118,7 +118,7 @@ public static class ClientWebTransportSession
 
         WebTransportSession session = wtExtendedConnectManager.CreateSession(
             extendedConnectContent.ConnectStream,
-            extendedConnectContent.ConnectStreamBuffer,
+            GetConnectStreamBuffer(extendedConnectContent.ConnectStreamBuffer),
             extendedConnectContent.QuicConnection,
             options.GracefulShutdownHandler,
             selectedSubprotocol,
@@ -135,6 +135,18 @@ public static class ClientWebTransportSession
         }
 
         return session;
+    }
+
+    private static System.Net.ArrayBuffer WrapConnectStreamBufferInArrayBuffer(byte[] connectStreamBufferData)
+    {
+        System.Net.ArrayBuffer connectStreamBuffer = new(initialSize: connectStreamBufferData.Length, usePool: true);
+        if (connectStreamBufferData.Length > 0)
+        {
+            connectStreamBufferData.CopyTo(connectStreamBuffer.AvailableSpan);
+            connectStreamBuffer.Commit(connectStreamBufferData.Length);
+        }
+
+        return connectStreamBuffer;
     }
 
     private static string? GetAndValidateSelectedSubprotocolFromResponse(HttpResponseMessage response, string[]? availableSubProtocols)

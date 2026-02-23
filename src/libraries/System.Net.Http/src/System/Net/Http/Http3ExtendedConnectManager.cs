@@ -13,7 +13,7 @@ namespace System.Net.Http;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
-internal sealed record class Http3ExtendedConnectManagerCreationOptions
+public sealed record class Http3ExtendedConnectManagerCreationOptions
 {
     /// <summary>
     /// Call to open an outbound an outbound stream using the <see cref="QuicConnection"/> associated with the HTTP/3 connection associated with the <see cref="Http3ExtendedConnectManager"/>.
@@ -34,7 +34,7 @@ internal sealed record class Http3ExtendedConnectManagerCreationOptions
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
-internal abstract class Http3ExtendedConnectManager
+public abstract class Http3ExtendedConnectManager
 {
     /// <summary>
     /// Represents a factory method that creates an instance of <see cref="Http3ExtendedConnectManager"/>.
@@ -73,9 +73,9 @@ internal abstract class Http3ExtendedConnectManager
     /// that contains the <see cref="UnidirectionalStreamType"/> or <see cref="BidirectionalStreamSignalValue"/> as the inital bytes.
     /// </summary>
     /// <param name="streamType">The type of the stream, either unidirectional or bidirectional.</param>
-    /// <param name="buffer">Contains the initial part of the stream data. The buffer ownership is given to the method.</param>
+    /// <param name="initialData">Contains the initial part of the stream data.</param>
     /// <param name="stream">The received stream. The stream ownership is given to the method.</param>
-    public abstract Task ProcessReceivedStreamAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream);
+    public abstract Task ProcessReceivedStreamAsync(QuicStreamType streamType, byte[] initialData, QuicStream stream);
 
     /// <summary>
     /// Variable-length integer that is sent at the start of a unidirectional HTTP/3 stream
@@ -103,7 +103,7 @@ internal abstract class Http3ExtendedConnectManager
     /// </remarks>
     /// <param name="serverSettings">Server settings received in the HTTP SETTINGS frame.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#frame-settings"/>
-    public abstract void ValidateAndProcessServerSettings(Dictionary<long, List<long>> serverSettings);
+    public abstract void ValidateAndProcessServerSettings(Dictionary<long, long> serverSettings);
 
     /// <summary>
     /// This method is called by the HTTP library when an extended CONNECT request is being made using an HTTP/3 connection.

@@ -259,7 +259,8 @@ namespace System.Net.Http
                 if (_request.IsExtendedConnectRequest && _response.IsSuccessStatusCode && _response.Content is Http3ExtendedConnectContent extendedConnectContent)
                 {
                     extendedConnectContent.ConnectStream = _stream;
-                    extendedConnectContent.ConnectStreamBuffer = _recvBuffer;
+                    extendedConnectContent.ConnectStreamBuffer = _recvBuffer.ActiveMemory.ToArray();
+                    _recvBuffer.Dispose();
                     _recvBuffer = default;
                     disposeSelf = false; // it's the extended connect manager's responsibility to dispose the stream
                 }
