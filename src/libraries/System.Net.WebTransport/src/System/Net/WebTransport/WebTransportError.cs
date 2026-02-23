@@ -3,6 +3,9 @@
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// Specifies WebTransport error categories returned by <see cref="WebTransportException"/>.
+/// </summary>
 public enum WebTransportError
 {
     /// <summary>

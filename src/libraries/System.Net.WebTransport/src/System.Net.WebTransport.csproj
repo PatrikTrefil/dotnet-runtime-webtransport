@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFrameworks>$(NetCoreAppCurrent)-windows;$(NetCoreAppCurrent)-linux;$(NetCoreAppCurrent)-osx;$(NetCoreAppCurrent)</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!-- DesignTimeBuild requires all the TargetFramework Derived Properties to not be present in the first property group. -->
@@ -11,6 +10,14 @@
     <TargetPlatformIdentifier>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</TargetPlatformIdentifier>
     <GeneratePlatformNotSupportedAssemblyMessage Condition="'$(TargetPlatformIdentifier)' == ''">SR.PlatformNotSupported_NetWebTransport</GeneratePlatformNotSupportedAssemblyMessage>
     <ApiExclusionListPath Condition="'$(TargetPlatformIdentifier)' == ''">ExcludeApiList.PNSE.txt</ApiExclusionListPath>
+  </PropertyGroup>
+
+  <!--
+    The non-platform target ($(NetCoreAppCurrent)) builds the PNSE assembly from ref and does not carry
+    full source XML docs, so suppress CS1591 for that leg only.
+  -->
+  <PropertyGroup Condition="'$(TargetPlatformIdentifier)' == ''">
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!-- Source files -->

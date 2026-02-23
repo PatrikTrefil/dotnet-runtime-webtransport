@@ -56,6 +56,10 @@ public abstract class WebTransportStream : Stream
         set => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WebTransportStream"/> class with the specified stream type.
+    /// </summary>
+    /// <param name="type">The stream type.</param>
     protected internal WebTransportStream(WebTransportStreamType type)
     {
         Debug.Assert(Enum.IsDefined(type));
@@ -128,6 +132,7 @@ public abstract class WebTransportStream : Stream
     /// <exception cref="NotSupportedException">In all cases.</exception>
     public override void SetLength(long value) => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
@@ -152,5 +157,9 @@ public abstract class WebTransportStream : Stream
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Releases resources used by the stream.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous dispose operation.</returns>
     protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }

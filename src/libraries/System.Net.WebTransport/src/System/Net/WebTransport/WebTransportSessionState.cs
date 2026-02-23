@@ -3,8 +3,14 @@
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// Represents the current lifecycle state of a <see cref="WebTransportSession"/>.
+/// </summary>
 public enum WebTransportSessionState
 {
+    /// <summary>
+    /// The session has not been established yet.
+    /// </summary>
     None = 0,
     /// <summary>
     /// The initial handshake has been completed and the session is open.

@@ -3,6 +3,9 @@
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// The exception that is thrown when a WebTransport operation fails.
+/// </summary>
 public sealed class WebTransportException : Exception
 {
     /// <summary>

@@ -12,6 +12,9 @@ namespace System.Net.WebTransport;
 
 // TODO: use SR.PlatformNotSupported_NetWebTransport in assembly
 
+/// <summary>
+/// Provides APIs for creating client-side <see cref="WebTransportSession"/> instances.
+/// </summary>
 public static class ClientWebTransportSession
 {
     private const string s_extendedConnectProtocolName = "webtransport";

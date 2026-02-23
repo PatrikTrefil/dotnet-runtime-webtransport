@@ -5,8 +5,14 @@ using System.Runtime.Versioning;
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// Represents a WebTransport session.
+/// </summary>
 public abstract partial class WebTransportSession
 {
+    /// <summary>
+    /// Gets a value indicating whether WebTransport is supported on the current platform.
+    /// </summary>
     [SupportedOSPlatformGuard("windows")]
     [SupportedOSPlatformGuard("linux")]
     [SupportedOSPlatformGuard("osx")]

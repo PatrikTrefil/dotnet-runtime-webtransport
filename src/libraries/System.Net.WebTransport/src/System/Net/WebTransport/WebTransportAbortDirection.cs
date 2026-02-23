@@ -10,7 +10,18 @@ namespace System.Net.WebTransport;
 /// <seealso cref="WebTransportStream.Abort(WebTransportAbortDirection, long)"/>
 public enum WebTransportAbortDirection
 {
+    /// <summary>
+    /// Abort the read side of the stream.
+    /// </summary>
     Read = 1,
+
+    /// <summary>
+    /// Abort the write side of the stream.
+    /// </summary>
     Write = 2,
+
+    /// <summary>
+    /// Abort both the read and write sides of the stream.
+    /// </summary>
     Both = 3
 }

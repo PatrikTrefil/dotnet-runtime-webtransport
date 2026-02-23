@@ -7,6 +7,9 @@ using System.Net.Http;
 
 namespace System.Net.WebTransport;
 
+/// <summary>
+/// Provides options used to establish a <see cref="WebTransportSession"/>.
+/// </summary>
 public sealed class WebTransportSessionCreationOptions
 {
     /// <summary>

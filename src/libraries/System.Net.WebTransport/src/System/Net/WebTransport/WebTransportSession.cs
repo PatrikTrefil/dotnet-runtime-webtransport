@@ -16,7 +16,14 @@ namespace System.Net.WebTransport;
 public abstract partial class WebTransportSession : IAsyncDisposable
 {
     private static readonly Encoding _utf8Encoding = Encoding.UTF8;
+    /// <summary>
+    /// Gets the callback invoked when a graceful shutdown is requested by the peer.
+    /// </summary>
     protected Func<Task> GracefulShutdownHandler { get; }
+
+    /// <summary>
+    /// Gets the default application error code used when aborting streams internally.
+    /// </summary>
     protected long DefaultStreamErrorCode { get; }
 
 
@@ -168,6 +175,12 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public abstract string? CloseStatusDescription { get; protected set; }
 
+    /// <summary>
+    /// Gets the exception that represents the current session state when the state is not open.
+    /// </summary>
+    /// <returns>
+    /// A <see cref="WebTransportException"/> describing the current state when the state is not open; otherwise, <see langword="null"/>.
+    /// </returns>
     protected WebTransportException? GetExceptionForObjectState()
     {
         WebTransportSessionState state = State;
@@ -188,6 +201,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         return null;
     }
 
+    /// <summary>
+    /// Throws a <see cref="WebTransportException"/> when the session state is not open.
+    /// </summary>
     protected void ThrowIfInvalidState()
     {
         WebTransportException? ex = GetExceptionForObjectState();
@@ -332,5 +348,9 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         await CloseAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Releases the unmanaged resources used by the <see cref="WebTransportSession"/>.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous dispose operation.</returns>
     protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
