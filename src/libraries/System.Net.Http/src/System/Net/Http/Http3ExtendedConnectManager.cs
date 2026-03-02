@@ -156,6 +156,7 @@ public abstract class Http3ExtendedConnectManager
     /// Call when the <paramref name="connectStream"/> is no longer in use.
     /// </summary>
     /// <param name="connectStream">The CONNECT stream that is no longer used.</param>
+    /// <remarks>This method will call <see cref="QuicStream.DisposeAsync"/>.</remarks>
     protected Task RemoveSessionAsync(QuicStream connectStream) => _removeSessionAsyncFunc(connectStream);
 
     /// <summary>
