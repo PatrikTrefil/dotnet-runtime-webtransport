@@ -575,7 +575,7 @@ namespace System.Net.Http
 
             foreach (Http3ExtendedConnectManager manager in ProtocolExtendedConnectManagers.Values)
             {
-                LogExceptions(manager.ProcessGoAwayAsync()); // should not throw
+                LogExceptions(Task.Run(manager.ProcessGoAwayAsync)); // should not throw
             }
         }
 
