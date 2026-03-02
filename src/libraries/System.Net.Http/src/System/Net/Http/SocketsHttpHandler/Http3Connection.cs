@@ -335,12 +335,7 @@ namespace System.Net.Http
                 extendedconnectManager = ProtocolExtendedConnectManagers.GetOrAdd(
                     protocol,
                     (_) => valueFactory(
-                        new Http3ExtendedConnectManagerCreationOptions
-                        {
-                            RemoveOutboundStream = ReleaseStream,
-                            RemoveSessionAsync = RemoveConnectStreamAsync,
-                            OpenOutboundStreamAsync = OpenOutboundStreamAsync
-                        }
+                        new Http3ExtendedConnectManagerCreationOptions(OpenOutboundStreamAsync, RemoveConnectStreamAsync, ReleaseStream)
                     )
                 );
 

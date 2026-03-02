@@ -142,6 +142,8 @@
     <Compile Include="$(CommonTestPath)System\Threading\Tasks\TaskTimeoutExtensions.cs"
              Link="Common\System\Threading\Tasks\TaskTimeoutExtensions.cs" />
     <Compile Include="$(CommonTestPath)System\Net\Http\VersionHttpClientHandler.cs" Link="Common\System\Net\Http\VersionHttpClientHandler.cs" />
+    <Compile Include="..\Common\TestHttp3ExtendedConnectManager.cs"
+             Link="Common\TestHttp3ExtendedConnectManager.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="ByteArrayContentTest.cs" />
     <Compile Include="$(CommonTestPath)System\Net\Http\ChannelBindingAwareContent.cs"
@@ -177,6 +179,7 @@
     <Compile Include="HttpClientHandlerTest.AltSvc.cs" />
     <Compile Include="SocketsHttpHandlerTest.Cancellation.cs" />
     <Compile Include="SocketsHttpHandlerTest.Http1KeepAlive.cs" />
+    <Compile Include="SocketsHttpHandlerTest.Http3ExtendedConnect.cs" />
     <Compile Include="SocketsHttpHandlerTest.Http2ExtendedConnect.cs" />
     <Compile Include="SocketsHttpHandlerTest.Http2FlowControl.cs" />
     <Compile Include="SocketsHttpHandlerTest.Http2KeepAlivePing.cs" />

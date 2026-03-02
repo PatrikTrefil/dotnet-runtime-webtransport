@@ -15,20 +15,30 @@ namespace System.Net.Http;
 [SupportedOSPlatform("windows")]
 public sealed record class Http3ExtendedConnectManagerCreationOptions
 {
+    internal Http3ExtendedConnectManagerCreationOptions(
+        Func<QuicStreamType, CancellationToken, Task<QuicStream>> openOutboundStreamAsync,
+        Func<QuicStream, Task> removeSessionAsync,
+        Action removeOutboundStream)
+    {
+        OpenOutboundStreamAsync = openOutboundStreamAsync;
+        RemoveSessionAsync = removeSessionAsync;
+        RemoveOutboundStream = removeOutboundStream;
+    }
+
     /// <summary>
     /// Call to open an outbound an outbound stream using the <see cref="QuicConnection"/> associated with the HTTP/3 connection associated with the <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
-    public required Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsync { get; init; }
+    internal Func<QuicStreamType, CancellationToken, Task<QuicStream>> OpenOutboundStreamAsync { get; init; }
 
     /// <summary>
     /// Call when the CONNECT stream is no longer in use.
     /// </summary>
-    public required Func<QuicStream, Task> RemoveSessionAsync { get; init; }
+    internal Func<QuicStream, Task> RemoveSessionAsync { get; init; }
 
     /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    public required Action RemoveOutboundStream { get; init; }
+    internal Action RemoveOutboundStream { get; init; }
 }
 
 [SupportedOSPlatform("linux")]

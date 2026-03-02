@@ -208,10 +208,7 @@ namespace System.Net.Http
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
     public sealed partial class Http3ExtendedConnectManagerCreationOptions
     {
-        public Http3ExtendedConnectManagerCreationOptions() { }
-        public required System.Action RemoveOutboundStream { get { throw null; } init { } }
-        public required System.Func<System.Net.Quic.QuicStreamType, System.Threading.CancellationToken, System.Threading.Tasks.Task<System.Net.Quic.QuicStream>> OpenOutboundStreamAsync { get { throw null; } init { } }
-        public required System.Func<System.Net.Quic.QuicStream, System.Threading.Tasks.Task> RemoveSessionAsync { get { throw null; } init { } }
+        internal Http3ExtendedConnectManagerCreationOptions() { }
     }
     public abstract partial class HttpContent : System.IDisposable
     {
