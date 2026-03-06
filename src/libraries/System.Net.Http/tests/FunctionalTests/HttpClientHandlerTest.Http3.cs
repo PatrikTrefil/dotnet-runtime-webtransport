@@ -98,9 +98,9 @@ namespace System.Net.Http.Functional.Tests
                     new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = 2048 });
 
                 QuicException ex = await AssertThrowsQuicExceptionAsync(
-                    QuicError.StreamAborted,
+                    QuicError.ConnectionAborted,
                     () => connection.OutboundControlStream.Stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)));
-                Assert.Equal(Http3LoopbackConnection.H3_REQUEST_CANCELLED, ex.ApplicationErrorCode);
+                Assert.Equal(Http3LoopbackConnection.H3_SETTINGS_ERROR, ex.ApplicationErrorCode);
             });
 
             Task clientTask = Task.Run(async () =>
