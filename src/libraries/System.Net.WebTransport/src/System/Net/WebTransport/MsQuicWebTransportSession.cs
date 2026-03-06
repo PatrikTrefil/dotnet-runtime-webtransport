@@ -881,25 +881,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private async ValueTask CloseAndCleanupPendingStreamsAsync(Http3ErrorCode httpErrorCodeForPendingStreams)
     {
-        ValueTask uniStreamsTask = CloseAndDisposeAllStreamsInChannel(_pendingUnidirectionalStreams, httpErrorCodeForPendingStreams);
-        ValueTask biStreamsTask = CloseAndDisposeAllStreamsInChannel(_pendingBidirectionalStreams, httpErrorCodeForPendingStreams);
+        ValueTask uniStreamsTask = WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(_pendingUnidirectionalStreams, httpErrorCodeForPendingStreams);
+        ValueTask biStreamsTask = WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(_pendingBidirectionalStreams, httpErrorCodeForPendingStreams);
 
         await uniStreamsTask.ConfigureAwait(false);
         await biStreamsTask.ConfigureAwait(false);
 
         _pendingUnidirectionalStreams = null;
         _pendingBidirectionalStreams = null;
-
-        static async ValueTask CloseAndDisposeAllStreamsInChannel(Channel<ChannelItem>? channel, Http3ErrorCode httpErrorCode)
-        {
-            if (channel is null) return;
-
-            while (channel.Reader.TryRead(out ChannelItem item))
-            {
-                item.ArrayBuffer.Dispose();
-                item.QuicStream.Abort(QuicAbortDirection.Both, (long)httpErrorCode);
-                await item.QuicStream.DisposeAsync().ConfigureAwait(false);
-            }
-        }
     }
 }

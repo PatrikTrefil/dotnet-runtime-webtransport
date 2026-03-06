@@ -272,21 +272,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        bool wasRemovalSuccessful;
         long sessionId = connectStream.Id;
-        lock (DictionaryLock)
-        {
-            _idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem);
-            if (dictionaryItem is Tombstone or null)
-            {
-                wasRemovalSuccessful = false;
-            }
-            else
-            {
-                _idSessionAndChannelsDict[sessionId] = Tombstone.Instance;
-                wasRemovalSuccessful = true;
-            }
-        }
+        bool wasRemovalSuccessful = TryTombstoneSession(sessionId, out _);
 
         if (wasRemovalSuccessful)
         {
@@ -323,10 +310,53 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         {
             _openSessionsCount--;
         }
+
         if (quicStream != null)
         {
+            TryTombstoneSession(quicStream.Id, out SessionAndChannels? sessionAndChannels);
+
+            if (sessionAndChannels is not null)
+            {
+                Debug.Assert(sessionAndChannels.Session is null);
+                CompleteAndClosePendingStreams(sessionAndChannels, Http3ErrorCode.WebtransportSessionGone);
+            }
+
             RemoveSessionAsync(quicStream);
         }
+    }
+
+    private bool TryTombstoneSession(long sessionId, out SessionAndChannels? sessionAndChannels)
+    {
+        lock (DictionaryLock)
+        {
+            if (_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
+            {
+                if (dictionaryItem is Tombstone)
+                {
+                    sessionAndChannels = null;
+                    return false;
+                }
+
+                Debug.Assert(dictionaryItem is SessionAndChannels);
+                sessionAndChannels = (SessionAndChannels)dictionaryItem;
+            }
+            else
+            {
+                sessionAndChannels = null;
+            }
+
+            _idSessionAndChannelsDict[sessionId] = Tombstone.Instance;
+            return true;
+        }
+    }
+
+    private static void CompleteAndClosePendingStreams(SessionAndChannels sessionAndChannels, Http3ErrorCode httpErrorCode)
+    {
+        sessionAndChannels.PendingUnidirectionalStreams.Writer.TryComplete();
+        sessionAndChannels.PendingBidirectionalStreams.Writer.TryComplete();
+
+        WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannel(sessionAndChannels.PendingUnidirectionalStreams, httpErrorCode);
+        WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannel(sessionAndChannels.PendingBidirectionalStreams, httpErrorCode);
     }
 
     private void ChannelItemDropped(ChannelItem channelItem)

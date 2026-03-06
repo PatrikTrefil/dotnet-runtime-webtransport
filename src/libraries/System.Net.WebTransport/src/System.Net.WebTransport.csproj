@@ -37,6 +37,7 @@
     <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
     <Compile Include="System\Net\WebTransport\ThrowHelper.cs" />
     <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportPendingStreamCleanup.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportException.cs" />

@@ -220,6 +220,72 @@ public sealed class WebTransportSessionEstablishmentTests : WebTransportTestBase
     }
 
     [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task FailedHandshakeRejectsBufferedAndSubsequentStreams(WebTransportStreamType streamType)
+    {
+        const HttpStatusCode handshakeFailureStatusCode = HttpStatusCode.NotImplemented;
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _webTransportServer.AcceptWebTransportEnabledConnection(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 1,
+                    InitialBidirectionalStreamCountLimitForPeer = 1,
+                    InitialDataSentLimitForPeer = 20
+                });
+
+            HttpRequestData _ = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+            await using WebTransportServerSession serverSession = new() { Connection = connection, ConnectStream = connection.CurrentStream.Stream };
+
+            (List<QuicStream> openStreams, QuicStream rejectedStream) =
+                await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
+
+            await AssertStreamAborted(rejectedStream, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
+
+            await connection.SendResponseAsync(statusCode: handshakeFailureStatusCode, content: null, isFinal: false);
+
+            foreach (QuicStream stream in openStreams)
+            {
+                if (stream == rejectedStream)
+                {
+                    continue;
+                }
+
+                await AssertStreamAborted(stream, (long)Http3ErrorCode.WebtransportSessionGone);
+            }
+
+            await using QuicStream subsequentStream = await serverSession.OpenStreamFromServerAsync(streamType);
+
+            await AssertStreamAborted(subsequentStream, (long)Http3ErrorCode.WebtransportSessionGone);
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions));
+            Assert.Equal(WebTransportError.SessionConnectFailure, ex.WebTransportError);
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    private static async Task AssertStreamAborted(QuicStream stream, long expectedApplicationErrorCode)
+    {
+        QuicException writesClosedException = await Assert.ThrowsAsync<QuicException>(() => stream.WritesClosed);
+        Assert.Equal(QuicError.StreamAborted, writesClosedException.QuicError);
+        Assert.Equal(expectedApplicationErrorCode, writesClosedException.ApplicationErrorCode);
+
+        if (stream.Type == QuicStreamType.Bidirectional)
+        {
+            QuicException readsClosedException = await Assert.ThrowsAsync<QuicException>(() => stream.ReadsClosed);
+            Assert.Equal(QuicError.StreamAborted, readsClosedException.QuicError);
+            Assert.Equal(expectedApplicationErrorCode, readsClosedException.ApplicationErrorCode);
+        }
+    }
+
+    [Theory]
     [InlineData(HttpStatusCode.Redirect)]
     [InlineData(HttpStatusCode.MovedPermanently)]
     public async Task SessionEstablishmentThrowsWhenTheServerResponsedWithRedirectAndTheHttpMessageInvokerDoesNotAutoRedirect(HttpStatusCode statusCode)
