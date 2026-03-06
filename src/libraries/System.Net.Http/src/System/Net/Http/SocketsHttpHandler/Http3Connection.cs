@@ -25,8 +25,8 @@ namespace System.Net.Http
         private readonly byte[]? _altUsedEncodedHeader;
         private QuicConnection? _connection;
         private Task? _connectionClosedTask;
-        private long _successfulExtendedConnectRequestCount;
-        private bool CanServerInitiatedStreamsBeReceived => Interlocked.Read(ref _successfulExtendedConnectRequestCount) > 0;
+        private long _extendedConnectNegotiationsCount;
+        private bool CanServerInitiatedStreamsBeReceived => Interlocked.Read(ref _extendedConnectNegotiationsCount) > 0;
 
         private ConcurrentDictionary<string, Http3ExtendedConnectManager> ProtocolExtendedConnectManagers { get; } = new();
 
@@ -313,7 +313,7 @@ namespace System.Net.Http
             Http3ExtendedConnectManager? extendedconnectManager = null;
             if (request.IsExtendedConnectRequest)
             {
-                Interlocked.Increment(ref _successfulExtendedConnectRequestCount);
+                Interlocked.Increment(ref _extendedConnectNegotiationsCount);
 
                 request.Options.TryGetValue(Http3ExtendedConnectManager.RequestOptionsKey, out Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory? valueFactory);
                 if (valueFactory == null)
@@ -454,8 +454,6 @@ namespace System.Net.Http
             }
             catch (Exception ex)
             {
-                Interlocked.Decrement(ref _successfulExtendedConnectRequestCount);
-
                 extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
 
                 if (ex is QuicException qex && qex.QuicError == QuicError.OperationAborted)
