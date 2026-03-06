@@ -10,7 +10,6 @@ using System.Runtime.Versioning;
 
 namespace System.Net.WebTransport;
 
-// TODO: use SR.PlatformNotSupported_NetWebTransport in assembly
 
 /// <summary>
 /// Provides APIs for creating client-side <see cref="WebTransportSession"/> instances.
