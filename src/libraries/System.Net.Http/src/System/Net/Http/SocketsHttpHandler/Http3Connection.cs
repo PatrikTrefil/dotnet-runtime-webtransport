@@ -279,7 +279,7 @@ namespace System.Net.Http
             {
                 while (!TryReserveStream())
                 {
-                    bool isConnectionShuttingDown = await WaitForAvailableStreamsAsync().ConfigureAwait(false);
+                    bool isConnectionShuttingDown = !await WaitForAvailableStreamsAsync().ConfigureAwait(false);
                     if (isConnectionShuttingDown)
                     {
                         break; // opening of stream will fail below
