@@ -710,6 +710,7 @@ namespace System.Net.Http
         {
             ArrayBuffer buffer = default;
             bool streamHandedOverToExtendedConnectManager = false;
+            long? streamAbortErrorCode = null;
 
             try
             {
@@ -885,16 +886,23 @@ namespace System.Net.Http
                 Debug.Assert(ex.ApplicationErrorCode.HasValue);
                 Http3ErrorCode code = (Http3ErrorCode)ex.ApplicationErrorCode.Value;
 
+                streamAbortErrorCode = ex.ApplicationErrorCode.Value;
                 Abort(HttpProtocolException.CreateHttp3ConnectionException(code, SR.net_http_http3_connection_close));
             }
             catch (Exception ex)
             {
+                streamAbortErrorCode = (ex as HttpProtocolException)?.ErrorCode ?? (long)Http3ErrorCode.InternalError;
                 Abort(ex);
             }
             finally
             {
                 if (!streamHandedOverToExtendedConnectManager)
                 {
+                    if (streamAbortErrorCode.HasValue)
+                    {
+                        stream.Abort(QuicAbortDirection.Both, streamAbortErrorCode.Value);
+                    }
+
                     await stream.DisposeAsync().ConfigureAwait(false);
                 }
                 buffer.Dispose();

@@ -97,10 +97,11 @@ namespace System.Net.Http.Functional.Tests
                     new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = 1024 },
                     new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = 2048 });
 
-                QuicException ex = await AssertThrowsQuicExceptionAsync(
+                await AssertThrowsQuicExceptionAsync(
+                    Http3LoopbackConnection.H3_SETTINGS_ERROR,
+                    () => connection.OutboundControlStream.Stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)),
                     QuicError.ConnectionAborted,
-                    () => connection.OutboundControlStream.Stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)));
-                Assert.Equal(Http3LoopbackConnection.H3_SETTINGS_ERROR, ex.ApplicationErrorCode);
+                    QuicError.StreamAborted);
             });
 
             Task clientTask = Task.Run(async () =>
@@ -132,10 +133,11 @@ namespace System.Net.Http.Functional.Tests
                 await using QuicStream stream = await connection.OpenQuicStreamAsync(QuicStreamType.Bidirectional);
                 await stream.WriteAsync(new byte[] { 0 }); // actually open the stream
 
-                QuicException ex = await AssertThrowsQuicExceptionAsync(
-                    QuicError.StreamAborted,
-                    () => stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)));
-                Assert.Equal(Http3LoopbackConnection.H3_REQUEST_CANCELLED, ex.ApplicationErrorCode);
+                await AssertThrowsQuicExceptionAsync(
+                    Http3LoopbackConnection.H3_STREAM_CREATION_ERROR,
+                    () => stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)),
+                    QuicError.ConnectionAborted,
+                    QuicError.StreamAborted);
             });
 
             Task clientTask = Task.Run(async () =>
@@ -2054,6 +2056,14 @@ namespace System.Net.Http.Functional.Tests
         {
             QuicException ex = await Assert.ThrowsAsync<QuicException>(testCode);
             Assert.Equal(expectedError, ex.QuicError);
+            return ex;
+        }
+
+        private static async Task<QuicException> AssertThrowsQuicExceptionAsync(long expectedApplicationErrorCode, Func<Task> testCode, params QuicError[] expectedErrors)
+        {
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(testCode);
+            Assert.Contains(ex.QuicError, expectedErrors);
+            Assert.Equal(expectedApplicationErrorCode, ex.ApplicationErrorCode);
             return ex;
         }
 
