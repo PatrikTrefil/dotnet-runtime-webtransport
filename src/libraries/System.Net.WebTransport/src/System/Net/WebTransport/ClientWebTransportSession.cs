@@ -67,8 +67,8 @@ public static class ClientWebTransportSession
 
         HttpRequestMessage requestMessage = new(HttpMethod.Connect, options.Uri)
         {
-            Version = options.HttpVersion,
-            VersionPolicy = HttpVersionPolicy.RequestVersionExact,
+            Version = HttpVersion.Version30,
+            VersionPolicy = HttpVersionPolicy.RequestVersionExact
         };
         requestMessage.Options.Set(
             Http3ExtendedConnectManager.RequestOptionsKey,
