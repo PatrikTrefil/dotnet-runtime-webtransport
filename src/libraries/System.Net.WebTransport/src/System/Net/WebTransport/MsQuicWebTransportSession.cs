@@ -22,7 +22,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
     /// <summary>
     /// Lock this object when working with <see cref="WebTransportSession.State"/>, <see cref="WebTransportSession.CloseStatusCode"/>,
-    /// ,<see cref="WebTransportSession.CloseStatusDescription"/> or <see cref="_openStreams"/>.
+    /// <see cref="WebTransportSession.CloseStatusDescription"/>, <see cref="_openStreams"/>, <see cref="_pendingOutboundOpenWaitersCount"/>,
+    /// <see cref="_hasOutboundOpenShutdownStarted"/>, or <see cref="_outboundOpenWaitersDrainedTcs"/>.
     /// </summary>
     private Lock SyncLock { get; } = new();
 
@@ -57,8 +58,20 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private long _bytesSent;
     private Lock BytesSentLock { get; } = new();
 
-    private readonly SemaphoreSlim _unidirectionalStreamSemaphore = new(0);
-    private readonly SemaphoreSlim _bidirectionalStreamSemaphore = new(0);
+    /// <summary>
+    /// Used to respect <see cref="WebTransportSession.UnidirectionalStreamCountLimitProvidedByPeer"/>.
+    /// </summary>
+    private readonly SemaphoreSlim _outboundUnidirectionalStreamSemaphore = new(0);
+    /// <summary>
+    /// Used to respect <see cref="WebTransportSession.BidirectionalStreamCountLimitProvidedByPeer"/>.
+    /// </summary>
+    private readonly SemaphoreSlim _outboundBidirectionalStreamSemaphore = new(0);
+
+    // The following fields are used to synchronize the shutdown of all waiters of _outboundUnidirectionalStreamSemaphore and _outboundBidirectionalStreamSemaphore
+    private readonly CancellationTokenSource _outboundOpenShutdownCts = new();
+    private readonly TaskCompletionSource _outboundOpenWaitersDrainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _pendingOutboundOpenWaitersCount;
+    private bool _hasOutboundOpenShutdownStarted;
 
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
@@ -78,7 +91,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _connectionManager = connectionManager;
         _capsuleConsumer = new CapsuleConsumer(connectStream, connectStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
-
 
         if (NetEventSource.Log.IsEnabled())
         {
@@ -147,7 +159,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             int increase = newValue - (int)Interlocked.Read(ref field);
             if (increase > 0)
             {
-                _unidirectionalStreamSemaphore.Release(increase);
+                _outboundUnidirectionalStreamSemaphore.Release(increase);
             }
 
             Interlocked.Exchange(ref field, newValue);
@@ -172,7 +184,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             int increase = newValue - (int)Interlocked.Read(ref field);
             if (increase > 0)
             {
-                _bidirectionalStreamSemaphore.Release(increase);
+                _outboundBidirectionalStreamSemaphore.Release(increase);
             }
 
             Interlocked.Exchange(ref field, newValue);
@@ -315,6 +327,64 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         State = state;
         CloseStatusCode = closeStatusCode;
         CloseStatusDescription = closeStatusDescription;
+    }
+
+    private void RegisterOutboundOpenWaiter()
+    {
+        lock (SyncLock)
+        {
+            ThrowIfInvalidState();
+            Debug.Assert(!_hasOutboundOpenShutdownStarted, "Outbound-open shutdown should only start after the session becomes invalid.");
+            _pendingOutboundOpenWaitersCount++;
+        }
+    }
+
+    private void UnregisterOutboundOpenWaiter()
+    {
+        bool waitersDrained;
+
+        lock (SyncLock)
+        {
+            Debug.Assert(_pendingOutboundOpenWaitersCount > 0);
+            _pendingOutboundOpenWaitersCount--;
+            waitersDrained = _hasOutboundOpenShutdownStarted && _pendingOutboundOpenWaitersCount == 0;
+        }
+
+        if (waitersDrained)
+        {
+            _outboundOpenWaitersDrainedTcs.TrySetResult();
+        }
+    }
+
+    private async Task CleanUpOpenOutboundWaitersAsync()
+    {
+        bool waitersAlreadyDrained;
+
+        lock (SyncLock)
+        {
+            _hasOutboundOpenShutdownStarted = true;
+            waitersAlreadyDrained = _pendingOutboundOpenWaitersCount == 0;
+        }
+
+        await _outboundOpenShutdownCts.CancelAsync().ConfigureAwait(false);
+
+        if (waitersAlreadyDrained)
+        {
+            _outboundOpenWaitersDrainedTcs.TrySetResult();
+        }
+
+        await _outboundOpenWaitersDrainedTcs.Task.ConfigureAwait(false);
+    }
+
+    private void ReleaseStreamSemaphoreIfOutboundOpenShutdownHasNotStarted(SemaphoreSlim streamSemaphore)
+    {
+        lock (SyncLock)
+        {
+            if (!_hasOutboundOpenShutdownStarted)
+            {
+                streamSemaphore.Release();
+            }
+        }
     }
 
     private async ValueTask CloseSessionBySendingCloseCapsuleAsync(uint closeStatus, ReadOnlyMemory<byte> statusDescription, CancellationToken cancellationToken = default)
@@ -515,12 +585,33 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         SemaphoreSlim streamSemaphore = type switch
         {
-            WebTransportStreamType.Unidirectional => _unidirectionalStreamSemaphore,
-            WebTransportStreamType.Bidirectional => _bidirectionalStreamSemaphore,
+            WebTransportStreamType.Unidirectional => _outboundUnidirectionalStreamSemaphore,
+            WebTransportStreamType.Bidirectional => _outboundBidirectionalStreamSemaphore,
             _ => throw new ArgumentOutOfRangeException(nameof(type))
         };
 
-        await streamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        RegisterOutboundOpenWaiter();
+
+        try
+        {
+            using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _outboundOpenShutdownCts.Token);
+
+            try
+            {
+                await streamSemaphore.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                ThrowIfInvalidState();
+                throw;
+            }
+        }
+        finally
+        {
+            UnregisterOutboundOpenWaiter();
+        }
+
+        ThrowIfInvalidState();
 
         QuicStreamType quicStreamType = WebTransportStreamTypeToQuicStreamType(type);
 
@@ -536,7 +627,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
                 catch (Exception)
                 {
-                    streamSemaphore.Release();
+                    ReleaseStreamSemaphoreIfOutboundOpenShutdownHasNotStarted(streamSemaphore);
                     throw;
                 }
                 wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent);
@@ -576,7 +667,9 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 throw;
             }
 
+#pragma warning disable CA2025 // Do not pass 'IDisposable' instances into unawaited tasks
             _ = CleanUpWebTransportStreamWhenClosed(wtStream, OpenOutboundStreamCleanup);
+#pragma warning restore CA2025 // Do not pass 'IDisposable' instances into unawaited tasks
 
             AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream);
         }
@@ -805,10 +898,12 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 tryClosingGracefully = State == WebTransportSessionState.ClosedLocally;
             }
 
+            await CleanUpOpenOutboundWaitersAsync().ConfigureAwait(false);
             await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(Http3ErrorCode.WebtransportSessionGone, tryClosingGracefully).ConfigureAwait(false);
             _connectionManager.RemoveSession(_connectStream); // _connectStream will be disposed by the _connectionManager
-            _unidirectionalStreamSemaphore.Dispose();
-            _bidirectionalStreamSemaphore.Dispose();
+            _outboundUnidirectionalStreamSemaphore.Dispose();
+            _outboundBidirectionalStreamSemaphore.Dispose();
+            _outboundOpenShutdownCts.Dispose();
 
             _isCleanedUp = true;
         }

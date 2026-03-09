@@ -244,6 +244,53 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task PendingOpenOutboundStreamThrowsWebTransportExceptionWhenPeerClosesSession(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        uint expectedApplicationErrorCode = 1;
+        byte[] expectedApplicationErrorMessage = Encoding.UTF8.GetBytes("closing");
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            Task<WebTransportStream> pendingOpenTask = session.OpenOutboundStreamAsync(streamType).AsTask();
+
+            barrier.SignalAndWait();
+
+            WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => pendingOpenTask);
+            Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError);
+            Assert.Equal(expectedApplicationErrorCode, ex.CloseStatusCode);
+            Assert.Equal(Encoding.UTF8.GetString(expectedApplicationErrorMessage), ex.CloseStatusDescription);
+
+            Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 0,
+                    InitialBidirectionalStreamCountLimitForPeer = 0
+                });
+
+            barrier.SignalAndWait();
+
+            CapsuleHelper.WriteCloseSessionCapsule(serverSession.ConnectStream, expectedApplicationErrorMessage, expectedApplicationErrorCode);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
     [Fact]
     public async Task ClosesClientSessionAfterServerClosesConnectStream()
     {
