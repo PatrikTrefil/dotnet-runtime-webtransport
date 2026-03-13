@@ -137,9 +137,9 @@ public static class ClientWebTransportSession
         return session;
     }
 
-    private static System.Net.ArrayBuffer WrapConnectStreamBufferInArrayBuffer(byte[] connectStreamBufferData)
+    private static ArrayBuffer WrapConnectStreamBufferInArrayBuffer(byte[] connectStreamBufferData)
     {
-        System.Net.ArrayBuffer connectStreamBuffer = new(initialSize: connectStreamBufferData.Length, usePool: true);
+        ArrayBuffer connectStreamBuffer = new(initialSize: connectStreamBufferData.Length, usePool: true);
         if (connectStreamBufferData.Length > 0)
         {
             connectStreamBufferData.CopyTo(connectStreamBuffer.AvailableSpan);
