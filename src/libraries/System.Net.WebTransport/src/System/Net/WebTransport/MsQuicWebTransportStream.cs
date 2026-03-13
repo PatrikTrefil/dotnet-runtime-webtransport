@@ -15,19 +15,22 @@ namespace System.Net.WebTransport;
 /// <summary>
 /// Implementation that uses System.Net.Quic
 /// </summary>
-internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long defaultStreamErrorCode, Stream readStream, QuicStream quicStream, Action<long> addBytesSent) : WebTransportStream(type)
+internal sealed class MsQuicWebTransportStream : WebTransportStream
 {
-    private readonly QuicStream _quicStream = quicStream ?? throw new ArgumentNullException(nameof(quicStream));
-    private readonly Stream _readStream = readStream ?? throw new ArgumentNullException(nameof(readStream));
+    private readonly QuicStream _quicStream;
+    private readonly Stream _readStream;
     private bool _isDisposed;
 
     private static readonly ReadOnlyMemory<byte> s_bidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x41 };
     private static readonly ReadOnlyMemory<byte> s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
 
-    private readonly TaskCompletionSource _tcsReadsClosed = new();
-    private readonly TaskCompletionSource _tcsWritesClosed = new();
-
-    private readonly Action<long> _addBytesSent = addBytesSent;
+    private readonly Action<long> _addBytesSent;
+    private readonly Action<MsQuicWebTransportStream> _closedCallback;
+    /// <summary>
+    /// Best-effort duplicate suppression only. Session cleanup is responsible for tolerating races.
+    /// </summary>
+    private bool _hasReportedClosed;
+    private readonly Task _reportClosedTask;
     /// <summary>
     /// <see cref="QuicStream.Abort(QuicAbortDirection, long)"/> and <see cref="QuicStream.DisposeAsync"/> and <see cref="QuicStream.Dispose(bool)"/> may not run at the same time.
     /// To prevent this we use this lock.
@@ -37,88 +40,91 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <summary>
     /// Error code used when the stream needs to abort read or write side of the stream internally, e.g. in <see cref="WebTransportStream.DisposeAsync()"/>.
     /// </summary>
-    private readonly long _remappedDefaultStreamErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultStreamErrorCode);
+    private readonly long _remappedDefaultStreamErrorCode;
 
-    /// <summary>
-    /// Create inbound stream
-    /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent) : this(type, defaultStreamErrorCode, readStream, quicStream, addBytesSent)
+    private MsQuicWebTransportStream(StreamOrigin streamOrigin, WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback) : base(type)
     {
         if (NetEventSource.Log.IsEnabled())
         {
             NetEventSource.Associate(this, quicStream);
         }
 
-        if (type == WebTransportStreamType.Unidirectional)
+        _quicStream = quicStream ?? throw new ArgumentNullException(nameof(quicStream));
+        _readStream = readStream ?? throw new ArgumentNullException(nameof(readStream));
+        _addBytesSent = addBytesSent;
+        _closedCallback = closedCallback ?? throw new ArgumentNullException(nameof(closedCallback));
+        _remappedDefaultStreamErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultStreamErrorCode);
+
+        switch (streamOrigin)
         {
-            _tcsWritesClosed.SetResult();
-        }
-        else
-        {
-            ReactToWritesClosedInQuicStream();
+            case StreamOrigin.Inbound:
+                if (type == WebTransportStreamType.Unidirectional)
+                {
+                    WritesClosed = Task.CompletedTask;
+                }
+                else
+                {
+                    WritesClosed = ObserveQuicClosureAsync(_quicStream.WritesClosed);
+                }
+
+                ReadsClosed = ObserveQuicClosureAsync(_quicStream.ReadsClosed);
+                break;
+            case StreamOrigin.Outbound:
+                if (type == WebTransportStreamType.Unidirectional)
+                {
+                    ReadsClosed = Task.CompletedTask;
+                }
+                else
+                {
+                    ReadsClosed = ObserveQuicClosureAsync(_quicStream.ReadsClosed);
+                }
+
+                WritesClosed = ObserveQuicClosureAsync(_quicStream.WritesClosed);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(StreamOrigin), streamOrigin, $"Invalid {nameof(StreamOrigin)} passed.");
         }
 
-        ReactToReadsClosedInQuicStream();
+        _reportClosedTask = ReportClosedWhenBothSidesAreClosed();
     }
 
-    /// <summary>
-    /// Create outbound stream
-    /// </summary>
-    private MsQuicWebTransportStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent) : this(type, defaultStreamErrorCode, readStream: quicStream, quicStream, addBytesSent)
+    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback)
+        => new MsQuicWebTransportStream(StreamOrigin.Inbound, type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode, addBytesSent, closedCallback);
+    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback)
+        => new MsQuicWebTransportStream(StreamOrigin.Outbound, type, quicStream, quicStream, defaultStreamErrorCode, addBytesSent, closedCallback);
+
+    private async Task ReportClosedWhenBothSidesAreClosed()
     {
-        if (NetEventSource.Log.IsEnabled())
+        try
         {
-            NetEventSource.Associate(this, quicStream);
+            await Task.WhenAll(_quicStream.ReadsClosed, _quicStream.WritesClosed).ConfigureAwait(false);
         }
+        catch (Exception) { }
 
-        if (type == WebTransportStreamType.Unidirectional)
-        {
-            _tcsReadsClosed.SetResult();
-        }
-        else
-        {
-            ReactToReadsClosedInQuicStream();
-        }
-
-        ReactToWritesClosedInQuicStream();
+        ReportClosed();
     }
 
-
-    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent)
-        => new MsQuicWebTransportStream(type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode, addBytesSent);
-    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent)
-        => new MsQuicWebTransportStream(type, quicStream, defaultStreamErrorCode, addBytesSent);
-
-    private void ReactToWritesClosedInQuicStream()
+    private async Task ObserveQuicClosureAsync(Task quicClosureTask)
     {
-        Task.Run(async () =>
+        try
         {
-            try
-            {
-                await _quicStream.WritesClosed.ConfigureAwait(false);
-                _tcsWritesClosed.SetResult();
-            }
-            catch (QuicException ex)
-            {
-                _tcsWritesClosed.SetException(ExceptionWrapper(ex));
-            }
-        });
+            await quicClosureTask.ConfigureAwait(false);
+        }
+        catch (QuicException ex)
+        {
+            throw ExceptionWrapper(ex);
+        }
     }
 
-    private void ReactToReadsClosedInQuicStream()
+    private void ReportClosed()
     {
-        Task.Run(async () =>
+        if (_hasReportedClosed)
         {
-            try
-            {
-                await _quicStream.ReadsClosed.ConfigureAwait(false);
-                _tcsReadsClosed.SetResult();
-            }
-            catch (QuicException ex)
-            {
-                _tcsReadsClosed.SetException(ExceptionWrapper(ex));
-            }
-        });
+            return;
+        }
+
+        _hasReportedClosed = true;
+        _closedCallback(this);
     }
 
     /// <summary>
@@ -149,9 +155,9 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
     /// <inheritdoc/>
     public override bool CanWrite => !_isDisposed && _quicStream.CanWrite;
 
-    public override Task ReadsClosed => _tcsReadsClosed.Task;
+    public override Task ReadsClosed { get; }
 
-    public override Task WritesClosed => _tcsWritesClosed.Task;
+    public override Task WritesClosed { get; }
 
     private static QuicAbortDirection WebTransportAbortDirectionToQuicAbortDirection(WebTransportAbortDirection abortDirection, [CallerArgumentExpression(nameof(abortDirection))] string? paramName = null)
     {
@@ -280,7 +286,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
     }
 
-// The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
+    // The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
 
     /// <inheritdoc/>
@@ -438,7 +444,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         }
     }
 
-// The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
+    // The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
 
     /// <inheritdoc/>
@@ -512,7 +518,7 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
         {
             try
             {
-// The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
+                // The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
                 await _quicStream.FlushAsync().ConfigureAwait(false);
 #pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
@@ -591,6 +597,8 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             }
         }
 
+        ReportClosed();
+
         base.Dispose(disposing);
     }
 
@@ -608,5 +616,13 @@ internal sealed class MsQuicWebTransportStream(WebTransportStreamType type, long
             await _quicStream.DisposeAsync().ConfigureAwait(false);
             await _readStream.DisposeAsync().ConfigureAwait(false);
         }
+
+        await _reportClosedTask.ConfigureAwait(false);
+    }
+
+    private enum StreamOrigin
+    {
+        Inbound,
+        Outbound
     }
 }

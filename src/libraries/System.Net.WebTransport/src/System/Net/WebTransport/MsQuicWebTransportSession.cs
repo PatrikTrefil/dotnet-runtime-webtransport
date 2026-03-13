@@ -33,7 +33,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     private Channel<ChannelItem>? _pendingUnidirectionalStreams;
     private Channel<ChannelItem>? _pendingBidirectionalStreams;
 
-    private readonly List<MsQuicWebTransportStream> _openStreams = [];
+    private readonly HashSet<MsQuicWebTransportStream> _openStreams = [];
 
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
@@ -538,11 +538,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, DefaultStreamErrorCode, AddBytesSent);
-
-            _ = CleanUpWebTransportStreamWhenClosed(wtStream, InboundStreamCleanup);
-
-            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, DefaultStreamErrorCode, AddBytesSent, InboundStreamCleanup);
+            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream, InboundStreamCleanup);
         }
         finally
         {
@@ -554,23 +551,26 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         return wtStream;
     }
 
-    private void AddToOpenStreamsOtherwiseRejectAndDisposeStream(MsQuicWebTransportStream stream)
+    private void AddToOpenStreamsOtherwiseRejectAndDisposeStream(MsQuicWebTransportStream stream, Action<MsQuicWebTransportStream> cleanupActionBeforeDispose)
     {
+        Exception? invalidStateException;
+
         lock (SyncLock)
         {
-            Exception? e = GetExceptionForObjectState();
+            invalidStateException = GetExceptionForObjectState();
 
-            if (e is null)
+            if (invalidStateException is null)
             {
                 _openStreams.Add(stream);
-            }
-            else
-            {
-                RejectAndDisposeStream(stream);
-                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, e);
-                throw e;
+                return;
             }
         }
+
+        cleanupActionBeforeDispose?.Invoke(stream);
+        RejectAndDisposeStream(stream);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, invalidStateException);
+        throw invalidStateException;
 
         static void RejectAndDisposeStream(MsQuicWebTransportStream streamToReject)
         {
@@ -630,7 +630,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     ReleaseStreamSemaphoreIfOutboundOpenShutdownHasNotStarted(streamSemaphore);
                     throw;
                 }
-                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent, OpenOutboundStreamCleanup);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -667,11 +667,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 throw;
             }
 
-#pragma warning disable CA2025 // Do not pass 'IDisposable' instances into unawaited tasks
-            _ = CleanUpWebTransportStreamWhenClosed(wtStream, OpenOutboundStreamCleanup);
-#pragma warning restore CA2025 // Do not pass 'IDisposable' instances into unawaited tasks
-
-            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream);
+            AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream, OpenOutboundStreamCleanup);
         }
         finally
         {
@@ -693,32 +689,15 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         };
     }
 
-    private static Task CleanUpWebTransportStreamWhenClosed(MsQuicWebTransportStream stream, Action<MsQuicWebTransportStream> cleanUpAction)
-    {
-        return Task.Run(async () =>
-        {
-            try
-            {
-                await stream.ReadsClosed.ConfigureAwait(false);
-            }
-            catch (Exception) { }
-
-            try
-            {
-                await stream.WritesClosed.ConfigureAwait(false);
-            }
-            catch (Exception) { }
-
-            cleanUpAction(stream);
-        });
-    }
-
     private void OpenOutboundStreamCleanup(MsQuicWebTransportStream stream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        StreamCleanup(stream);
-        _connectionManager.RemoveOutboundStream();
+        bool isFirstCleanUpCall = StreamCleanup(stream);
+        if (isFirstCleanUpCall)
+        {
+            _connectionManager.RemoveOutboundStream();
+        }
     }
 
     private void InboundStreamCleanup(MsQuicWebTransportStream stream)
@@ -728,13 +707,13 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         StreamCleanup(stream);
     }
 
-    private void StreamCleanup(MsQuicWebTransportStream stream)
+    private bool StreamCleanup(MsQuicWebTransportStream stream)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
         lock (SyncLock)
         {
-            _openStreams.Remove(stream);
+            return _openStreams.Remove(stream);
         }
     }
 
