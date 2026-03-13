@@ -633,10 +633,6 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent, OpenOutboundStreamCleanup);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
             catch (Exception ex)
             {
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
@@ -657,7 +653,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 }
                 else if (ex is OperationCanceledException or InvalidOperationException)
                 {
-                    throw ex;
+                    throw;
                 }
                 else
                 {
