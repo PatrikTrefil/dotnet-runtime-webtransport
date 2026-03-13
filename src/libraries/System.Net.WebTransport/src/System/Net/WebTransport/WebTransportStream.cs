@@ -60,7 +60,7 @@ public abstract class WebTransportStream : Stream
     /// Initializes a new instance of the <see cref="WebTransportStream"/> class with the specified stream type.
     /// </summary>
     /// <param name="type">The stream type.</param>
-    protected internal WebTransportStream(WebTransportStreamType type)
+    internal WebTransportStream(WebTransportStreamType type)
     {
         Debug.Assert(Enum.IsDefined(type));
 

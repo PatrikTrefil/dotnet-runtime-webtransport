@@ -8,7 +8,7 @@ namespace System.Net.WebTransport
 {
     public abstract partial class WebTransportStream : System.IO.Stream
     {
-        protected internal WebTransportStream(WebTransportStreamType type) { }
+        internal WebTransportStream(WebTransportStreamType type) { }
         public abstract long StreamId { get; }
         public WebTransportStreamType Type { get { throw null; } }
         public abstract System.Threading.Tasks.Task ReadsClosed { get; }
