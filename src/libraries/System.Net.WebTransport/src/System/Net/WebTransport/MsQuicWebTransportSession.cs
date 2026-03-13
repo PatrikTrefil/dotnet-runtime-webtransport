@@ -692,7 +692,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         bool isFirstCleanUpCall = StreamCleanup(stream);
         if (isFirstCleanUpCall)
         {
-            _connectionManager.RemoveOutboundStream();
+            _connectionManager.RemoveOutboundStream(WebTransportStreamTypeToQuicStreamType(stream.Type));
         }
     }
 

@@ -373,6 +373,280 @@ namespace System.Net.Http.Functional.Tests
         }
 
         [Theory]
+        [InlineData(QuicStreamType.Bidirectional)]
+        [InlineData(QuicStreamType.Unidirectional)]
+        public async Task Connect_Http3_ReturningOutboundStream_AffectsRequestQuotaOnlyForBidirectionalStreams(QuicStreamType streamType)
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer(new Http3Options
+            {
+                // The CONNECT request consumes one bidirectional slot. The bidirectional variant needs one
+                // extra slot for the manager-opened stream so we can verify that returning it re-enables requests.
+                MaxInboundBidirectionalStreams = streamType == QuicStreamType.Bidirectional ? 2 : 1,
+                MaxInboundUnidirectionalStreams = 3
+            });
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection extendedConnectConnection = await server.EstablishConnectionAsync(
+                    new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 });
+
+                await using Http3LoopbackStream connectStream = await extendedConnectConnection.AcceptRequestStreamAsync();
+                await connectStream.ReadRequestDataAsync(readBody: false);
+                await connectStream.SendResponseHeadersAsync(HttpStatusCode.OK);
+
+                QuicStream outboundStream = await extendedConnectConnection.AcceptQuicStreamAsync();
+                Assert.Equal(streamType == QuicStreamType.Bidirectional, outboundStream.CanWrite);
+                await outboundStream.DisposeAsync();
+
+                // Returning a bidirectional extended-connect stream should restore the shared bidirectional
+                // request quota on this connection. Returning a unidirectional one must not.
+                if (streamType == QuicStreamType.Bidirectional)
+                {
+                    await using Http3LoopbackStream requestStream = await extendedConnectConnection.AcceptRequestStreamAsync();
+                    HttpRequestData request = await requestStream.ReadRequestDataAsync(readBody: false);
+                    Assert.Equal(HttpMethod.Get.Method, request.Method);
+                    await requestStream.SendResponseAsync(HttpStatusCode.OK);
+                }
+                else
+                {
+                    await using Http3LoopbackConnection regularRequestConnection = await server.EstablishConnectionAsync();
+                    await using Http3LoopbackStream requestStream = await regularRequestConnection.AcceptRequestStreamAsync();
+                    HttpRequestData request = await requestStream.ReadRequestDataAsync(readBody: false);
+                    Assert.Equal(HttpMethod.Get.Method, request.Method);
+                    await requestStream.SendResponseAsync(HttpStatusCode.OK);
+                }
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using SocketsHttpHandler handler = CreateSocketsHttpHandler(allowAllCertificates: true);
+                handler.EnableMultipleHttp3Connections = true;
+                using HttpClient client = CreateHttpClient(handler);
+
+                int managerId = ExtendedConnectManagerController.NextId();
+                using HttpRequestMessage connectRequest = CreateExtendedConnectRequest(
+                    server.Address,
+                    "foo",
+                    CreateExtendedConnectManagerFactory(managerId));
+                using HttpResponseMessage connectResponse = await client.SendAsync(connectRequest, HttpCompletionOption.ResponseHeadersRead).WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
+
+                Http3ExtendedConnectContent extendedConnectContent = Assert.IsType<Http3ExtendedConnectContent>(connectResponse.Content);
+                Http.Tests.TestHttp3ExtendedConnectManager manager = Assert.IsType<Http.Tests.TestHttp3ExtendedConnectManager>(extendedConnectContent.ExtendedConnectManager);
+
+                // This must use the quota bucket matching the stream type.
+                QuicStream outboundStream =
+                    await manager.OpenOutboundStreamForTestAsync(streamType, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+
+                await outboundStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(streamType);
+
+                using HttpRequestMessage regularRequest = CreateRequest(HttpMethod.Get, server.Address, UseVersion, exactVersion: true);
+                using HttpResponseMessage regularResponse = await client.SendAsync(regularRequest).WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.Equal(HttpStatusCode.OK, regularResponse.StatusCode);
+            });
+
+            await new[] { serverTask, clientTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Theory]
+        [InlineData(QuicStreamType.Bidirectional)]
+        [InlineData(QuicStreamType.Unidirectional)]
+        public async Task Connect_Http3_OutboundStream_WhenQuotaForStreamTypeIsFilled_WaitsUntilMatchingStreamIsReturned(QuicStreamType streamType)
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer(new Http3Options
+            {
+                // CONNECT itself uses one bidirectional stream, so the bidirectional variant needs one extra slot
+                // for the first extended-connect stream before the second one can block on quota.
+                MaxInboundBidirectionalStreams = streamType == QuicStreamType.Bidirectional ? 2 : 1,
+                // The client HTTP/3 control stream consumes one unidirectional slot before any extended-connect streams open.
+                MaxInboundUnidirectionalStreams = streamType == QuicStreamType.Unidirectional ? 2 : 1
+            });
+
+            TaskCompletionSource firstStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource disposeFirstAcceptedStream = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource secondStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync(
+                    new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 });
+
+                await using Http3LoopbackStream connectStream = await connection.AcceptRequestStreamAsync();
+                await connectStream.ReadRequestDataAsync(readBody: false);
+                await connectStream.SendResponseHeadersAsync(HttpStatusCode.OK);
+
+                await using (QuicStream  acceptedFirstStream = await connection.AcceptQuicStreamAsync())
+                {
+                    firstStreamAccepted.TrySetResult();
+                    await disposeFirstAcceptedStream.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+
+                await using QuicStream acceptedSecondStream = await connection.AcceptQuicStreamAsync();
+                secondStreamAccepted.TrySetResult();
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using SocketsHttpHandler handler = CreateSocketsHttpHandler(allowAllCertificates: true);
+                handler.EnableMultipleHttp3Connections = true;
+                using HttpClient client = CreateHttpClient(handler);
+
+                int managerId = ExtendedConnectManagerController.NextId();
+                using HttpRequestMessage connectRequest = CreateExtendedConnectRequest(
+                    server.Address,
+                    "foo",
+                    CreateExtendedConnectManagerFactory(managerId));
+                using HttpResponseMessage connectResponse = await client.SendAsync(connectRequest, HttpCompletionOption.ResponseHeadersRead).WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
+
+                Http3ExtendedConnectContent extendedConnectContent = Assert.IsType<Http3ExtendedConnectContent>(connectResponse.Content);
+                Http.Tests.TestHttp3ExtendedConnectManager manager = Assert.IsType<Http.Tests.TestHttp3ExtendedConnectManager>(extendedConnectContent.ExtendedConnectManager);
+
+                QuicStream firstStream =
+                    await manager.OpenOutboundStreamForTestAsync(streamType, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+                firstStream.WriteByte(1); // actually open the stream
+
+                await firstStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+                Task<QuicStream> secondOpenTask = manager.OpenOutboundStreamForTestAsync(streamType, CancellationToken.None);
+                Assert.False(secondOpenTask.IsCompleted);
+
+                await firstStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(streamType);
+                disposeFirstAcceptedStream.TrySetResult();
+
+                QuicStream secondStream = await secondOpenTask.WaitAsync(TimeSpan.FromSeconds(10));
+                secondStream.WriteByte(1); // actually open the stream
+                await secondStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await secondStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(streamType);
+            });
+
+            await new[] { serverTask, clientTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Theory]
+        [InlineData(QuicStreamType.Bidirectional)]
+        [InlineData(QuicStreamType.Unidirectional)]
+        public async Task Connect_Http3_ReturningOutboundStream_RestoresOnlyMatchingQuota(QuicStreamType primaryStreamType)
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer(new Http3Options
+            {
+                // CONNECT consumes one bidirectional stream; one additional bidirectional slot is needed to exhaust
+                // bidirectional extended-connect streams in either parameterization.
+                MaxInboundBidirectionalStreams = 2,
+                // The client HTTP/3 control stream uses one unidirectional slot, leaving one for the test's uni stream.
+                MaxInboundUnidirectionalStreams = 2
+            });
+
+            QuicStreamType secondaryStreamType = primaryStreamType == QuicStreamType.Bidirectional ?
+                QuicStreamType.Unidirectional :
+                QuicStreamType.Bidirectional;
+
+            TaskCompletionSource primaryStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource secondaryStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource disposePrimaryAcceptedStream = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource disposeSecondaryAcceptedStream = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource secondPrimaryStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource secondSecondaryStreamAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync(
+                    new Http3SettingsEntry { SettingId = Http3SettingType.EnableConnect, Value = 1 });
+
+                await using Http3LoopbackStream connectStream = await connection.AcceptRequestStreamAsync();
+                await connectStream.ReadRequestDataAsync(readBody: false);
+                await connectStream.SendResponseHeadersAsync(HttpStatusCode.OK);
+
+                // Accept one outbound stream of each type so the client can independently exhaust both quota buckets.
+                QuicStream acceptedPrimaryStream = await connection.AcceptQuicStreamAsync();
+                primaryStreamAccepted.TrySetResult();
+
+                QuicStream acceptedSecondaryStream = await connection.AcceptQuicStreamAsync();
+                secondaryStreamAccepted.TrySetResult();
+
+                // Returning only the primary stream type should unblock only the matching open.
+                await disposePrimaryAcceptedStream.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await acceptedPrimaryStream.DisposeAsync();
+
+                await using QuicStream acceptedSecondPrimaryStream = await connection.AcceptQuicStreamAsync();
+                secondPrimaryStreamAccepted.TrySetResult();
+
+                // The secondary type must stay blocked until its own stream is returned.
+                await disposeSecondaryAcceptedStream.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await acceptedSecondaryStream.DisposeAsync();
+
+                await using QuicStream acceptedSecondSecondaryStream = await connection.AcceptQuicStreamAsync();
+                secondSecondaryStreamAccepted.TrySetResult();
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using SocketsHttpHandler handler = CreateSocketsHttpHandler(allowAllCertificates: true);
+                handler.EnableMultipleHttp3Connections = true;
+                using HttpClient client = CreateHttpClient(handler);
+
+                int managerId = ExtendedConnectManagerController.NextId();
+                using HttpRequestMessage connectRequest = CreateExtendedConnectRequest(
+                    server.Address,
+                    "foo",
+                    CreateExtendedConnectManagerFactory(managerId));
+                using HttpResponseMessage connectResponse = await client.SendAsync(connectRequest, HttpCompletionOption.ResponseHeadersRead).WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
+
+                Http3ExtendedConnectContent extendedConnectContent = Assert.IsType<Http3ExtendedConnectContent>(connectResponse.Content);
+                Http.Tests.TestHttp3ExtendedConnectManager manager = Assert.IsType<Http.Tests.TestHttp3ExtendedConnectManager>(extendedConnectContent.ExtendedConnectManager);
+
+                QuicStream firstPrimaryStream =
+                    await manager.OpenOutboundStreamForTestAsync(primaryStreamType, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+                // Actually open the QUIC stream on the wire so the server can observe and account for it.
+                firstPrimaryStream.CompleteWrites();
+                await primaryStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+                QuicStream firstSecondaryStream =
+                    await manager.OpenOutboundStreamForTestAsync(secondaryStreamType, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+                firstSecondaryStream.CompleteWrites(); // Actually open the QUIC stream
+                await secondaryStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+                // Both stream-type quotas are full now, so additional opens of either type must wait.
+                Task<QuicStream> secondPrimaryOpenTask = manager.OpenOutboundStreamForTestAsync(primaryStreamType, CancellationToken.None);
+                Task<QuicStream> secondSecondaryOpenTask = manager.OpenOutboundStreamForTestAsync(secondaryStreamType, CancellationToken.None);
+                Assert.False(secondPrimaryOpenTask.IsCompleted);
+                Assert.False(secondSecondaryOpenTask.IsCompleted);
+
+                // Returning the primary stream must not replenish the secondary stream type.
+                await firstPrimaryStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(primaryStreamType);
+                disposePrimaryAcceptedStream.TrySetResult();
+
+                // The second primary stream can now complete, but the secondary one must still be blocked.
+                QuicStream secondPrimaryStream = await secondPrimaryOpenTask.WaitAsync(TimeSpan.FromSeconds(10));
+                secondPrimaryStream.CompleteWrites(); // Actually open the QUIC stream
+                await secondPrimaryStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+                Assert.False(secondSecondaryOpenTask.IsCompleted);
+
+                // Once the secondary stream is returned, the blocked secondary open can complete too.
+                await firstSecondaryStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(secondaryStreamType);
+                disposeSecondaryAcceptedStream.TrySetResult();
+
+                QuicStream secondSecondaryStream = await secondSecondaryOpenTask.WaitAsync(TimeSpan.FromSeconds(10));
+                secondSecondaryStream.CompleteWrites(); // Actually open the QUIC stream
+                await secondSecondaryStreamAccepted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+                await secondPrimaryStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(primaryStreamType);
+                await secondSecondaryStream.DisposeAsync();
+                manager.RemoveOutboundStreamForTest(secondaryStreamType);
+            });
+
+            await new[] { serverTask, clientTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Connect_Http3_ServerInitiatedStream_InvokesManagerProcessReceivedStream(bool useUnidirectionalStream)

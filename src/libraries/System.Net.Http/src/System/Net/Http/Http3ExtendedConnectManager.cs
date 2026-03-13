@@ -18,7 +18,7 @@ public sealed record class Http3ExtendedConnectManagerCreationOptions
     internal Http3ExtendedConnectManagerCreationOptions(
         Func<QuicStreamType, CancellationToken, Task<QuicStream>> openOutboundStreamAsync,
         Func<QuicStream, Task> removeSessionAsync,
-        Action removeOutboundStream)
+        Action<QuicStreamType> removeOutboundStream)
     {
         OpenOutboundStreamAsync = openOutboundStreamAsync;
         RemoveSessionAsync = removeSessionAsync;
@@ -38,7 +38,7 @@ public sealed record class Http3ExtendedConnectManagerCreationOptions
     /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    internal Action RemoveOutboundStream { get; init; }
+    internal Action<QuicStreamType> RemoveOutboundStream { get; init; }
 }
 
 [SupportedOSPlatform("linux")]
@@ -59,7 +59,7 @@ public abstract class Http3ExtendedConnectManager
 
     private readonly Func<QuicStreamType, CancellationToken, Task<QuicStream>> _openOutboundStreamAsyncFunc;
     private readonly Func<QuicStream, Task> _removeSessionAsyncFunc;
-    private readonly Action _removeOutboundStreamFunc;
+    private readonly Action<QuicStreamType> _removeOutboundStreamFunc;
 
     public Http3ExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options)
     {
@@ -162,5 +162,6 @@ public abstract class Http3ExtendedConnectManager
     /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    protected void RemoveOutboundStream() => _removeOutboundStreamFunc();
+    /// <param name="type">The type of the stream being released.</param>
+    protected void RemoveOutboundStream(QuicStreamType type) => _removeOutboundStreamFunc(type);
 }

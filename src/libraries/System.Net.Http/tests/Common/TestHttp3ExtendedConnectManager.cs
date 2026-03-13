@@ -52,8 +52,8 @@ public sealed class TestHttp3ExtendedConnectManager : Http3ExtendedConnectManage
     public Task RemoveSessionForTestAsync(QuicStream connectStream)
         => RemoveSessionAsync(connectStream);
 
-    public void RemoveOutboundStreamForTest()
-        => RemoveOutboundStream();
+    public void RemoveOutboundStreamForTest(QuicStreamType streamType)
+        => RemoveOutboundStream(streamType);
 
     public override Task ProcessGoAwayAsync() => _processGoAwayAsync();
 

@@ -376,11 +376,11 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         return await OpenOutboundStreamAsync(type, cancellationToken).ConfigureAwait(false);
     }
 
-    void IMsQuicWebTransportSessionConnectionManager.RemoveOutboundStream()
+    void IMsQuicWebTransportSessionConnectionManager.RemoveOutboundStream(QuicStreamType type)
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        RemoveOutboundStream();
+        RemoveOutboundStream(type);
     }
 
     private abstract class DictionaryItem { }

@@ -20,7 +20,7 @@ namespace System.Net.Http.Tests
                 options: CreateOptions(
                     openOutboundStreamAsync: (streamType, cancellationToken) => throw new ObjectDisposedException("QuicConnection"),
                     removeSessionAsync: _ => Task.CompletedTask,
-                    removeOutboundStream: () => { }));
+                    removeOutboundStream: _ => { }));
 
             InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => manager.OpenOutboundStreamForTestAsync(QuicStreamType.Bidirectional, CancellationToken.None));
@@ -34,7 +34,7 @@ namespace System.Net.Http.Tests
                 options: CreateOptions(
                     openOutboundStreamAsync: (streamType, cancellationToken) => throw expected,
                     removeSessionAsync: _ => Task.CompletedTask,
-                    removeOutboundStream: () => { }));
+                    removeOutboundStream: _ => { }));
 
             InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => manager.OpenOutboundStreamForTestAsync(QuicStreamType.Unidirectional, CancellationToken.None));
@@ -54,31 +54,33 @@ namespace System.Net.Http.Tests
                         removeSessionCalled.TrySetResult();
                         return Task.CompletedTask;
                     },
-                    removeOutboundStream: () => { }));
+                    removeOutboundStream: _ => { }));
 
             await manager.RemoveSessionForTestAsync(null!);
             await removeSessionCalled.Task.WaitAsync(s_waitTimeout);
         }
 
-        [Fact]
-        public void RemoveOutboundStream_InvokesConfiguredDelegate()
+        [Theory]
+        [InlineData(QuicStreamType.Bidirectional)]
+        [InlineData(QuicStreamType.Unidirectional)]
+        public void RemoveOutboundStream_InvokesConfiguredDelegate(QuicStreamType streamType)
         {
-            int removeOutboundStreamCallCount = 0;
+            QuicStreamType? releasedStreamType = null;
             TestHttp3ExtendedConnectManager manager = new(
                 options: CreateOptions(
                     openOutboundStreamAsync: (streamType, cancellationToken) => throw new InvalidOperationException("unexpected call"),
                     removeSessionAsync: _ => Task.CompletedTask,
-                    removeOutboundStream: () => removeOutboundStreamCallCount++));
+                    removeOutboundStream: releasedType => releasedStreamType = releasedType));
 
-            manager.RemoveOutboundStreamForTest();
+            manager.RemoveOutboundStreamForTest(streamType);
 
-            Assert.Equal(1, removeOutboundStreamCallCount);
+            Assert.Equal(streamType, releasedStreamType);
         }
 
         private static Http3ExtendedConnectManagerCreationOptions CreateOptions(
             Func<QuicStreamType, CancellationToken, Task<QuicStream>> openOutboundStreamAsync,
             Func<QuicStream, Task> removeSessionAsync,
-            Action removeOutboundStream)
+            Action<QuicStreamType> removeOutboundStream)
             => new(openOutboundStreamAsync, removeSessionAsync, removeOutboundStream);
     }
 }

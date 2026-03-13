@@ -63,8 +63,10 @@ namespace System.Net.Http
         public Exception? AbortException => Volatile.Read(ref _abortException);
         private object SyncObj => _activeRequests;
 
-        private int _availableRequestStreamsCount;
-        private TaskCompletionSource<bool>? _availableStreamsWaiter;
+        private int _availableBidirectionalStreamsCount;
+        private int _availableUnidirectionalStreamsCount;
+        private TaskCompletionSource<bool>? _availableBidirectionalStreamsWaiter;
+        private TaskCompletionSource<bool>? _availableUnidirectionalStreamsWaiter;
 
         /// <summary>
         /// If true, we've received GOAWAY, are aborting due to a connection-level error, or are disposing due to pool limits.
@@ -149,8 +151,10 @@ namespace System.Net.Http
             {
                 // Close the QuicConnection in the background.
 
-                _availableStreamsWaiter?.SetResult(false);
-                _availableStreamsWaiter = null;
+                _availableBidirectionalStreamsWaiter?.SetResult(false);
+                _availableBidirectionalStreamsWaiter = null;
+                _availableUnidirectionalStreamsWaiter?.SetResult(false);
+                _availableUnidirectionalStreamsWaiter = null;
                 _connectionClosedTask ??= _connection.CloseAsync((long)Http3ErrorCode.NoError).AsTask();
 
                 QuicConnection connection = _connection;
@@ -189,41 +193,48 @@ namespace System.Net.Http
         /// When EnableMultipleHttp3Connections is false: always reserve a stream, return a bool indicating if the stream is immediately available.
         /// When EnableMultipleHttp3Connections is true: reserve a stream only if it's available meaning that the return value also indicates whether it has been reserved.
         /// </summary>
-        public bool TryReserveStream()
+        public bool TryReserveRequestStream()
+            => TryReserveStream(QuicStreamType.Bidirectional);
+
+        private bool TryReserveStream(QuicStreamType type)
         {
             bool singleConnection = !_pool.Settings.EnableMultipleHttp3Connections;
 
             lock (SyncObj)
             {
+                int availableStreamsCount = GetAvailableStreamsCount(type);
                 // For the single connection case, we allow the counter to go below zero.
-                Debug.Assert(singleConnection || _availableRequestStreamsCount >= 0);
+                Debug.Assert(singleConnection || availableStreamsCount >= 0);
 
-                if (NetEventSource.Log.IsEnabled()) Trace($"_availableRequestStreamsCount = {_availableRequestStreamsCount}");
+                if (NetEventSource.Log.IsEnabled()) Trace($"{GetStreamQuotaName(type)} = {availableStreamsCount}");
 
-                bool streamAvailable = _availableRequestStreamsCount > 0;
+                bool streamAvailable = availableStreamsCount > 0;
 
                 // Do not let the counter to go below zero when EnableMultipleHttp3Connections is true.
                 // This equivalent to an immediate ReleaseStream() for the case no stream is immediately available.
-                if (singleConnection || _availableRequestStreamsCount > 0)
+                if (singleConnection || availableStreamsCount > 0)
                 {
-                    --_availableRequestStreamsCount;
+                    UpdateAvailableStreamsCount(type, -1);
                 }
 
                 return streamAvailable;
             }
         }
 
-        public void ReleaseStream()
+        public void ReleaseRequestStream()
+            => ReleaseStream(QuicStreamType.Bidirectional);
+
+        public void ReleaseStream(QuicStreamType type)
         {
             lock (SyncObj)
             {
-                Debug.Assert(!_pool.Settings.EnableMultipleHttp3Connections || _availableRequestStreamsCount >= 0);
+                int availableStreamsCount = GetAvailableStreamsCount(type);
+                Debug.Assert(!_pool.Settings.EnableMultipleHttp3Connections || availableStreamsCount >= 0);
 
-                if (NetEventSource.Log.IsEnabled()) Trace($"_availableRequestStreamsCount = {_availableRequestStreamsCount}");
-                ++_availableRequestStreamsCount;
+                if (NetEventSource.Log.IsEnabled()) Trace($"{GetStreamQuotaName(type)} = {availableStreamsCount}");
+                UpdateAvailableStreamsCount(type, 1);
 
-                _availableStreamsWaiter?.SetResult(!ShuttingDown);
-                _availableStreamsWaiter = null;
+                SignalAvailableStreamsWaiter(type);
             }
         }
 
@@ -233,39 +244,54 @@ namespace System.Net.Http
 
             lock (SyncObj)
             {
-                Debug.Assert(_availableStreamsWaiter is null || _availableRequestStreamsCount >= 0);
+                Debug.Assert(_availableBidirectionalStreamsWaiter is null || _availableBidirectionalStreamsCount >= 0);
+                Debug.Assert(_availableUnidirectionalStreamsWaiter is null || _availableUnidirectionalStreamsCount >= 0);
 
-                if (NetEventSource.Log.IsEnabled()) Trace($"_availableRequestStreamsCount = {_availableRequestStreamsCount} + bidirectionalStreamsCountIncrement = {args.BidirectionalIncrement}");
+                if (NetEventSource.Log.IsEnabled())
+                {
+                    Trace($"_availableBidirectionalStreamsCount = {_availableBidirectionalStreamsCount} + bidirectionalStreamsCountIncrement = {args.BidirectionalIncrement}");
+                    Trace($"_availableUnidirectionalStreamsCount = {_availableUnidirectionalStreamsCount} + unidirectionalStreamsCountIncrement = {args.UnidirectionalIncrement}");
+                }
 
-                // Since _availableStreamsWaiter is only used in the multi-connection case, when _availableRequestStreamsCount cannot go below zero,
-                // we don't need to check the value of _availableRequestStreamsCount here.
-                _availableRequestStreamsCount += args.BidirectionalIncrement;
-                _availableStreamsWaiter?.SetResult(!ShuttingDown);
-                _availableStreamsWaiter = null;
+                // Since the waiters are only used in the multi-connection case, when the counters cannot go below zero,
+                // we don't need to check the current values of the counters here.
+                _availableBidirectionalStreamsCount += args.BidirectionalIncrement;
+                _availableUnidirectionalStreamsCount += args.UnidirectionalIncrement;
+                if (args.BidirectionalIncrement != 0)
+                {
+                    SignalAvailableStreamsWaiter(QuicStreamType.Bidirectional);
+                }
+
+                if (args.UnidirectionalIncrement != 0)
+                {
+                    SignalAvailableStreamsWaiter(QuicStreamType.Unidirectional);
+                }
             }
         }
 
-        public Task<bool> WaitForAvailableStreamsAsync()
+        public Task<bool> WaitForAvailableRequestStreamsAsync()
+            => WaitForAvailableStreamsAsync(QuicStreamType.Bidirectional);
+
+        public Task<bool> WaitForAvailableStreamsAsync(QuicStreamType type)
         {
-            // In the single connection case, _availableStreamsWaiter notifications do not guarantee that _availableRequestStreamsCount >= 0.
+            // In the single connection case, waiter notifications do not guarantee that the tracked counter is non-negative.
             Debug.Assert(_pool.Settings.EnableMultipleHttp3Connections, "Calling WaitForAvailableStreamsAsync() is invalid when EnableMultipleHttp3Connections is false.");
 
             lock (SyncObj)
             {
-                Debug.Assert(_availableRequestStreamsCount >= 0);
+                int availableStreamsCount = GetAvailableStreamsCount(type);
+                Debug.Assert(availableStreamsCount >= 0);
 
                 if (ShuttingDown)
                 {
                     return Task.FromResult(false);
                 }
-                if (_availableRequestStreamsCount > 0)
+                if (availableStreamsCount > 0)
                 {
                     return Task.FromResult(true);
                 }
 
-                Debug.Assert(_availableStreamsWaiter is null);
-                _availableStreamsWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                return _availableStreamsWaiter.Task;
+                return GetOrCreateAvailableStreamsWaiter(type).Task;
             }
         }
 
@@ -273,13 +299,13 @@ namespace System.Net.Http
         {
             if (!_pool.Settings.EnableMultipleHttp3Connections)
             {
-                TryReserveStream();
+                TryReserveStream(type);
             }
             else
             {
-                while (!TryReserveStream())
+                while (!TryReserveStream(type))
                 {
-                    bool isConnectionShuttingDown = !await WaitForAvailableStreamsAsync().ConfigureAwait(false);
+                    bool isConnectionShuttingDown = !await WaitForAvailableStreamsAsync(type).ConfigureAwait(false);
                     if (isConnectionShuttingDown)
                     {
                         break; // opening of stream will fail below
@@ -307,6 +333,79 @@ namespace System.Net.Http
                 await value.DisposeAsync().ConfigureAwait(false);
             }
         }
+
+        private int GetAvailableStreamsCount(QuicStreamType type) =>
+            type switch
+            {
+                QuicStreamType.Bidirectional => _availableBidirectionalStreamsCount,
+                QuicStreamType.Unidirectional => _availableUnidirectionalStreamsCount,
+                _ => throw new ArgumentOutOfRangeException(nameof(type))
+            };
+
+        private void UpdateAvailableStreamsCount(QuicStreamType type, int increment)
+        {
+            switch (type)
+            {
+                case QuicStreamType.Bidirectional:
+                    _availableBidirectionalStreamsCount += increment;
+                    break;
+                case QuicStreamType.Unidirectional:
+                    _availableUnidirectionalStreamsCount += increment;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
+            }
+        }
+
+        private TaskCompletionSource<bool> GetOrCreateAvailableStreamsWaiter(QuicStreamType type)
+        {
+            switch (type)
+            {
+                case QuicStreamType.Bidirectional:
+                    return _availableBidirectionalStreamsWaiter ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                case QuicStreamType.Unidirectional:
+                    return _availableUnidirectionalStreamsWaiter ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
+            }
+        }
+
+        private TaskCompletionSource<bool>? TakeAvailableStreamsWaiter(QuicStreamType type)
+        {
+            TaskCompletionSource<bool>? waiter;
+
+            switch (type)
+            {
+                case QuicStreamType.Bidirectional:
+                    waiter = _availableBidirectionalStreamsWaiter;
+                    _availableBidirectionalStreamsWaiter = null;
+                    return waiter;
+
+                case QuicStreamType.Unidirectional:
+                    waiter = _availableUnidirectionalStreamsWaiter;
+                    _availableUnidirectionalStreamsWaiter = null;
+                    return waiter;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
+            }
+        }
+
+        private void SignalAvailableStreamsWaiter(QuicStreamType type)
+        {
+            TaskCompletionSource<bool>? waiter = TakeAvailableStreamsWaiter(type);
+            waiter?.SetResult(!ShuttingDown);
+        }
+
+        private static string GetStreamQuotaName(QuicStreamType type) =>
+            type switch
+            {
+                QuicStreamType.Unidirectional => nameof(_availableUnidirectionalStreamsCount),
+                QuicStreamType.Bidirectional => nameof(_availableBidirectionalStreamsCount),
+                _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unexpected stream type.")
+            };
 
         public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, WaitForHttp3ConnectionActivity waitForConnectionActivity, bool streamAvailable, CancellationToken cancellationToken)
         {

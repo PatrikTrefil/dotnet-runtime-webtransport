@@ -200,7 +200,7 @@ namespace System.Net.Http
         public abstract void ReserveSession();
         public abstract void ValidateAndProcessServerSettings(System.Collections.Generic.Dictionary<long, long> serverSettings);
         protected System.Threading.Tasks.Task<System.Net.Quic.QuicStream> OpenOutboundStreamAsync(System.Net.Quic.QuicStreamType type, System.Threading.CancellationToken cancellationToken) { throw null; }
-        protected void RemoveOutboundStream() { }
+        protected void RemoveOutboundStream(System.Net.Quic.QuicStreamType type) { }
         protected System.Threading.Tasks.Task RemoveSessionAsync(System.Net.Quic.QuicStream connectStream) { throw null; }
     }
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("linux")]

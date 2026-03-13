@@ -20,7 +20,7 @@ internal interface IMsQuicWebTransportSessionConnectionManager
     /// <summary>
     /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
     /// </summary>
-    void RemoveOutboundStream();
+    void RemoveOutboundStream(QuicStreamType type);
     /// <summary>
     /// Call when a session is closed and the CONNECT stream is no longer used.
     /// This method may be called multiple times for the same stream and is thread-safe.
