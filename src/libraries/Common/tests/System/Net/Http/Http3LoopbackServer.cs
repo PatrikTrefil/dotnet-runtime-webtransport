@@ -69,11 +69,16 @@ namespace System.Net.Test.Common
 
         private async Task<Http3LoopbackConnection> EstablishHttp3ConnectionAsync(params Http3SettingsEntry[] settingsEntries)
         {
-            QuicConnection con = await _listener.AcceptConnectionAsync().ConfigureAwait(false);
-            Http3LoopbackConnection connection = new Http3LoopbackConnection(con);
+            Http3LoopbackConnection connection = await AcceptConnectionWithoutSettingsAsync().ConfigureAwait(false);
 
             await connection.EstablishControlStreamAsync(settingsEntries).ConfigureAwait(false);
             return connection;
+        }
+
+        public async Task<Http3LoopbackConnection> AcceptConnectionWithoutSettingsAsync()
+        {
+            QuicConnection con = await _listener.AcceptConnectionAsync().ConfigureAwait(false);
+            return new Http3LoopbackConnection(con);
         }
 
         public override async Task<GenericLoopbackConnection> EstablishGenericConnectionAsync()

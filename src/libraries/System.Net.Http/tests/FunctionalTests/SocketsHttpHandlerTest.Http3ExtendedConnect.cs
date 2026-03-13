@@ -90,6 +90,40 @@ namespace System.Net.Http.Functional.Tests
         }
 
         [Fact]
+        public async Task Connect_Http3_ServerConnectionClosedBeforeSettings_FailsWithoutHanging()
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.AcceptConnectionWithoutSettingsAsync();
+                await connection.CloseAsync(Http3LoopbackConnection.H3_INTERNAL_ERROR);
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using HttpClient client = CreateHttpClient();
+                int managerId = ExtendedConnectManagerController.NextId();
+                int validateAndProcessServerSettingsCallCount = 0;
+                int reserveSessionCallCount = 0;
+                using HttpRequestMessage request = CreateExtendedConnectRequest(
+                    server.Address,
+                    "foo",
+                    CreateExtendedConnectManagerFactory(
+                        managerId,
+                        validateAndProcessServerSettings: _ => Interlocked.Increment(ref validateAndProcessServerSettingsCallCount),
+                        reserveSession: () => Interlocked.Increment(ref reserveSessionCallCount)));
+
+                HttpProtocolException ex = await Assert.ThrowsAsync<HttpProtocolException>(() => client.SendAsync(request).WaitAsync(TimeSpan.FromSeconds(10)));
+                Assert.Equal(Http3LoopbackConnection.H3_INTERNAL_ERROR, ex.ErrorCode);
+                Assert.Equal(0, validateAndProcessServerSettingsCallCount);
+                Assert.Equal(0, reserveSessionCallCount);
+            });
+
+            await new[] { serverTask, clientTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Fact]
         public async Task Connect_Http3_ManagerValidateServerSettingsThrows_WrappedAsExtendedConnectNotSupported()
         {
             using Http3LoopbackServer server = CreateHttp3LoopbackServer();

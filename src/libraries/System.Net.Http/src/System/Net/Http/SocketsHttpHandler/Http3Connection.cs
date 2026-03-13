@@ -595,6 +595,11 @@ namespace System.Net.Http
                 return firstException;
             }
 
+            // Extended CONNECT requests wait for non-HTTP settings before sending.
+            // If the connection dies before the server control stream delivers SETTINGS,
+            // complete the waiter with the connection failure instead of leaving it hung.
+            _nonHttpSettingsTcs.TrySetException(abortException);
+
             // Stop sending requests to this connection.
             // Do not dispose the connection when invalidating as the rest of this method does exactly that:
             //   set up _firstRejectedStreamId, close the connection with proper error code and CheckForShutdown.
