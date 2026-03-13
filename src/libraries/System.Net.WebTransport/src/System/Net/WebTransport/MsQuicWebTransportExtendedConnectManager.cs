@@ -318,7 +318,7 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             if (sessionAndChannels is not null)
             {
                 Debug.Assert(sessionAndChannels.Session is null);
-                CompleteAndClosePendingStreams(sessionAndChannels, Http3ErrorCode.WebtransportSessionGone);
+                _ = CompleteAndClosePendingStreamsAsync(sessionAndChannels, Http3ErrorCode.WebtransportSessionGone);
             }
 
             RemoveSessionAsync(quicStream);
@@ -350,13 +350,13 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
         }
     }
 
-    private static void CompleteAndClosePendingStreams(SessionAndChannels sessionAndChannels, Http3ErrorCode httpErrorCode)
+    private static async Task CompleteAndClosePendingStreamsAsync(SessionAndChannels sessionAndChannels, Http3ErrorCode httpErrorCode)
     {
         sessionAndChannels.PendingUnidirectionalStreams.Writer.TryComplete();
         sessionAndChannels.PendingBidirectionalStreams.Writer.TryComplete();
 
-        WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannel(sessionAndChannels.PendingUnidirectionalStreams, httpErrorCode);
-        WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannel(sessionAndChannels.PendingBidirectionalStreams, httpErrorCode);
+        await WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(sessionAndChannels.PendingUnidirectionalStreams, httpErrorCode).ConfigureAwait(false);
+        await WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(sessionAndChannels.PendingBidirectionalStreams, httpErrorCode).ConfigureAwait(false);
     }
 
     private void ChannelItemDropped(ChannelItem channelItem)
