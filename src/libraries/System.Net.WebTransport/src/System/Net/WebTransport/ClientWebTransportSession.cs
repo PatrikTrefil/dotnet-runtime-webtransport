@@ -4,9 +4,7 @@
 using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Http;
-using System.Net.Quic;
 using System.Collections.Generic;
-using System.Runtime.Versioning;
 
 namespace System.Net.WebTransport;
 
