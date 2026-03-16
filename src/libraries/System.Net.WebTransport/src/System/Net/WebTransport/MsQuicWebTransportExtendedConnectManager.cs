@@ -90,7 +90,6 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
             {
                 sessionAndChannels = new SessionAndChannels(ChannelItemDropped);
                 _idSessionAndChannelsDict[sessionId] = sessionAndChannels;
-                shouldCallGracefulShutdownHandler = _wasGoAwayReceived;
             }
             else
             {
@@ -98,6 +97,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
                 Debug.Assert(dictionaryItem is SessionAndChannels);
                 sessionAndChannels = (SessionAndChannels)dictionaryItem;
             }
+
+            shouldCallGracefulShutdownHandler = _wasGoAwayReceived;
         }
 
         Debug.Assert(sessionAndChannels.Session == null, "Session object should only be created once per CONNECT stream");
