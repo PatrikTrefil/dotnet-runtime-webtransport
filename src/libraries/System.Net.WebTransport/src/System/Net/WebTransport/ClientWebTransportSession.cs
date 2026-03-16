@@ -54,10 +54,7 @@ public static class ClientWebTransportSession
     /// <exception cref="OperationCanceledException">The <paramref name="cancellationToken"/> was canceled. This exception is stored into the returned task.</exception>
     public static async Task<WebTransportSession> ConnectAsync(WebTransportSessionCreationOptions options, CancellationToken cancellationToken = default)
     {
-        if (
-            (options.HttpVersion < HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrHigher) ||
-            (options.HttpVersion > HttpVersion.Version30 && options.HttpVersionPolicy != HttpVersionPolicy.RequestVersionOrLower)
-            )
+        if (!IsHttp3Allowed(options.HttpVersion, options.HttpVersionPolicy))
         {
             throw new NotSupportedException("The requested combination of HTTP version and policy is currently not supported");
         }
@@ -136,6 +133,15 @@ public static class ClientWebTransportSession
 
         return session;
     }
+
+    private static bool IsHttp3Allowed(Version version, HttpVersionPolicy policy) =>
+        policy switch
+        {
+            HttpVersionPolicy.RequestVersionExact => version == HttpVersion.Version30,
+            HttpVersionPolicy.RequestVersionOrHigher => version <= HttpVersion.Version30,
+            HttpVersionPolicy.RequestVersionOrLower => version >= HttpVersion.Version30,
+            _ => false
+        };
 
     private static ArrayBuffer WrapConnectStreamBufferInArrayBuffer(byte[] connectStreamBufferData)
     {
