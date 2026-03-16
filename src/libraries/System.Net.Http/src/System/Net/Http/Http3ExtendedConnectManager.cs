@@ -13,7 +13,7 @@ namespace System.Net.Http;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
-public sealed record class Http3ExtendedConnectManagerCreationOptions
+public sealed class Http3ExtendedConnectManagerCreationOptions
 {
     internal Http3ExtendedConnectManagerCreationOptions(
         Func<QuicStreamType, CancellationToken, Task<QuicStream>> openOutboundStreamAsync,
