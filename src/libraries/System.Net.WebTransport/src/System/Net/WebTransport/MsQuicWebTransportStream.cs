@@ -593,10 +593,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
                 }
                 _readStream.Dispose();
                 _quicStream.Dispose();
+
+                ReportClosed();
             }
         }
-
-        ReportClosed();
 
         base.Dispose(disposing);
     }
