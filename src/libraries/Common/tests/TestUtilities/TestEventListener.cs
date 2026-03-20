@@ -39,6 +39,7 @@ public sealed class TestEventListener : EventListener
         "Private.InternalDiagnostics.System.Net.NetworkInformation",
         "Private.InternalDiagnostics.System.Net.Primitives",
         "Private.InternalDiagnostics.System.Net.Requests",
+        "Private.InternalDiagnostics.System.Net.WebTransport"
     };
 
     private readonly Action<string> _writeFunc;
