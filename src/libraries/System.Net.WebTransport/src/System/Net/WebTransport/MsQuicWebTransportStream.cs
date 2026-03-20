@@ -548,7 +548,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new OperationCanceledException();
+            return new OperationCanceledException(cancellationToken);
         }
 
         if (quicException.QuicError == QuicError.StreamAborted)
