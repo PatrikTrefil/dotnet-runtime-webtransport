@@ -230,6 +230,8 @@ internal sealed class MsQuicWebTransportExtendedConnectManager : Http3ExtendedCo
 
                     throw _validationException;
                 }
+
+                return;
             }
 
             try
