@@ -43,7 +43,7 @@ public sealed class WebTransportSessionCreationOptions
 
     /// <summary>
     /// This function is invoked when peer requests a graceful shutdown. The session may be used to send more data,
-    /// but is should be terminated as soon as possible.
+    /// but it should be terminated as soon as possible.
     /// </summary>
     /// <remarks>
     /// The function may be invoked multiple times.
@@ -51,8 +51,9 @@ public sealed class WebTransportSessionCreationOptions
     /// could be closed during the execution of the function.
     ///
     /// The default handler calls <see cref="WebTransportSession.CloseAsync()"/>.
-    /// This handler is called when the peer invokes <see cref="WebTransportSession.RequestCloseAsync(Threading.CancellationToken)"/>
-    /// The function should never throw. If it throws, the session is closed immediately.
+    /// This handler is called when the peer invokes <see cref="WebTransportSession.RequestCloseAsync(Threading.CancellationToken)"/>.
+    /// The function should never throw.
+    /// If it throws, the session transitions to <see cref="WebTransportSessionState.AbortedLocally"/> and is cleaned up immediately.
     /// </remarks>
     /// <exception cref="ArgumentNullException">When the value is set to <c>null</c>.</exception>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-goaway"/>

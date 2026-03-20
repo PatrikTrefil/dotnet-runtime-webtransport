@@ -25,8 +25,15 @@ public enum WebTransportSessionState
     /// </summary>
     ClosedLocally,
     /// <summary>
-    /// The session was closed due to a protocol violation by the remote peer.
+    /// The session was aborted by the local endpoint.
     /// </summary>
+    /// <remarks>
+    /// This state is used when the local implementation aborts the session, for example:
+    /// <list type="bullet">
+    /// <item><description>An error occurs while processing incoming capsules, including invalid or unsupported configuration received from the peer.</description></item>
+    /// <item><description><see cref="WebTransportSessionCreationOptions.GracefulShutdownHandler"/> throws while handling a peer-initiated graceful shutdown.</description></item>
+    /// </list>
+    /// </remarks>
     AbortedLocally,
     /// <summary>
     /// The session was closed abortively by peer.
