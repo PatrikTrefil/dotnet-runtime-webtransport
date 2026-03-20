@@ -142,7 +142,7 @@ public abstract class WebTransportStream : Stream
 
     /// <summary>
     /// If the read side is not fully consumed, i.e.: <see cref="ReadsClosed"/> is not completed and/or <see cref="Stream.ReadAsync(Memory{byte}, CancellationToken)"/> hasn't returned <c>0</c>,
-    /// dispose will abort the read side with provided <see cref="QuicConnectionOptions.DefaultStreamErrorCode"/>.
+    /// dispose will abort the read side with provided <see cref="WebTransportSessionCreationOptions.DefaultStreamErrorCode"/>.
     /// If the write side hasn't been closed, it'll be closed gracefully as if <see cref="CompleteWrites"/> was called.
     /// Finally, all resources associated with the stream will be released.
     /// </summary>
