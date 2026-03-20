@@ -26,7 +26,7 @@ internal abstract class Capsule
     /// <summary>
     /// Processes the capsule received from the peer.
     /// </summary>
-    /// <param name="session">WebTransport session which received the session.</param>
+    /// <param name="session">WebTransport session which received the capsule.</param>
     public abstract void ProcessReceived(MsQuicWebTransportSession session);
 
     /// <summary>

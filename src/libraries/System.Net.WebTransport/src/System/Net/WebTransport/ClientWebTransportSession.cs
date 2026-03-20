@@ -41,7 +41,7 @@ public static class ClientWebTransportSession
     /// <description>The server does not indicate support for WebTransport during HTTP connection establishment.</description>
     /// </item>
     /// <item>
-    /// <term>The server performs in invalid WebTransport handshake.</term>
+    /// <term>The server performs an invalid WebTransport handshake.</term>
     /// <description>The server does not comply with the protocol.</description>
     /// </item>
     /// <item>The server responds with a status code different from 200.</item>

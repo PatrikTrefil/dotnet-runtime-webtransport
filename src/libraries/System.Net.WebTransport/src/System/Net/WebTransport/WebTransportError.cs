@@ -27,7 +27,7 @@ public enum WebTransportError
     /// </summary>
     StreamAborted = 3,
     /// <summary>
-    /// An error on the transport layer occured.
+    /// An error on the transport layer occurred.
     /// </summary>
     TransportLayerError = 4,
     /// <summary>

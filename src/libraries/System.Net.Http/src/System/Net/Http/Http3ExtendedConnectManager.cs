@@ -98,7 +98,7 @@ public abstract class Http3ExtendedConnectManager
     /// Variable-length integer that is sent at the start of a bidirectional HTTP/3 stream
     /// which indicates the purpose of the stream.
     /// </summary>
-    /// <remarks>The term signal value is not directly defined in the HTTP/3 RFC, but extensions such as WebTransport refere to this value as a signal value. <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-bidirectional-streams"/></remarks>
+    /// <remarks>The term signal value is not directly defined in the HTTP/3 RFC, but extensions such as WebTransport refer to this value as a signal value. <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-bidirectional-streams"/></remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/rfc9114#name-bidirectional-streams"/>
     public abstract long BidirectionalStreamSignalValue { get; }
 

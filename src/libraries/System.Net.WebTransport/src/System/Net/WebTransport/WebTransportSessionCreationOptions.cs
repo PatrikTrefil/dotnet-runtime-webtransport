@@ -37,7 +37,7 @@ public sealed class WebTransportSessionCreationOptions
     }
 
     /// <summary>
-    /// <see cref="HttpMessageInvoker"/> used to for the initial handshake of the WebTransport session.
+    /// <see cref="HttpMessageInvoker"/> used for the initial handshake of the WebTransport session.
     /// </summary>
     public required HttpMessageInvoker HttpMessageInvoker { get; init; }
 

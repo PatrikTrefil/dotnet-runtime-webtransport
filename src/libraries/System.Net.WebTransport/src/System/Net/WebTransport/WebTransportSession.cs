@@ -244,7 +244,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// The delivery of the <paramref name="closeStatus"/> and <paramref name="statusDescription"/> is best-effort.
     ///
     /// In case the underlying HTTP connection is only used by this session and the session is closed using this method,
-    /// the the underlying HTTP connection is closed immediately after sending the <paramref name="closeStatus"/> and <paramref name="statusDescription"/>.
+    /// the underlying HTTP connection is closed immediately after sending the <paramref name="closeStatus"/> and <paramref name="statusDescription"/>.
     /// It is possible the peer receives the HTTP connection closure before receiving the <paramref name="closeStatus"/> and <paramref name="statusDescription"/>.
     /// </remarks>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
@@ -294,7 +294,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// This method should be called when peer initiates session close operation.
     /// </summary>
     /// <param name="closeStatus">Error code associated with the close operation.</param>
-    /// <param name="statusDescription">Error reason associatied with the close operation.</param>
+    /// <param name="statusDescription">Error reason associated with the close operation.</param>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.4.1"/>
     internal abstract void ReceiveClose(uint closeStatus, string statusDescription);
 
