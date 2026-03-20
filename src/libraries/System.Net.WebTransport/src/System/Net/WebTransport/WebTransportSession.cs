@@ -26,7 +26,6 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// </summary>
     protected long DefaultStreamErrorCode { get; }
 
-
     /// <exception cref="WebTransportException">When <paramref name="id"/> or <paramref name="defaultStreamErrorCode"/> is not in the range [0, 2^62).</exception>
     /// <exception cref="ArgumentNullException">When <paramref name="gracefulShutdownHandler"/> is null.</exception>
     internal WebTransportSession(long id, Func<WebTransportSession, Task> gracefulShutdownHandler,  string? subProtocol, long defaultStreamErrorCode)
