@@ -24,6 +24,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     private static readonly ReadOnlyMemory<byte> s_unidirectionalStreamTypeEncodedAsVariableLengthInteger = new byte[] { 0x40, 0x54 };
 
     private readonly Action<long> _addBytesSent;
+    private readonly Action<long> _removeBytesSent;
     private readonly Action<MsQuicWebTransportStream> _closedCallback;
     /// <summary>
     /// Best-effort duplicate suppression only. Session cleanup is responsible for tolerating races.
@@ -41,7 +42,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     /// </summary>
     private readonly long _remappedDefaultStreamErrorCode;
 
-    private MsQuicWebTransportStream(StreamOrigin streamOrigin, WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback) : base(type)
+    private MsQuicWebTransportStream(StreamOrigin streamOrigin, WebTransportStreamType type, Stream readStream, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<long> removeBytesSent, Action<MsQuicWebTransportStream> closedCallback) : base(type)
     {
         if (NetEventSource.Log.IsEnabled())
         {
@@ -51,6 +52,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         _quicStream = quicStream ?? throw new ArgumentNullException(nameof(quicStream));
         _readStream = readStream ?? throw new ArgumentNullException(nameof(readStream));
         _addBytesSent = addBytesSent;
+        _removeBytesSent = removeBytesSent;
         _closedCallback = closedCallback ?? throw new ArgumentNullException(nameof(closedCallback));
         _remappedDefaultStreamErrorCode = ErrorCodeRemapping.WebTransportCodeToHttpCode(defaultStreamErrorCode);
 
@@ -87,10 +89,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         _reportClosedTask = ReportClosedWhenBothSidesAreClosed();
     }
 
-    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback)
-        => new MsQuicWebTransportStream(StreamOrigin.Inbound, type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode, addBytesSent, closedCallback);
-    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<MsQuicWebTransportStream> closedCallback)
-        => new MsQuicWebTransportStream(StreamOrigin.Outbound, type, quicStream, quicStream, defaultStreamErrorCode, addBytesSent, closedCallback);
+    public static MsQuicWebTransportStream CreateInboundStream(WebTransportStreamType type, ArrayBuffer arrayBuffer, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<long> removeBytesSent, Action<MsQuicWebTransportStream> closedCallback)
+        => new MsQuicWebTransportStream(StreamOrigin.Inbound, type, new ConcatenatedStream(arrayBuffer, quicStream), quicStream, defaultStreamErrorCode, addBytesSent, removeBytesSent, closedCallback);
+    public static MsQuicWebTransportStream CreateOutboundStream(WebTransportStreamType type, QuicStream quicStream, long defaultStreamErrorCode, Action<long> addBytesSent, Action<long> removeBytesSent, Action<MsQuicWebTransportStream> closedCallback)
+        => new MsQuicWebTransportStream(StreamOrigin.Outbound, type, quicStream, quicStream, defaultStreamErrorCode, addBytesSent, removeBytesSent, closedCallback);
 
     private async Task ReportClosedWhenBothSidesAreClosed()
     {
@@ -360,36 +362,20 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
 
     #region Writes
 
+    // _addBytesSent increments the session-level WT_MAX_DATA budget *before* the QUIC write so
+    // that the limit pre-check can reject writes exceeding DataSentLimitProvidedByPeer without
+    // hitting the network. If the write fails (stream abort, cancellation, connection error),
+    // _removeBytesSent decrements the counter back so the budget is not permanently inflated
+    // for other live streams on the same session.
+
     /// <inheritdoc/>
     public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
-    {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        _addBytesSent(count);
-
-        try
-        {
-            return _quicStream.BeginWrite(buffer, offset, count, callback, state);
-        }
-        catch (QuicException ex)
-        {
-            throw ExceptionWrapper(ex);
-        }
-    }
+        => TaskToAsyncResult.Begin(WriteAsync(buffer, offset, count), callback, state);
 
     /// <inheritdoc/>
     public override void EndWrite(IAsyncResult asyncResult)
     {
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-        try
-        {
-            _quicStream.EndWrite(asyncResult);
-        }
-        catch (QuicException ex)
-        {
-            throw ExceptionWrapper(ex);
-        }
+        TaskToAsyncResult.End(asyncResult);
     }
 
     /// <inheritdoc/>
@@ -405,6 +391,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
         catch (QuicException ex)
         {
+            _removeBytesSent(1);
             throw ExceptionWrapper(ex);
         }
     }
@@ -422,6 +409,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
         catch (QuicException quicException)
         {
+            _removeBytesSent(buffer.Length);
             throw ExceptionWrapper(quicException);
         }
     }
@@ -430,6 +418,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override void Write(byte[] buffer, int offset, int count)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+        ValidateBufferArguments(buffer, offset, count);
 
         _addBytesSent(count);
 
@@ -439,6 +428,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
         }
         catch (QuicException quicException)
         {
+            _removeBytesSent(count);
             throw ExceptionWrapper(quicException);
         }
     }
@@ -450,6 +440,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+        ValidateBufferArguments(buffer, offset, count);
 
         _addBytesSent(count);
 
@@ -462,6 +453,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             }
             catch (QuicException ex)
             {
+                _removeBytesSent(count);
                 throw ExceptionWrapper(ex, cancellationToken);
             }
         }
@@ -483,6 +475,7 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             }
             catch (QuicException ex)
             {
+                _removeBytesSent(buffer.Length);
                 throw ExceptionWrapper(ex, cancellationToken);
             }
         }

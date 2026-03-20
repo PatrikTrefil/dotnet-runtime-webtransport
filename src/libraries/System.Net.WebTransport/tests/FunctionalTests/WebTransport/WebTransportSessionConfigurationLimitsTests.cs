@@ -31,7 +31,11 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
     private static readonly IReadOnlyCollection<Func<WebTransportStream, int, Task>> _writeOps = [
         async (stream, maxDataSentLimit) => await stream.WriteAsync(new byte[maxDataSentLimit]),
         (stream, maxDataSentLimit) => { stream.Write(new byte[maxDataSentLimit]); return Task.CompletedTask; },
-        (stream, maxDataSentLimit) => { stream.BeginWrite(new byte[maxDataSentLimit], 0, maxDataSentLimit, null, null); return Task.CompletedTask; },
+        (stream, maxDataSentLimit) => {
+            IAsyncResult result = stream.BeginWrite(new byte[maxDataSentLimit], 0, maxDataSentLimit, null, null);
+            stream.EndWrite(result);
+            return Task.CompletedTask;
+        },
         async (stream, maxDataSentLimit) => await stream.WriteAsync(new byte[maxDataSentLimit]),
         (stream, maxDataSentLimit) => {
             for (int i = 0; i < maxDataSentLimit; i++) stream.WriteByte(2);
@@ -490,7 +494,8 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
 
             ExceptionValidator(await Assert.ThrowsAsync<WebTransportException>(() => stream.WriteAsync(new byte[maxDataSentLimit + 1]).AsTask()));
             ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.Write(new byte[maxDataSentLimit + 1])));
-            ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.BeginWrite(new byte[maxDataSentLimit + 1], 0, maxDataSentLimit + 1, null, null)));
+            IAsyncResult result = stream.BeginWrite(new byte[maxDataSentLimit + 1], 0, maxDataSentLimit + 1, null, null);
+            ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.EndWrite(result)));
 
             await stream.WriteAsync(new byte[maxDataSentLimit]);
             ExceptionValidator(Assert.Throws<WebTransportException>(() => stream.WriteByte(2)));
@@ -990,6 +995,67 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         Task serverTask = Task.Run(async () =>
         {
             await using Http3LoopbackConnection connection = await _webTransportServer.AcceptWebTransportEnabledConnection(clientUnsupportedOptions);
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task FailedWriteWithCancelledTokenDoesNotConsumeDataSentBudget(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        int dataSentLimit = 5;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            SpinWait.SpinUntil(() => session.DataSentLimitProvidedByPeer == dataSentLimit || session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
+
+            using CancellationTokenSource cts = new();
+            cts.Cancel();
+
+            // WriteAsync(ReadOnlyMemory<byte>, CancellationToken) with cancelled token should throw without consuming budget
+            await using (WebTransportStream stream1 = await session.OpenOutboundStreamAsync(streamType))
+            {
+                await Assert.ThrowsAsync<OperationCanceledException>(() => stream1.WriteAsync(new byte[dataSentLimit], cts.Token).AsTask());
+            }
+
+            // WriteAsync(byte[], int, int, CancellationToken) with cancelled token should throw without consuming budget
+            await using (WebTransportStream stream2 = await session.OpenOutboundStreamAsync(streamType))
+            {
+                await Assert.ThrowsAsync<OperationCanceledException>(() => stream2.WriteAsync(new byte[dataSentLimit], 0, dataSentLimit, cts.Token));
+            }
+
+            // Full budget should still be available — this write should succeed
+            await using (WebTransportStream stream3 = await session.OpenOutboundStreamAsync(streamType))
+            {
+                await stream3.WriteAsync(new byte[dataSentLimit]);
+
+                // Budget is now exactly exhausted — one more byte should fail with LimitExceeded
+                WebTransportException ex = await Assert.ThrowsAsync<WebTransportException>(() => stream3.WriteAsync(new byte[1]).AsTask());
+                Assert.Equal(WebTransportError.LimitExceeded, ex.WebTransportError);
+            }
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync(
+                new WebTransportHttpConnectionCreationOptions
+                {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 10,
+                    InitialBidirectionalStreamCountLimitForPeer = 10,
+                    InitialDataSentLimitForPeer = dataSentLimit
+                });
+
+            await serverSession.ConnectStream.FlushAsync();
 
             barrier.SignalAndWait();
         });

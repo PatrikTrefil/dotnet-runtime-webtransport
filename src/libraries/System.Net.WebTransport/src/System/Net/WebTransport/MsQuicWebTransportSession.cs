@@ -313,6 +313,17 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         }
     }
 
+    private void RemoveBytesSent(long bytes)
+    {
+        Debug.Assert(bytes >= 0);
+
+        lock (BytesSentLock)
+        {
+            _bytesSent -= bytes;
+            Debug.Assert(_bytesSent >= 0);
+        }
+    }
+
     private void MarkSessionAsClosed(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
     {
         Debug.Assert(SyncLock.IsHeldByCurrentThread);
@@ -539,7 +550,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             Debug.Assert(type == WebTransportStreamType.Bidirectional ? channelItem.QuicStream.CanWrite : !channelItem.QuicStream.CanWrite);
             Debug.Assert(channelItem.QuicStream.CanRead);
 
-            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, DefaultStreamErrorCode, AddBytesSent, InboundStreamCleanup);
+            wtStream = MsQuicWebTransportStream.CreateInboundStream(type, channelItem.ArrayBuffer, channelItem.QuicStream, DefaultStreamErrorCode, AddBytesSent, RemoveBytesSent, InboundStreamCleanup);
             AddToOpenStreamsOtherwiseRejectAndDisposeStream(wtStream, InboundStreamCleanup);
         }
         finally
@@ -631,7 +642,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     ReleaseStreamSemaphoreIfOutboundOpenShutdownHasNotStarted(streamSemaphore);
                     throw;
                 }
-                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent, OpenOutboundStreamCleanup);
+                wtStream = MsQuicWebTransportStream.CreateOutboundStream(type, quicStream, DefaultStreamErrorCode, AddBytesSent, RemoveBytesSent, OpenOutboundStreamCleanup);
                 await wtStream.InitOutbound(_idEncodedAsVariableLengthInteger, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
