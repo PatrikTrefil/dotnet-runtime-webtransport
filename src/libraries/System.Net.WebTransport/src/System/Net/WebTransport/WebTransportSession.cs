@@ -265,6 +265,8 @@ public abstract partial class WebTransportSession : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(closeStatus), SR.net_webtransport_invalid_close_status);
         }
 
+        ArgumentNullException.ThrowIfNull(statusDescription);
+
         byte[] statusDescriptionUtf8 = _utf8Encoding.GetBytes(statusDescription);
 
         if (statusDescriptionUtf8.Length > 1024)

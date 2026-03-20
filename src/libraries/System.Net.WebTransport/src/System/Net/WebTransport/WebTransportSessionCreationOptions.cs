@@ -59,7 +59,11 @@ public sealed class WebTransportSessionCreationOptions
     public Func<WebTransportSession, Task> GracefulShutdownHandler
     {
         get;
-        init;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
     } = async (session) => await session.CloseAsync();
 
     /// <summary>

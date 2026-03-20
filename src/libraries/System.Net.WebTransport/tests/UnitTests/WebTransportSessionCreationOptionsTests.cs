@@ -193,4 +193,18 @@ public class WebTransportSessionCreationOptionsTests : WebTransportTestBase
             HttpVersionPolicy = s_validHttpVersionPolicy
         });
     }
+
+    [Fact]
+    public void NullGracefulShutdownHandlerThrows()
+    {
+        Assert.Throws<ArgumentNullException>("value", () => new WebTransportSessionCreationOptions()
+        {
+            HttpMessageInvoker = s_validHttpMessageInvoker,
+            Uri = s_validUri,
+            GracefulShutdownHandler = null!,
+            DefaultStreamErrorCode = s_validVarInt,
+            HttpVersion = s_validHttpVersion,
+            HttpVersionPolicy = s_validHttpVersionPolicy
+        });
+    }
 }
