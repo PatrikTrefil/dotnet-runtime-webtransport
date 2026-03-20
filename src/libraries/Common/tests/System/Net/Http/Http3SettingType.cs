@@ -60,7 +60,7 @@ namespace System.Net.Test.Common
         /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI
         /// Indicates the initial value for the bidirectional max stream limit for WebTransport sessions.
         /// </summary>
-        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA"/>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
         WebTransportInitialMaxBidirectionalStreamsPerSession = 0x2b65,
 
         /// <summary>
