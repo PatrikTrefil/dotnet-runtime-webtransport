@@ -146,10 +146,6 @@ public abstract class Http3ExtendedConnectManager
         {
             throw new InvalidOperationException("The HTTP/3 connection has been disposed.");
         }
-        catch (Exception)
-        {
-            throw;
-        }
     }
 
     /// <summary>
