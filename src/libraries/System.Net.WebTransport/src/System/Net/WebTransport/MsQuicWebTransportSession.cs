@@ -253,11 +253,10 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 await _capsuleConsumer.ProcessNextCapsule().ConfigureAwait(false);
             }
         }
-        catch (EndOfStreamException ex) // Clean termination
+        catch (EndOfStreamException) // Clean termination
         {
             if (NetEventSource.Log.IsEnabled())
             {
-                NetEventSource.TraceException(this, ex);
                 NetEventSource.Trace(this, "CONNECT stream closed cleanly by peer. Closing session...");
             }
 
@@ -273,14 +272,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 if (State == WebTransportSessionState.Open)
                 {
-                    // TODO: store the exception and rethrow it
-                    if (ex is CapsuleProtocolException)
-                    {
-                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid or unsupported configuration received on CONNECT stream. Aborting session...");
-
-                        MarkSessionAsClosed(WebTransportSessionState.AbortedLocally, null, null);
-                    }
-                    else if (ex is QuicException qex && qex.QuicError is QuicError.ConnectionAborted or QuicError.StreamAborted)
+                    if (ex is QuicException qex && qex.QuicError is QuicError.ConnectionAborted or QuicError.StreamAborted)
                     {
                         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "CONNECT stream aborted. Aborting session if not already closed...");
 
@@ -288,7 +280,16 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                     }
                     else
                     {
-                        Debug.Fail("Unexpected exception from capsule processing.");
+                        if (ex is CapsuleProtocolException)
+                        {
+                            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, "Invalid or unsupported configuration received on CONNECT stream. Aborting session...");
+                        }
+                        else
+                        {
+                            Debug.Fail("Unexpected exception from capsule processing.");
+                        }
+
+                        MarkSessionAsClosed(WebTransportSessionState.AbortedLocally, null, null);
                     }
 
                 }
