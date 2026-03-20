@@ -814,6 +814,8 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 throw new WebTransportException(WebTransportError.SessionClosedByPeer, SR.net_webtransport_session_closed_by_peer, ex);
             }
         }
+
+        throw new WebTransportException(WebTransportError.InternalError, SR.net_webtransport_internal_error, ex);
     }
 
     /// <summary>
