@@ -5,7 +5,6 @@ using System.Net.Quic;
 
 namespace System.Net.WebTransport.Unit.Tests;
 
-// TODO: move to unit tests
 public abstract class WebTransportTestBase
 {
     public static bool IsWebTransportSupported => QuicConnection.IsSupported;
