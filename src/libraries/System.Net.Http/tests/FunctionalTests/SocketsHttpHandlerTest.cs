@@ -1063,7 +1063,6 @@ namespace System.Net.Http.Functional.Tests
             });
         }
 
-        // TODO: Consider generalizing the the test cases below this line to HTTP/2 and HTTP/3.
         [Theory]
         [InlineData(1024, 1023)]
         [InlineData(1024, 1024)]
