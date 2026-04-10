@@ -18,7 +18,7 @@ public enum WebTransportError
     InternalError = 1,
     /// <summary>
     /// The connection was aborted by the peer. This error is associated with a close status code and a close status description.
-    /// If the close status code and close status descrption were provided by the peer, they are stored in <see cref="WebTransportException.CloseStatusDescription"/> and <see cref="WebTransportException.CloseStatusCode"/>.
+    /// If the close status code and close status description were provided by the peer, they are stored in <see cref="WebTransportException.CloseStatusDescription"/> and <see cref="WebTransportException.CloseStatusCode"/>.
     /// </summary>
     SessionClosedByPeer = 2,
     /// <summary>

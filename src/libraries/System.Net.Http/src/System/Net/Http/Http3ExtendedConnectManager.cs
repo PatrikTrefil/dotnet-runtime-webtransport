@@ -91,7 +91,7 @@ public abstract class Http3ExtendedConnectManager
 
     /// <summary>
     /// This method is called when the HTTP library receives a unidirectional/bidirectional QUIC stream
-    /// that contains the <see cref="UnidirectionalStreamType"/> or <see cref="BidirectionalStreamSignalValue"/> as the inital bytes.
+    /// that contains the <see cref="UnidirectionalStreamType"/> or <see cref="BidirectionalStreamSignalValue"/> as the initial bytes.
     /// </summary>
     /// <param name="streamType">The type of the stream, either unidirectional or bidirectional.</param>
     /// <param name="initialData">Contains the initial part of the stream data.</param>
