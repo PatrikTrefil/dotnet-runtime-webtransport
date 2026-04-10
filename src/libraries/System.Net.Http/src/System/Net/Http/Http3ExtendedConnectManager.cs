@@ -13,6 +13,9 @@ namespace System.Net.Http;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
+/// <summary>
+/// Provides callbacks used by <see cref="Http3ExtendedConnectManager"/> to interact with the underlying HTTP/3 connection.
+/// </summary>
 public sealed class Http3ExtendedConnectManagerCreationOptions
 {
     internal Http3ExtendedConnectManagerCreationOptions(
@@ -44,11 +47,15 @@ public sealed class Http3ExtendedConnectManagerCreationOptions
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
+/// <summary>
+/// Provides extensibility hooks for protocols that use HTTP/3 extended CONNECT and additional HTTP/3 streams.
+/// </summary>
 public abstract class Http3ExtendedConnectManager
 {
     /// <summary>
     /// Represents a factory method that creates an instance of <see cref="Http3ExtendedConnectManager"/>.
     /// </summary>
+    /// <param name="options">The callbacks used by the manager to interact with the underlying HTTP/3 connection.</param>
     /// <returns>A new instance of <see cref="Http3ExtendedConnectManager"/>.</returns>
     public delegate Http3ExtendedConnectManager Http3ExtendedConnectManagerValueFactory(Http3ExtendedConnectManagerCreationOptions options);
 
@@ -61,6 +68,10 @@ public abstract class Http3ExtendedConnectManager
     private readonly Func<QuicStream, Task> _removeSessionAsyncFunc;
     private readonly Action<QuicStreamType> _removeOutboundStreamFunc;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Http3ExtendedConnectManager"/> class.
+    /// </summary>
+    /// <param name="options">The callbacks used by the manager to interact with the underlying HTTP/3 connection.</param>
     public Http3ExtendedConnectManager(Http3ExtendedConnectManagerCreationOptions options)
     {
         Debug.Assert(options != null);

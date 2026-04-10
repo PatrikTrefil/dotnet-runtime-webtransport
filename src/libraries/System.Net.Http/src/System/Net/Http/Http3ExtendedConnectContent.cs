@@ -12,9 +12,16 @@ namespace System.Net.Http;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("windows")]
+/// <summary>
+/// Represents the content and transport objects produced by a successful HTTP/3 extended CONNECT request.
+/// </summary>
 public sealed class Http3ExtendedConnectContent : HttpContent
 {
     private byte[]? _connectStreamBuffer;
+
+    /// <summary>
+    /// Gets the bytes read from the CONNECT stream while establishing the extended CONNECT session.
+    /// </summary>
     public byte[] ConnectStreamBuffer
     {
         get => _connectStreamBuffer ?? throw new InvalidOperationException("Connect stream buffer has not been set");
@@ -27,6 +34,10 @@ public sealed class Http3ExtendedConnectContent : HttpContent
         }
     }
     private QuicStream? _connectStream;
+
+    /// <summary>
+    /// Gets the QUIC stream used for the CONNECT request.
+    /// </summary>
     public QuicStream ConnectStream
     {
         get => _connectStream ?? throw new InvalidOperationException("Connect stream has not been set");
@@ -41,6 +52,10 @@ public sealed class Http3ExtendedConnectContent : HttpContent
         }
     }
     private QuicConnection? _quicConnection;
+
+    /// <summary>
+    /// Gets the QUIC connection associated with the HTTP/3 connection used for the extended CONNECT request.
+    /// </summary>
     public QuicConnection QuicConnection
     {
         get => _quicConnection ?? throw new InvalidOperationException("QUIC connection has not been set");
@@ -53,6 +68,10 @@ public sealed class Http3ExtendedConnectContent : HttpContent
         }
     }
     private Http3ExtendedConnectManager? _extendedConnectManager;
+
+    /// <summary>
+    /// Gets the manager that handles protocol-specific processing for the extended CONNECT session.
+    /// </summary>
     public Http3ExtendedConnectManager ExtendedConnectManager
     {
         get => _extendedConnectManager ?? throw new InvalidOperationException("Extended connect manager has not been set");
