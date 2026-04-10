@@ -20,6 +20,8 @@ public static class ClientWebTransportSession
     /// <summary>
     /// Create a WebTransport session.
     /// </summary>
+    /// <param name="options">The options used to establish the WebTransport session.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
     /// <exception cref="ArgumentNullException">When <paramref name="options"/> is <c>null</c>.</exception>
     /// <exception cref="WebTransportException">
     /// When the creation of the session fails.
