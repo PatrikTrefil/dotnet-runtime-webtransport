@@ -44,10 +44,14 @@ public static class ClientWebTransportSession
     /// <term>The server performs an invalid WebTransport handshake.</term>
     /// <description>The server does not comply with the protocol.</description>
     /// </item>
-    /// <item>The server responds with a status code different from 200.</item>
+    /// <item>
+    /// <term>The server responds with a status code different from 200.</term>
     /// <description>Response with any other status code results in an exception. An exception is not thrown if the provided <see cref="WebTransportSessionCreationOptions.HttpMessageInvoker"/> automatically follows redirects.</description>
-    /// <item>The maximum number of open WebTransport sessions has been reached.</item>
+    /// </item>
+    /// <item>
+    /// <term>The maximum number of open WebTransport sessions has been reached.</term>
     /// <description>We have already opened the maximum number of open WebTransport sessions over the HTTP connection.</description>
+    /// </item>
     /// </list>
     /// </exception>
     /// <exception cref="NotSupportedException">When the combination of <see cref="WebTransportSessionCreationOptions.HttpVersion"/> and <see cref="WebTransportSessionCreationOptions.HttpVersionPolicy"/> passed in the <paramref name="options"/> is not supported.</exception>
