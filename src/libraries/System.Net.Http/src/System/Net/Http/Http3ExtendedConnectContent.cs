@@ -9,12 +9,12 @@ using System.Runtime.Versioning;
 
 namespace System.Net.Http;
 
-[SupportedOSPlatform("linux")]
-[SupportedOSPlatform("macos")]
-[SupportedOSPlatform("windows")]
 /// <summary>
 /// Represents the content and transport objects produced by a successful HTTP/3 extended CONNECT request.
 /// </summary>
+[SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
+[SupportedOSPlatform("windows")]
 public sealed class Http3ExtendedConnectContent : HttpContent
 {
     private byte[]? _connectStreamBuffer;
@@ -49,22 +49,6 @@ public sealed class Http3ExtendedConnectContent : HttpContent
             Debug.Assert(value.CanWrite, $"{nameof(ConnectStream)} must be writable");
 
             _connectStream = value;
-        }
-    }
-    private QuicConnection? _quicConnection;
-
-    /// <summary>
-    /// Gets the QUIC connection associated with the HTTP/3 connection used for the extended CONNECT request.
-    /// </summary>
-    public QuicConnection QuicConnection
-    {
-        get => _quicConnection ?? throw new InvalidOperationException("QUIC connection has not been set");
-        internal set
-        {
-            Debug.Assert(value != null, $"{nameof(QuicConnection)} cannot be null");
-            Debug.Assert(_quicConnection == null, $"{nameof(QuicConnection)} can only be set once");
-
-            _quicConnection = value;
         }
     }
     private Http3ExtendedConnectManager? _extendedConnectManager;

@@ -116,7 +116,6 @@ public static class ClientWebTransportSession
         WebTransportSession session = wtExtendedConnectManager.CreateSession(
             extendedConnectContent.ConnectStream,
             WrapConnectStreamBufferInArrayBuffer(extendedConnectContent.ConnectStreamBuffer),
-            extendedConnectContent.QuicConnection,
             options.GracefulShutdownHandler,
             selectedSubprotocol,
             options.DefaultStreamErrorCode);

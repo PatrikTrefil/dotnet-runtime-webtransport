@@ -52,7 +52,6 @@ namespace System.Net.Http
         public System.Net.Quic.QuicStream ConnectStream { get { throw null; } }
         public byte[] ConnectStreamBuffer { get { throw null; } }
         public System.Net.Http.Http3ExtendedConnectManager ExtendedConnectManager { get { throw null; } }
-        public System.Net.Quic.QuicConnection QuicConnection { get { throw null; } }
         protected override System.Threading.Tasks.Task SerializeToStreamAsync(System.IO.Stream stream, System.Net.TransportContext? context) { throw null; }
         protected internal override bool TryComputeLength(out long length) { throw null; }
     }

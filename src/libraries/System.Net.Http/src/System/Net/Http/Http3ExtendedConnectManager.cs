@@ -10,12 +10,12 @@ using System.Threading;
 
 namespace System.Net.Http;
 
-[SupportedOSPlatform("linux")]
-[SupportedOSPlatform("macos")]
-[SupportedOSPlatform("windows")]
 /// <summary>
 /// Provides callbacks used by <see cref="Http3ExtendedConnectManager"/> to interact with the underlying HTTP/3 connection.
 /// </summary>
+[SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
+[SupportedOSPlatform("windows")]
 public sealed class Http3ExtendedConnectManagerCreationOptions
 {
     internal Http3ExtendedConnectManagerCreationOptions(
@@ -44,12 +44,12 @@ public sealed class Http3ExtendedConnectManagerCreationOptions
     internal Action<QuicStreamType> RemoveOutboundStream { get; init; }
 }
 
-[SupportedOSPlatform("linux")]
-[SupportedOSPlatform("macos")]
-[SupportedOSPlatform("windows")]
 /// <summary>
 /// Provides extensibility hooks for protocols that use HTTP/3 extended CONNECT and additional HTTP/3 streams.
 /// </summary>
+[SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
+[SupportedOSPlatform("windows")]
 public abstract class Http3ExtendedConnectManager
 {
     /// <summary>
