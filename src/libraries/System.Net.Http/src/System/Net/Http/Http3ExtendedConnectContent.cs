@@ -33,6 +33,7 @@ public sealed class Http3ExtendedConnectContent : HttpContent
             _connectStreamBuffer = value;
         }
     }
+
     private QuicStream? _connectStream;
 
     /// <summary>
@@ -51,6 +52,7 @@ public sealed class Http3ExtendedConnectContent : HttpContent
             _connectStream = value;
         }
     }
+
     private Http3ExtendedConnectManager? _extendedConnectManager;
 
     /// <summary>
@@ -69,6 +71,7 @@ public sealed class Http3ExtendedConnectContent : HttpContent
     }
 
     protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => throw new NotImplementedException();
+
     protected internal override bool TryComputeLength(out long length)
     {
         length = -1;
