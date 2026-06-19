@@ -37,7 +37,7 @@ internal sealed class CapsuleSender
 
         await SendCapsuleAsyncCore(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
 
-        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCapsuleAsyncCompleted(this, "Capsule sent");
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCapsuleAsyncCompleted(this);
     }
 
     private async Task SendCapsuleAsyncCore(Capsule capsule, bool completeWrites, CancellationToken cancellationToken = default)

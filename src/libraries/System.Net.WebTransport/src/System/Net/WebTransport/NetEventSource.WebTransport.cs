@@ -184,18 +184,18 @@ internal sealed partial class NetEventSource
     #region Send capsule
 
     [Event(SendCapsuleAsyncStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
-    private void SendCapsuleAsyncStart(string objName, string memberName) =>
-           WriteEvent(SendCapsuleAsyncStartId, objName, memberName);
+    private void SendCapsuleAsyncStart(string objName, string memberName, string message) =>
+           WriteEvent(SendCapsuleAsyncStartId, objName, memberName, message);
 
     [Event(SendCapsuleAsyncStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
     private void SendCapsuleAsyncStop(string objName, string memberName) =>
         WriteEvent(SendCapsuleAsyncStopId, objName, memberName);
 
     [NonEvent]
-    public static void SendCapsuleAsyncStarted(object? obj, [CallerMemberName] string? memberName = null)
+    public static void SendCapsuleAsyncStarted(object? obj, string message, [CallerMemberName] string? memberName = null)
     {
         Debug.Assert(Log.IsEnabled());
-        Log.SendCapsuleAsyncStart(IdOf(obj), memberName ?? MissingMember);
+        Log.SendCapsuleAsyncStart(IdOf(obj), memberName ?? MissingMember, message);
     }
 
     [NonEvent]
