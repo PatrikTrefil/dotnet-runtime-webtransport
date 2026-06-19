@@ -51,11 +51,11 @@ internal sealed partial class NetEventSource
 
     #region Close session
 
-    [Event(CloseSessionStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(CloseSessionStartId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void CloseSessionStart(string objName, string memberName) =>
             WriteEvent(CloseSessionStartId, objName, memberName);
 
-    [Event(CloseSessionStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(CloseSessionStopId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void CloseSessionStop(string objName, string memberName) =>
         WriteEvent(CloseSessionStopId, objName, memberName);
 
@@ -105,11 +105,11 @@ internal sealed partial class NetEventSource
 
     #region Open outbound stream
 
-    [Event(OpenOutboundStreamStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(OpenOutboundStreamStartId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void OpenOutboundStreamStart(string objName, string memberName) =>
             WriteEvent(OpenOutboundStreamStartId, objName, memberName);
 
-    [Event(OpenOutboundStreamStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(OpenOutboundStreamStopId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void OpenOutboundStreamStop(string objName, string memberName) =>
         WriteEvent(OpenOutboundStreamStopId, objName, memberName);
 
@@ -131,11 +131,11 @@ internal sealed partial class NetEventSource
 
     #region Accept inbound stream
 
-    [Event(AcceptInboundStreamStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(AcceptInboundStreamStartId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void AcceptInboundStreamStart(string objName, string memberName) =>
             WriteEvent(AcceptInboundStreamStartId, objName, memberName);
 
-    [Event(AcceptInboundStreamStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(AcceptInboundStreamStopId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void AcceptInboundStreamStop(string objName, string memberName) =>
         WriteEvent(AcceptInboundStreamStopId, objName, memberName);
 
@@ -157,11 +157,11 @@ internal sealed partial class NetEventSource
 
     #region Capsule deserialization/processing
 
-    [Event(CapsuleDeserializationAndProcessingStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(CapsuleDeserializationAndProcessingStartId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void CapsuleDeserializationAndProcessingStart(string objName, string memberName) =>
            WriteEvent(CapsuleDeserializationAndProcessingStartId, objName, memberName);
 
-    [Event(CapsuleDeserializationAndProcessingStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    [Event(CapsuleDeserializationAndProcessingStopId, Keywords = Keywords.Debug, Level = EventLevel.Informational)]
     private void CapsuleDeserializationAndProcessingStop(string objName, string memberName) =>
         WriteEvent(CapsuleDeserializationAndProcessingStopId, objName, memberName);
 
