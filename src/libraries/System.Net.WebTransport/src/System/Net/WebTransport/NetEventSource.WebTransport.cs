@@ -23,6 +23,8 @@ internal sealed partial class NetEventSource
     private const int CapsuleDeserializationAndProcessingStopId = CapsuleDeserializationAndProcessingStartId + 1;
     private const int SendCapsuleAsyncStartId = CapsuleDeserializationAndProcessingStopId + 1;
     private const int SendCapsuleAsyncStopId = SendCapsuleAsyncStartId + 1;
+    private const int SendStartId = SendCapsuleAsyncStopId + 1;
+    private const int SendStopId = SendStartId + 1;
 
     #endregion
 
@@ -201,6 +203,32 @@ internal sealed partial class NetEventSource
     {
         Debug.Assert(Log.IsEnabled());
         Log.SendCapsuleAsyncStop(IdOf(obj), memberName ?? MissingMember);
+    }
+
+    #endregion
+
+    #region Send
+
+    [Event(SendStartId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    private void SendStart(string objName, string memberName, int bufferLength) =>
+           WriteEvent(SendStartId, objName, memberName, bufferLength);
+
+    [Event(SendStopId, Keywords = Keywords.Debug, Level = EventLevel.Verbose)]
+    private void SendStop(string objName, string memberName) =>
+        WriteEvent(SendStopId, objName, memberName);
+
+    [NonEvent]
+    public static void SendStarted(object? obj, int bufferLength, [CallerMemberName] string? memberName = null)
+    {
+        Debug.Assert(Log.IsEnabled());
+        Log.SendStart(IdOf(obj), memberName ?? MissingMember, bufferLength);
+    }
+
+    [NonEvent]
+    public static void SendCompleted(object? obj, [CallerMemberName] string? memberName = null)
+    {
+        Debug.Assert(Log.IsEnabled());
+        Log.SendStop(IdOf(obj), memberName ?? MissingMember);
     }
 
     #endregion

@@ -383,6 +383,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendStarted(this, 1);
+
         _addBytesSent(1);
 
         try
@@ -394,12 +396,18 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             _removeBytesSent(1);
             throw ExceptionWrapper(ex);
         }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCompleted(this);
+        }
     }
 
     /// <inheritdoc/>
     public override void Write(ReadOnlySpan<byte> buffer)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendStarted(this, buffer.Length);
 
         _addBytesSent(buffer.Length);
 
@@ -412,6 +420,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             _removeBytesSent(buffer.Length);
             throw ExceptionWrapper(quicException);
         }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCompleted(this);
+        }
     }
 
     /// <inheritdoc/>
@@ -419,6 +431,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ValidateBufferArguments(buffer, offset, count);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendStarted(this, count);
 
         _addBytesSent(count);
 
@@ -431,6 +445,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             _removeBytesSent(count);
             throw ExceptionWrapper(quicException);
         }
+        finally
+        {
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCompleted(this);
+        }
     }
 
     // The reason for disabling CA2016 is that we handle the cancellation manually in this class using RegisterCancellationCallback
@@ -441,6 +459,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ValidateBufferArguments(buffer, offset, count);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendStarted(this, count);
 
         _addBytesSent(count);
 
@@ -456,6 +476,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
                 _removeBytesSent(count);
                 throw ExceptionWrapper(ex, cancellationToken);
             }
+            finally
+            {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCompleted(this);
+            }
         }
     }
 
@@ -463,6 +487,8 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, bool completeWrites, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.SendStarted(this, buffer.Length);
 
         _addBytesSent(buffer.Length);
 
@@ -477,6 +503,10 @@ internal sealed class MsQuicWebTransportStream : WebTransportStream
             {
                 _removeBytesSent(buffer.Length);
                 throw ExceptionWrapper(ex, cancellationToken);
+            }
+            finally
+            {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.SendCompleted(this);
             }
         }
     }
