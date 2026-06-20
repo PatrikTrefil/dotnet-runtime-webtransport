@@ -89,10 +89,12 @@ internal sealed class ConcatenatedStream : Stream
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         int bytesToReadFromMemory = 0;
+        bool bufferHasUnreadData = false;
         if (!_isMemoryRead)
         {
             lock (_bufferLock)
             {
+                bufferHasUnreadData = _memoryPosition < BufferMemory.Length;
                 bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
                 BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).CopyTo(buffer);
                 _memoryPosition += bytesToReadFromMemory;
@@ -107,7 +109,8 @@ internal sealed class ConcatenatedStream : Stream
 
         int bytesToReadFromStream = buffer.Length - bytesToReadFromMemory;
         int bytesReadFromStream = 0;
-        if (bytesToReadFromStream > 0) // necessary because of https://github.com/dotnet/runtime/issues/118888
+        // These conditions make zero-byte reads work the same way as in QuicStream.
+        if (bytesToReadFromStream > 0 || (buffer.Length == 0 && !bufferHasUnreadData))
         {
             bytesReadFromStream = await _stream.ReadAsync(buffer.Slice(bytesToReadFromMemory, bytesToReadFromStream), cancellationToken).ConfigureAwait(false);
         }
@@ -120,10 +123,12 @@ internal sealed class ConcatenatedStream : Stream
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         int bytesToReadFromMemory = 0;
+        bool bufferHasUnreadData = false;
         if (!_isMemoryRead)
         {
             lock (_bufferLock)
             {
+                bufferHasUnreadData = _memoryPosition < BufferMemory.Length;
                 bytesToReadFromMemory = Math.Min(buffer.Length, BufferMemory.Length - _memoryPosition);
                 BufferMemory.Slice(_memoryPosition, bytesToReadFromMemory).Span.CopyTo(buffer);
                 _memoryPosition += bytesToReadFromMemory;
@@ -138,7 +143,8 @@ internal sealed class ConcatenatedStream : Stream
 
         int bytesToReadFromStream = buffer.Length - bytesToReadFromMemory;
         int bytesReadFromStream = 0;
-        if (bytesToReadFromStream > 0) // necessary because of https://github.com/dotnet/runtime/issues/118888
+        // These conditions make zero-byte reads work the same way as in QuicStream.
+        if (bytesToReadFromStream > 0 || (buffer.Length == 0 && !bufferHasUnreadData))
         {
             bytesReadFromStream = _stream.Read(buffer.Slice(bytesToReadFromMemory, bytesToReadFromStream));
         }
