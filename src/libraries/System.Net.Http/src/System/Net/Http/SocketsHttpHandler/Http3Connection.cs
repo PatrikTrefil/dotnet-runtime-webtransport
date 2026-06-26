@@ -544,7 +544,14 @@ namespace System.Net.Http
                     }
                     else
                     {
-                        extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
+                        try
+                        {
+                            await extendedconnectManager!.ReleaseSessionAfterFailedHandshakeAsync(quicStream).ConfigureAwait(false);
+                        }
+                        catch (Exception e)
+                        {
+                            if (NetEventSource.Log.IsEnabled()) Trace($"Failed to release extended connect session after failed handshake: {e}");
+                        }
                     }
                 }
 
@@ -552,7 +559,10 @@ namespace System.Net.Http
             }
             catch (Exception ex)
             {
-                extendedconnectManager?.ReleaseSessionAfterFailedHandshake(quicStream);
+                if (extendedconnectManager is not null)
+                {
+                    await extendedconnectManager.ReleaseSessionAfterFailedHandshakeAsync(quicStream).ConfigureAwait(false);
+                }
 
                 if (ex is QuicException qex && qex.QuicError == QuicError.OperationAborted)
                 {

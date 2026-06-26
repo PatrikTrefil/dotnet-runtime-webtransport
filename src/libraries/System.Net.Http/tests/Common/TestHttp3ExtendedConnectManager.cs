@@ -20,7 +20,7 @@ public sealed class TestHttp3ExtendedConnectManager : Http3ExtendedConnectManage
     private readonly Func<QuicStreamType, byte[], QuicStream, Task> _processReceivedStreamAsync;
     private readonly Action<Dictionary<long, long>> _validateAndProcessServerSettings;
     private readonly Action _reserveSession;
-    private readonly Action<QuicStream?> _releaseSessionAfterFailedHandshake;
+    private readonly Func<QuicStream?, Task> _releaseSessionAfterFailedHandshake;
 
     public static long GetTestUnidirectionalStreamType(int managerId) => TestUnidirectionalStreamTypeBase + managerId;
 
@@ -34,7 +34,7 @@ public sealed class TestHttp3ExtendedConnectManager : Http3ExtendedConnectManage
         long bidirectionalStreamSignalValue = 0,
         Action<Dictionary<long, long>>? validateAndProcessServerSettings = null,
         Action? reserveSession = null,
-        Action<QuicStream?>? releaseSessionAfterFailedHandshake = null)
+        Func<QuicStream?, Task>? releaseSessionAfterFailedHandshake = null)
         : base(options)
     {
         _processGoAwayAsync = processGoAwayAsync ?? (() => Task.CompletedTask);
@@ -43,7 +43,7 @@ public sealed class TestHttp3ExtendedConnectManager : Http3ExtendedConnectManage
         BidirectionalStreamSignalValue = bidirectionalStreamSignalValue;
         _validateAndProcessServerSettings = validateAndProcessServerSettings ?? (_ => { });
         _reserveSession = reserveSession ?? (() => { });
-        _releaseSessionAfterFailedHandshake = releaseSessionAfterFailedHandshake ?? (_ => { });
+        _releaseSessionAfterFailedHandshake = releaseSessionAfterFailedHandshake ?? (_ => Task.CompletedTask);
     }
 
     public Task<QuicStream> OpenOutboundStreamForTestAsync(QuicStreamType streamType, CancellationToken cancellationToken)
@@ -70,7 +70,7 @@ public sealed class TestHttp3ExtendedConnectManager : Http3ExtendedConnectManage
     public override void ReserveSession()
         => _reserveSession();
 
-    public override void ReleaseSessionAfterFailedHandshake(QuicStream? quicStream)
+    public override Task ReleaseSessionAfterFailedHandshakeAsync(QuicStream? quicStream)
         => _releaseSessionAfterFailedHandshake(quicStream);
 }
 #endif

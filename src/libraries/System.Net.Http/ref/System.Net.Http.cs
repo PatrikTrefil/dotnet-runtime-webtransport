@@ -67,7 +67,7 @@ namespace System.Net.Http
         protected System.Threading.Tasks.Task<System.Net.Quic.QuicStream> OpenOutboundStreamAsync(System.Net.Quic.QuicStreamType type, System.Threading.CancellationToken cancellationToken) { throw null; }
         public abstract System.Threading.Tasks.Task ProcessGoAwayAsync();
         public abstract System.Threading.Tasks.Task ProcessReceivedStreamAsync(System.Net.Quic.QuicStreamType streamType, byte[] initialData, System.Net.Quic.QuicStream stream);
-        public abstract void ReleaseSessionAfterFailedHandshake(System.Net.Quic.QuicStream? quicStream);
+        public abstract System.Threading.Tasks.Task ReleaseSessionAfterFailedHandshakeAsync(System.Net.Quic.QuicStream? quicStream);
         protected void RemoveOutboundStream(System.Net.Quic.QuicStreamType type) { }
         protected System.Threading.Tasks.Task RemoveSessionAsync(System.Net.Quic.QuicStream connectStream) { throw null; }
         public abstract void ReserveSession();

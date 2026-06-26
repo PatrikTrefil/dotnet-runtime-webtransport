@@ -250,6 +250,7 @@ namespace System.Net.Http.Functional.Tests
                     releaseSessionAfterFailedHandshake: _ =>
                     {
                         Interlocked.Increment(ref releaseSessionAfterFailedHandshakeCallCount);
+                        return Task.CompletedTask;
                     });
 
                 using (HttpRequestMessage first = CreateExtendedConnectRequest(server.Address, "foo", managerFactory))
@@ -344,6 +345,7 @@ namespace System.Net.Http.Functional.Tests
                         releaseSessionAfterFailedHandshake: _ =>
                         {
                             Interlocked.Increment(ref releaseSessionAfterFailedHandshakeCallCount);
+                            return Task.CompletedTask;
                         }));
                 using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -794,7 +796,7 @@ namespace System.Net.Http.Functional.Tests
             Func<QuicStreamType, byte[], QuicStream, Task>? processReceivedStreamAsync = null,
             Action<Dictionary<long, long>>? validateAndProcessServerSettings = null,
             Action? reserveSession = null,
-            Action<QuicStream?>? releaseSessionAfterFailedHandshake = null)
+            Func<QuicStream?, Task>? releaseSessionAfterFailedHandshake = null)
             => options => new Http.Tests.TestHttp3ExtendedConnectManager(
                 options: options,
                 processGoAwayAsync: processGoAwayAsync,

@@ -115,11 +115,11 @@ public static class ClientWebTransportSession
         }
         catch (Exception)
         {
-            wtExtendedConnectManager.ReleaseSessionAfterFailedHandshake(extendedConnectContent.ConnectStream);
+            await wtExtendedConnectManager.ReleaseSessionAfterFailedHandshakeAsync(extendedConnectContent.ConnectStream).ConfigureAwait(false);
             throw;
         }
 
-        WebTransportSession session = wtExtendedConnectManager.CreateSession(
+        WebTransportSession session = wtExtendedConnectManager.SessionManager.CreateSession(
             extendedConnectContent.ConnectStream,
             WrapConnectStreamBufferInArrayBuffer(extendedConnectContent.ConnectStreamBuffer),
             options.GracefulShutdownHandler,

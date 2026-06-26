@@ -29,7 +29,8 @@
     <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
     <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
     <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
-    <Compile Include="System\Net\WebTransport\IMsQuicWebTransportSessionConnectionManager.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSessionManager.cs" />
+    <Compile Include="System\Net\WebTransport\IMsQuicWebTransportHttpConnectionManager.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportSession.cs" />
     <Compile Include="System\Net\WebTransport\MsQuicWebTransportStream.cs" />
@@ -46,18 +47,12 @@
     <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
     <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
-    <Compile Include="$(CommonPath)System\Net\ArrayBuffer.cs"
-             Link="Common\System\Net\ArrayBuffer.cs" />
-    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.cs"
-             Link="Common\System\Net\Logging\NetEventSource.Common.cs" />
-    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.Associate.cs"
-             Link="Common\System\Net\Logging\NetEventSource.Common.Associate.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs"
-             Link="Common\System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Http3SettingType.cs"
-             Link="Common\System\Net\Http\aspnetcore\Http3\Http3SettingType.cs" />
-    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs"
-             Link="Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
+    <Compile Include="$(CommonPath)System\Net\ArrayBuffer.cs" Link="Common\System\Net\ArrayBuffer.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.cs" Link="Common\System\Net\Logging\NetEventSource.Common.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.Associate.cs" Link="Common\System\Net\Logging\NetEventSource.Common.Associate.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Http3SettingType.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Http3SettingType.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
   </ItemGroup>
 
   <!-- Unsupported platforms -->

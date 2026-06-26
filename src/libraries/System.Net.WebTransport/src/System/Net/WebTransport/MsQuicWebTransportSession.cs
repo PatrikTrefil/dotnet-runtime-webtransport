@@ -37,7 +37,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
     private readonly ReadOnlyMemory<byte> _idEncodedAsVariableLengthInteger;
     private readonly QuicStream _connectStream;
-    private readonly IMsQuicWebTransportSessionConnectionManager _connectionManager;
+    private readonly MsQuicWebTransportSessionManager _sessionManager;
     private volatile Task? _cleanUpTask;
 
     /// <summary>
@@ -68,7 +68,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <exception cref="ArgumentNullException">When any parameter except <paramref name="subprotocol"/> and <paramref name="id"/> is null.</exception>
     internal MsQuicWebTransportSession(
         long id,
-        IMsQuicWebTransportSessionConnectionManager connectionManager,
+        MsQuicWebTransportSessionManager sessionManager,
         QuicStream connectStream,
         ArrayBuffer connectStreamBuffer,
         Channel<ChannelItem> pendingUnidirectionalStreams,
@@ -80,14 +80,14 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _connectStream = connectStream;
         _pendingUnidirectionalStreams = pendingUnidirectionalStreams;
         _pendingBidirectionalStreams = pendingBidirectionalStreams;
-        _connectionManager = connectionManager;
+        _sessionManager = sessionManager;
         _capsuleConsumer = new CapsuleConsumer(connectStream, connectStreamBuffer, this);
         _capsuleSender = new CapsuleSender(connectStream);
 
         if (NetEventSource.Log.IsEnabled())
         {
             NetEventSource.Associate(this, _connectStream);
-            NetEventSource.Associate(this, _connectionManager);
+            NetEventSource.Associate(this, _sessionManager);
             NetEventSource.Associate(this, _capsuleConsumer);
             NetEventSource.Associate(this, _capsuleSender);
         }
@@ -627,7 +627,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             {
                 try
                 {
-                    quicStream = await _connectionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
+                    quicStream = await _sessionManager.OpenOutboundStreamAsync(quicStreamType, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -696,7 +696,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         bool isFirstCleanUpCall = StreamCleanup(stream);
         if (isFirstCleanUpCall)
         {
-            _connectionManager.RemoveOutboundStream(WebTransportStreamTypeToQuicStreamType(stream.Type));
+            _sessionManager.RemoveOutboundStream(WebTransportStreamTypeToQuicStreamType(stream.Type));
         }
     }
 
@@ -894,7 +894,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
 
         await CleanUpOpenOutboundWaitersAsync().ConfigureAwait(false);
         await CleanUpPendingAndOpenStreamsAndCloseConnectStreamAsync(errorCodeForStreams, tryClosingGracefully).ConfigureAwait(false);
-        _connectionManager.RemoveSession(_connectStream);
+        await _sessionManager.RemoveSessionAsync(_connectStream).ConfigureAwait(false);
         _outboundUnidirectionalStreamSemaphore.Dispose();
         _outboundBidirectionalStreamSemaphore.Dispose();
         _outboundOpenShutdownCts.Dispose();

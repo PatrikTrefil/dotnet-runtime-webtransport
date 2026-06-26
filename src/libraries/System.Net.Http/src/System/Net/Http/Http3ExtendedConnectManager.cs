@@ -138,7 +138,7 @@ public abstract class Http3ExtendedConnectManager
     /// It may perform cleanup of any state associated with the request.
     /// </summary>
     /// <param name="quicStream">The stream used for the CONNECT request.</param>
-    public abstract void ReleaseSessionAfterFailedHandshake(QuicStream? quicStream);
+    public abstract Task ReleaseSessionAfterFailedHandshakeAsync(QuicStream? quicStream);
 
     /// <summary>
     /// Creates an outbound unidirectional or bidirectional <see cref="QuicStream"/> using

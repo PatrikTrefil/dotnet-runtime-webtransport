@@ -1,0 +1,366 @@
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Net.Http;
+using System.Net.Quic;
+using System.Diagnostics;
+using System.Threading.Channels;
+using System.Threading.Tasks;
+using System.Threading;
+using ChannelItem = (System.Net.ArrayBuffer ArrayBuffer, System.Net.Quic.QuicStream QuicStream);
+using System.Collections.Generic;
+
+namespace System.Net.WebTransport;
+
+internal sealed class MsQuicWebTransportSessionManager
+{
+    internal long InitialMaxUnidirectionalStreamsPerSession { get; set; }
+    internal long InitialMaxBidirectionalStreamsPerSession { get; set; }
+    internal long InitialMaxDataPerSession { get; set; }
+    internal long MaxSessionsCount { get; set; }
+
+    private long _openSessionsCount;
+    private Lock SessionCountsLock { get; } = new();
+
+    // Under specific circumstances it's possible that the WebTransportSession object is created after a GOAWAY was received.
+    // For this scenario we need to remember to call the graceful shutdown handler right after the session is created.
+    // To check if the graceful shutdown handler needs to be called we use this boolean variable.
+    private bool _wasGoAwayReceived;
+
+    private Lock DictionaryLock { get; } = new();
+    private readonly Dictionary<long, DictionaryItem> _idSessionAndChannelsDict = new();
+
+    private readonly IMsQuicWebTransportHttpConnectionManager _manager;
+
+    public MsQuicWebTransportSessionManager(IMsQuicWebTransportHttpConnectionManager httpConnectionManager)
+    {
+        _manager = httpConnectionManager;
+    }
+
+    public WebTransportSession CreateSession(QuicStream connectStream, ArrayBuffer connectStreamBuffer, Func<WebTransportSession, Task> gracefulShutdownHandler, string? subprotocol, long defaultStreamErrorCode)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+
+        long sessionId = connectStream.Id;
+
+        // It's possible that a there are already pending streams for the session we are creating
+        SessionAndChannels sessionAndChannels;
+        bool shouldCallGracefulShutdownHandler = false;
+        lock (DictionaryLock)
+        {
+            if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
+            {
+                sessionAndChannels = new SessionAndChannels(ChannelItemDropped);
+                _idSessionAndChannelsDict[sessionId] = sessionAndChannels;
+            }
+            else
+            {
+                Debug.Assert(dictionaryItem != null);
+                Debug.Assert(dictionaryItem is SessionAndChannels);
+                sessionAndChannels = (SessionAndChannels)dictionaryItem;
+            }
+
+            shouldCallGracefulShutdownHandler = _wasGoAwayReceived;
+        }
+
+        Debug.Assert(sessionAndChannels.Session == null, "Session object should only be created once per CONNECT stream");
+
+        sessionAndChannels.Session = new MsQuicWebTransportSession(
+            sessionId,
+            this,
+            connectStream,
+            connectStreamBuffer,
+            sessionAndChannels.PendingUnidirectionalStreams,
+            sessionAndChannels.PendingBidirectionalStreams,
+            gracefulShutdownHandler,
+            subprotocol,
+            defaultStreamErrorCode)
+        {
+            DataSentLimitProvidedByPeer = InitialMaxDataPerSession,
+            UnidirectionalStreamCountLimitProvidedByPeer = InitialMaxUnidirectionalStreamsPerSession,
+            BidirectionalStreamCountLimitProvidedByPeer = InitialMaxBidirectionalStreamsPerSession
+        };
+
+        sessionAndChannels.Session.Init();
+
+        if (shouldCallGracefulShutdownHandler)
+        {
+            _ = sessionAndChannels.Session.GracefulShutdownAsync();
+        }
+
+        return sessionAndChannels.Session;
+    }
+
+    public async Task ProcessReceivedStreamAsync(QuicStreamType streamType, byte[] initialData, QuicStream stream)
+    {
+        ArrayBuffer buffer = new(initialSize: initialData.Length, usePool: true);
+        if (initialData.Length > 0)
+        {
+            initialData.CopyTo(buffer.AvailableSpan);
+            buffer.Commit(initialData.Length);
+        }
+
+        try
+        {
+            int bytesRead;
+            long sessionId;
+            while (!VariableLengthIntegerHelper.TryRead(buffer.ActiveSpan, out sessionId, out bytesRead))
+            {
+                buffer.EnsureAvailableSpace(VariableLengthIntegerHelper.MaximumEncodedLength);
+                bytesRead = await stream.ReadAsync(buffer.AvailableMemory, CancellationToken.None).ConfigureAwait(false);
+
+                if (bytesRead == 0)
+                {
+                    sessionId = -1;
+                    break;
+                }
+
+                buffer.Commit(bytesRead);
+            }
+            buffer.Discard(bytesRead);
+
+            ProcessReceivedStreamForSessionAsync(streamType, buffer, stream, sessionId);
+        } catch (Exception)
+        {
+            await stream.DisposeAsync().ConfigureAwait(false);
+            buffer.Dispose();
+            throw;
+        }
+    }
+
+    private void ProcessReceivedStreamForSessionAsync(QuicStreamType streamType, ArrayBuffer buffer, QuicStream stream, long sessionId)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Stream received for session {sessionId}");
+
+        lock (DictionaryLock)
+        {
+            // The session may not exist yet. In that case we only create the channels without a session object.
+            // The session object will then attached in the CreateSession method
+            if (!_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
+            {
+                dictionaryItem = new SessionAndChannels(ChannelItemDropped);
+                _idSessionAndChannelsDict[sessionId] = dictionaryItem;
+            }
+            else
+            {
+                Debug.Assert(dictionaryItem != null);
+            }
+
+            if (dictionaryItem is Tombstone)
+            {
+                RejectReceivedStreamForClosedSession(buffer, stream);
+                return;
+            }
+
+            SessionAndChannels sessionAndChannels = (SessionAndChannels)dictionaryItem;
+
+            Channel<ChannelItem> channelForStreamType = streamType switch
+            {
+                QuicStreamType.Unidirectional => sessionAndChannels.PendingUnidirectionalStreams,
+                QuicStreamType.Bidirectional => sessionAndChannels.PendingBidirectionalStreams,
+                _ => throw new ArgumentException("Unknown stream type", nameof(streamType))
+            };
+
+            bool wasWriteSuccessful = channelForStreamType.Writer.TryWrite((buffer, stream));
+            if (!wasWriteSuccessful) // session has been closed
+            {
+                RejectReceivedStreamForClosedSession(buffer, stream);
+            }
+        }
+    }
+
+    private static void RejectReceivedStreamForClosedSession(ArrayBuffer buffer, QuicStream stream)
+    {
+        buffer.Dispose();
+        stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebtransportSessionGone);
+        stream.Dispose();
+    }
+
+    public async Task ProcessGoAwayAsync()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        Task[] goAwayHandlerTasks;
+        lock (DictionaryLock)
+        {
+            goAwayHandlerTasks = new Task[_idSessionAndChannelsDict.Count];
+            int i = 0;
+            foreach (DictionaryItem dictionaryItem in _idSessionAndChannelsDict.Values)
+            {
+
+                goAwayHandlerTasks[i] = dictionaryItem switch
+                {
+                    SessionAndChannels sessionAndChannels => Task.Run(async () =>
+                        {
+                            if (sessionAndChannels.Session != null)
+                            {
+                                await sessionAndChannels.Session.GracefulShutdownAsync().ConfigureAwait(false);
+                            }
+                        }),
+                    Tombstone => Task.CompletedTask,
+                    _ => throw new InvalidOperationException("Unknown dictionary item type")
+                };
+                i++;
+            }
+
+            _wasGoAwayReceived = true;
+        }
+
+        await Task.WhenAll(goAwayHandlerTasks).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Call when a session is closed and the CONNECT stream is no longer used.
+    /// This method may be called multiple times for the same stream and is thread-safe.
+    /// </summary>
+    /// <param name="connectStream">CONNECT stream of the session to remove.</param>
+    public async Task RemoveSessionAsync(QuicStream connectStream)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        long sessionId = connectStream.Id;
+        bool wasRemovalSuccessful = TryTombstoneSession(sessionId, out _);
+
+        if (wasRemovalSuccessful)
+        {
+            lock (SessionCountsLock)
+            {
+                _openSessionsCount--;
+            }
+
+            await _manager.RemoveSessionAsync(connectStream).ConfigureAwait(false);
+
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Removed session with ID {sessionId}.");
+        }
+    }
+
+    public async Task ReleaseSessionAfterFailedHandshakeAsync(QuicStream? quicStream)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        lock (SessionCountsLock)
+        {
+            _openSessionsCount--;
+        }
+
+        if (quicStream != null)
+        {
+            TryTombstoneSession(quicStream.Id, out SessionAndChannels? sessionAndChannels);
+
+            if (sessionAndChannels is not null)
+            {
+                Debug.Assert(sessionAndChannels.Session is null);
+                await CompleteAndClosePendingStreamsAsync(sessionAndChannels, Http3ErrorCode.WebtransportSessionGone).ConfigureAwait(false);
+            }
+
+            await _manager.RemoveSessionAsync(quicStream).ConfigureAwait(false);
+        }
+    }
+
+    /// <exception cref="InvalidOperationException">When the underlying HTTP/3 connection has been disposed.</exception>
+    public async Task<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        return await _manager.OpenOutboundStreamAsync(type, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Call when the caller is finished using an outbound stream previously obtained from <see cref="OpenOutboundStreamAsync"/>.
+    /// </summary>
+    public void RemoveOutboundStream(QuicStreamType type)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        _manager.RemoveOutboundStream(type);
+    }
+
+    private bool TryTombstoneSession(long sessionId, out SessionAndChannels? sessionAndChannels)
+    {
+        lock (DictionaryLock)
+        {
+            if (_idSessionAndChannelsDict.TryGetValue(sessionId, out DictionaryItem? dictionaryItem))
+            {
+                if (dictionaryItem is Tombstone)
+                {
+                    sessionAndChannels = null;
+                    return false;
+                }
+
+                Debug.Assert(dictionaryItem is SessionAndChannels);
+                sessionAndChannels = (SessionAndChannels)dictionaryItem;
+            }
+            else
+            {
+                sessionAndChannels = null;
+            }
+
+            _idSessionAndChannelsDict[sessionId] = Tombstone.Instance;
+            return true;
+        }
+    }
+
+    private void ChannelItemDropped(ChannelItem channelItem)
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"Rejecting stream {channelItem.QuicStream}.");
+
+        QuicStream stream = channelItem.QuicStream;
+        stream.Abort(QuicAbortDirection.Both, (long)Http3ErrorCode.WebTransportBufferedStreamRejected);
+        stream.Dispose();
+        channelItem.ArrayBuffer.Dispose();
+    }
+
+    private static async Task CompleteAndClosePendingStreamsAsync(SessionAndChannels sessionAndChannels, Http3ErrorCode httpErrorCode)
+    {
+        sessionAndChannels.PendingUnidirectionalStreams.Writer.TryComplete();
+        sessionAndChannels.PendingBidirectionalStreams.Writer.TryComplete();
+
+        await WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(sessionAndChannels.PendingUnidirectionalStreams, httpErrorCode).ConfigureAwait(false);
+        await WebTransportPendingStreamCleanup.CloseAndDisposeAllStreamsInChannelAsync(sessionAndChannels.PendingBidirectionalStreams, httpErrorCode).ConfigureAwait(false);
+    }
+
+    public void ReserveSession()
+    {
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
+
+        lock (SessionCountsLock)
+        {
+            if (_openSessionsCount == MaxSessionsCount)
+            {
+                throw new WebTransportException(WebTransportError.SessionConnectFailure, SR.net_webtransport_maximum_number_of_sessions_reached);
+            }
+            _openSessionsCount++;
+        }
+    }
+
+    private abstract class DictionaryItem { }
+
+    private sealed class Tombstone : DictionaryItem
+    {
+        public static Tombstone Instance { get; } = new Tombstone();
+        private Tombstone() { }
+    }
+
+    private sealed class SessionAndChannels : DictionaryItem
+    {
+        private const int s_maxPendingUnidirectionalStreams = 100;
+        private const int s_maxPendingBidirectionalStreams = 100;
+
+        public MsQuicWebTransportSession? Session { get; set; }
+        public Channel<ChannelItem> PendingUnidirectionalStreams { get; }
+        public Channel<ChannelItem> PendingBidirectionalStreams { get; }
+
+        public SessionAndChannels(Action<ChannelItem> channelItemDropped)
+        {
+            PendingUnidirectionalStreams = Channel.CreateBounded(
+                new BoundedChannelOptions(s_maxPendingUnidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
+                channelItemDropped
+            );
+            PendingBidirectionalStreams = Channel.CreateBounded(
+                new BoundedChannelOptions(s_maxPendingBidirectionalStreams) { FullMode = BoundedChannelFullMode.DropNewest },
+                channelItemDropped
+            );
+        }
+    }
+}
