@@ -56,7 +56,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// <summary>
     /// The current state of the WebTransport session.
     /// </summary>
-    public abstract WebTransportSessionState State { get; protected set; }
+    public abstract WebTransportSessionState State { get; }
 
     #region Session configuration
 
@@ -160,7 +160,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Otherwise the value is <c>null</c>.
     /// </value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    public abstract long? CloseStatusCode { get; protected set; }
+    public abstract long? CloseStatusCode { get; }
 
     /// <summary>
     /// The status description provided when closing the session.
@@ -172,7 +172,7 @@ public abstract partial class WebTransportSession : IAsyncDisposable
     /// Otherwise the value is <c>null</c>.
     /// </value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
-    public abstract string? CloseStatusDescription { get; protected set; }
+    public abstract string? CloseStatusDescription { get; }
 
     /// <summary>
     /// Gets the exception that represents the current session state when the state is not open.

@@ -49,14 +49,14 @@ namespace System.Net.WebTransport
         internal WebTransportSession() { }
         public abstract long BidirectionalStreamCountLimitForPeer { get; protected set; }
         public abstract long BidirectionalStreamCountLimitProvidedByPeer { get; }
-        public abstract long? CloseStatusCode { get; protected set; }
-        public abstract string? CloseStatusDescription { get; protected set; }
+        public abstract long? CloseStatusCode { get; }
+        public abstract string? CloseStatusDescription { get; }
         public abstract long DataSentLimitForPeer { get; protected set; }
         public abstract long DataSentLimitProvidedByPeer { get; }
         protected long DefaultStreamErrorCode { get { throw null; } }
         protected System.Func<System.Threading.Tasks.Task> GracefulShutdownHandler { get { throw null; } }
         public long Id { get { throw null; } }
-        public abstract System.Net.WebTransport.WebTransportSessionState State { get; protected set; }
+        public abstract System.Net.WebTransport.WebTransportSessionState State { get; }
         public string? SubProtocol { get { throw null; } }
         public abstract long UnidirectionalStreamCountLimitForPeer { get; protected set; }
         public abstract long UnidirectionalStreamCountLimitProvidedByPeer { get; }

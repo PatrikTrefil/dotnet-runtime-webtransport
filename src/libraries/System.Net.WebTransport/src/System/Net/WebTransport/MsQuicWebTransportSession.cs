@@ -21,9 +21,11 @@ namespace System.Net.WebTransport;
 internal sealed class MsQuicWebTransportSession : WebTransportSession
 {
     /// <summary>
-    /// Lock this object when working with <see cref="WebTransportSession.State"/>, <see cref="WebTransportSession.CloseStatusCode"/>,
-    /// <see cref="WebTransportSession.CloseStatusDescription"/>, <see cref="_openStreams"/>, <see cref="_pendingOutboundOpenWaitersCount"/>,
+    /// Lock this object when writing <see cref="_lifecycle"/> (the snapshot behind <see cref="WebTransportSession.State"/>,
+    /// <see cref="WebTransportSession.CloseStatusCode"/> and <see cref="WebTransportSession.CloseStatusDescription"/>) or when working
+    /// with <see cref="_openStreams"/>, <see cref="_pendingOutboundOpenWaitersCount"/>,
     /// <see cref="_hasOutboundOpenShutdownStarted"/>, <see cref="_outboundOpenWaitersDrainedTcs"/>, or <see cref="_cleanUpTask"/>.
+    /// Reading the lifecycle properties does not require the lock, see <see cref="_lifecycle"/>.
     /// </summary>
     private Lock SyncLock { get; } = new();
 
@@ -97,45 +99,42 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         _idEncodedAsVariableLengthInteger = buffer.AsMemory().Slice(0, bytesWritten);
     }
 
-    public override string? CloseStatusDescription
+    /// <summary>
+    /// Immutable snapshot of the lifecycle properties (<see cref="State"/>, <see cref="CloseStatusCode"/>
+    /// and <see cref="CloseStatusDescription"/>).
+    /// </summary>
+    private sealed class LifecycleSnapshot
     {
-        // Lock not required for getter because this property is only read after the thread reading it has observed the session as closed, which requires acquiring the SyncLock, which ensures memory synchronization.
-        get;
-        protected set
-        {
-            Debug.Assert(SyncLock.IsHeldByCurrentThread);
+        internal static readonly LifecycleSnapshot Initial = new(WebTransportSessionState.None, null, null);
 
-            field = value;
+        internal LifecycleSnapshot(WebTransportSessionState state, long? closeStatusCode, string? closeStatusDescription)
+        {
+            State = state;
+            CloseStatusCode = closeStatusCode;
+            CloseStatusDescription = closeStatusDescription;
         }
+
+        internal WebTransportSessionState State { get; }
+        internal long? CloseStatusCode { get; }
+        internal string? CloseStatusDescription { get; }
     }
 
-    public override long? CloseStatusCode
-    {
-        // Lock not required for getter because this property is only read after the thread reading it has observed the session as closed, which requires acquiring the SyncLock, which ensures memory synchronization.
-        get;
-        protected set
-        {
-            Debug.Assert(SyncLock.IsHeldByCurrentThread);
+    /// <summary>
+    /// The current lifecycle snapshot. Written only while holding <see cref="SyncLock"/>. Reads do not require the lock.
+    /// Publishing a whole snapshot with a single reference write keeps the three values coherent for lock-free readers:
+    /// the write is atomic and acts as a release with respect to the constructor's writes, the reads through the reference
+    /// are data-dependent and thus ordered, and cache coherency guarantees that a reader which has observed a snapshot
+    /// can never observe an older one afterwards (see docs/design/specs/Memory-model.md). Reads may return a stale
+    /// snapshot because the lifecycle properties are best-effort observations rather than a notification mechanism.
+    /// Callers must not poll them to detect a transition.
+    /// </summary>
+    private LifecycleSnapshot _lifecycle = LifecycleSnapshot.Initial;
 
-            field = value;
-        }
-    }
+    public override string? CloseStatusDescription => _lifecycle.CloseStatusDescription;
 
-    public override WebTransportSessionState State
-    {
-        get
-        {
-            lock (SyncLock) { return field; }
-        }
-        protected set
-        {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {field} to {value}");
+    public override long? CloseStatusCode => _lifecycle.CloseStatusCode;
 
-            Debug.Assert(SyncLock.IsHeldByCurrentThread);
-
-            field = value;
-        }
-    }
+    public override WebTransportSessionState State => _lifecycle.State;
 
     #region Session configuration
 
@@ -207,7 +206,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         lock (SyncLock)
         {
-            State = WebTransportSessionState.Open;
+            Debug.Assert(State == WebTransportSessionState.None);
+
+            if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {_lifecycle.State} to {WebTransportSessionState.Open}");
+
+            _lifecycle = new LifecycleSnapshot(WebTransportSessionState.Open, null, null);
         }
 
         _ = ReactToWritesClosedAbortivelyOnConnectStream();
@@ -328,9 +331,11 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
                 or WebTransportSessionState.AbortedRemotely
                 );
 
-        State = state;
-        CloseStatusCode = closeStatusCode;
-        CloseStatusDescription = closeStatusDescription;
+        if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this, $"State transition from {_lifecycle.State} to {state}");
+
+        // Publish all three values as a single snapshot so a lock-free reader cannot observe
+        // the closed state without the matching status.
+        _lifecycle = new LifecycleSnapshot(state, closeStatusCode, closeStatusDescription);
     }
 
     private void RegisterOutboundOpenWaiter()
