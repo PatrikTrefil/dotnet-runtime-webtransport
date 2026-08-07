@@ -186,13 +186,13 @@ public abstract partial class WebTransportSession : IAsyncDisposable
         switch (state)
         {
             case WebTransportSessionState.ClosedLocally:
-                return new WebTransportException(WebTransportError.OperationAborted, "Operation was aborted");
+                return new WebTransportException(WebTransportError.OperationAborted, SR.net_webtransport_operation_aborted);
             case WebTransportSessionState.ClosedRemotely:
-                return new WebTransportException(WebTransportError.SessionClosedByPeer, CloseStatusCode, CloseStatusDescription, "The session was closed remotely.");
+                return new WebTransportException(WebTransportError.SessionClosedByPeer, CloseStatusCode, CloseStatusDescription, SR.net_webtransport_session_closed_by_peer);
             case WebTransportSessionState.AbortedLocally:
-                return new WebTransportException(WebTransportError.OperationAborted, "The session was aborted because of a protocol violation by peer.");
+                return new WebTransportException(WebTransportError.OperationAborted, SR.net_webtransport_session_aborted_locally);
             case WebTransportSessionState.AbortedRemotely:
-                return new WebTransportException(WebTransportError.SessionClosedByPeer, CloseStatusCode, CloseStatusDescription, "The session was aborted by peer.");
+                return new WebTransportException(WebTransportError.SessionAbortedByPeer, SR.net_webtransport_session_aborted_by_peer);
         }
 
         Debug.Assert(state == WebTransportSessionState.Open);

@@ -79,8 +79,8 @@ public sealed class WebTransportException : Exception
     /// </summary>
     /// <value>
     /// The value is in the range [0, 2^32) or <c>null</c>.
-    /// The value is not <c>null</c> if the <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/> and the peer provided a description when closing the session
-    /// or the <see cref="WebTransportError"/> is <see cref="WebTransportError.StreamAborted"/>.
+    /// The value is not <c>null</c> when <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/>.
+    /// When <see cref="WebTransportException.WebTransportError"/> is <see cref="WebTransportError.StreamAborted"/>, the value is not <c>null</c> only if the peer provided a valid status code.
     /// </value>
     public long? CloseStatusCode { get; }
 
@@ -89,7 +89,7 @@ public sealed class WebTransportException : Exception
     /// </summary>
     /// <value>
     /// The description may be up to 1024 bytes long in UTF-8 encoding.
-    /// The value is not <c>null</c>, if the <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/> and the peer provided a description when closing the session.
+    /// The value is not <c>null</c> when <see cref="WebTransportError"/> is <see cref="WebTransportError.SessionClosedByPeer"/>.
     /// </value>
     /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#name-session-termination"/>
     public string? CloseStatusDescription { get; }
@@ -98,7 +98,7 @@ public sealed class WebTransportException : Exception
     /// Value of <see cref="Http.Headers.HttpResponseHeaders.Location"/> of the extended CONNECT request.
     /// </summary>
     /// <value>
-    /// Value is not <c>null</c> if the <see cref="WebTransportError"/> is <see cref="WebTransportError.RedirectRequired"/>.
+    /// The value is not <c>null</c> when <see cref="WebTransportError"/> is <see cref="WebTransportError.RedirectRequired"/>.
     /// </value>
     public Uri? RedirectLocation { get; }
 }

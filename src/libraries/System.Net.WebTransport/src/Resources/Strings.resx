@@ -124,7 +124,7 @@
     <value>Stream aborted with invalid application error code {0}.</value>
   </data>
   <data name="net_webtransport_stream_aborted" xml:space="preserve">
-    <value>The stream has beed aborted.</value>
+    <value>The stream has been aborted.</value>
   </data>
   <data name="net_webtransport_transport_layer_error" xml:space="preserve">
     <value>Transport layer error occurred.</value>
@@ -154,10 +154,16 @@
     <value>Invalid stream type {0}.</value>
   </data>
   <data name="net_webtransport_operation_aborted" xml:space="preserve">
-    <value>Operation aborted.</value>
+    <value>The operation was aborted.</value>
   </data>
   <data name="net_webtransport_session_closed_by_peer" xml:space="preserve">
-    <value>Session has been closed by peer.</value>
+    <value>The session was closed by the peer.</value>
+  </data>
+  <data name="net_webtransport_session_aborted_by_peer" xml:space="preserve">
+    <value>The session was aborted by the peer.</value>
+  </data>
+  <data name="net_webtransport_session_aborted_locally" xml:space="preserve">
+    <value>The session was aborted locally because of a protocol violation by the peer.</value>
   </data>
   <data name="net_webtransport_invalid_subprotocol_value" xml:space="preserve">
     <value>The value at index {0} is not a valid token.</value>

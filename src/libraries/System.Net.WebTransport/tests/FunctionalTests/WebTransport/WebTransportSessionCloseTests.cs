@@ -128,6 +128,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             await session.CloseAsync(expectedApplicationErrorCode, Encoding.UTF8.GetString(expectedApplicationErrorMessage));
 
             Assert.Equal(WebTransportSessionState.ClosedLocally, session.State);
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, ExceptionValidator);
             await AssertStreamIsClosedWithSpinWait(stream, writesClosedExceptionValidator: ExceptionValidator, readsClosedExceptionValidator: null);
 
             barrier.SignalAndWait();
@@ -139,6 +140,7 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
         {
             Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
             Assert.Null(ex.CloseStatusCode);
+            Assert.Null(ex.CloseStatusDescription);
         }
     }
 
@@ -328,6 +330,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Equal(WebTransportSessionState.ClosedRemotely, session.State);
             Assert.Equal("", session.CloseStatusDescription);
             Assert.Equal(0, session.CloseStatusCode);
+
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) =>
+            {
+                Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError);
+                Assert.Equal(0, ex.CloseStatusCode);
+                Assert.Equal("", ex.CloseStatusDescription);
+            });
 
             barrier.SignalAndWait();
         });
@@ -788,6 +797,13 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             Assert.Equal(WebTransportSessionState.AbortedLocally, session.State);
 
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) =>
+            {
+                Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+                Assert.Null(ex.CloseStatusCode);
+                Assert.Null(ex.CloseStatusDescription);
+            });
+
             barrier.SignalAndWait();
         });
 
@@ -1244,7 +1260,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusCode);
             Assert.Null(session.CloseStatusDescription);
 
-            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError));
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) =>
+            {
+                Assert.Equal(WebTransportError.SessionAbortedByPeer, ex.WebTransportError);
+                Assert.Null(ex.CloseStatusCode);
+                Assert.Null(ex.CloseStatusDescription);
+            });
 
             barrier.SignalAndWait();
         });
@@ -1280,7 +1301,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
             Assert.Null(session.CloseStatusCode);
             Assert.Null(session.CloseStatusDescription);
 
-            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.SessionClosedByPeer, ex.WebTransportError));
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) =>
+            {
+                Assert.Equal(WebTransportError.SessionAbortedByPeer, ex.WebTransportError);
+                Assert.Null(ex.CloseStatusCode);
+                Assert.Null(ex.CloseStatusDescription);
+            });
 
             barrier.SignalAndWait();
         });
@@ -1312,7 +1338,12 @@ public sealed class WebTransportSessionCloseTests : WebTransportTestBase
 
             SpinWait.SpinUntil(() => session.State != WebTransportSessionState.Open, TestTimeoutInMilliseconds);
 
-            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) => Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError));
+            await WebTransportSessionTestHelper.AssertAllOperationsOnSessionThrowAsync<WebTransportException>(session, (ex) =>
+            {
+                Assert.Equal(WebTransportError.OperationAborted, ex.WebTransportError);
+                Assert.Null(ex.CloseStatusCode);
+                Assert.Null(ex.CloseStatusDescription);
+            });
 
             barrier.SignalAndWait();
         });

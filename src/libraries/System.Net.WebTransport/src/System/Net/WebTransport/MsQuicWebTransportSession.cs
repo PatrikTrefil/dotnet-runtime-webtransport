@@ -820,7 +820,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
             }
             else if (qex.QuicError is QuicError.StreamAborted or QuicError.ConnectionAborted)
             {
-                throw new WebTransportException(WebTransportError.SessionClosedByPeer, SR.net_webtransport_session_closed_by_peer, ex);
+                throw new WebTransportException(WebTransportError.SessionAbortedByPeer, SR.net_webtransport_session_aborted_by_peer, ex);
             }
         }
 

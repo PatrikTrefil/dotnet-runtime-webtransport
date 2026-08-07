@@ -17,48 +17,55 @@ public enum WebTransportError
     /// </summary>
     InternalError = 1,
     /// <summary>
-    /// The connection was aborted by the peer. This error is associated with a close status code and a close status description.
-    /// If the close status code and close status description were provided by the peer, they are stored in <see cref="WebTransportException.CloseStatusDescription"/> and <see cref="WebTransportException.CloseStatusCode"/>.
+    /// The session was closed gracefully by the peer. This error is associated with a close status code and a close status description.
+    /// The close status code and the close status description provided by the peer are stored in <see cref="WebTransportException.CloseStatusCode"/> and <see cref="WebTransportException.CloseStatusDescription"/>.
     /// </summary>
     SessionClosedByPeer = 2,
+    /// <summary>
+    /// The session was aborted by the peer.
+    /// </summary>
+    /// <remarks>
+    /// An abortive termination carries no close status information, so <see cref="WebTransportException.CloseStatusCode"/> and <see cref="WebTransportException.CloseStatusDescription"/> are <c>null</c>.
+    /// </remarks>
+    SessionAbortedByPeer = 3,
     /// <summary>
     /// The read or write direction of the stream was aborted by the peer. This error is associated with a close status code.
     /// If a valid status code was provided, it is stored in <see cref="WebTransportException.CloseStatusCode"/>.
     /// </summary>
-    StreamAborted = 3,
+    StreamAborted = 4,
     /// <summary>
     /// An error on the transport layer occurred.
     /// </summary>
-    TransportLayerError = 4,
+    TransportLayerError = 5,
     /// <summary>
     /// The server refused the session.
     /// </summary>
-    SessionConnectFailure = 5,
+    SessionConnectFailure = 6,
     /// <summary>
     /// The operation has been aborted.
     /// </summary>
-    OperationAborted = 6,
+    OperationAborted = 7,
     /// <summary>
     /// An error occurred in the user provided callback.
     /// </summary>
-    CallbackError = 7,
+    CallbackError = 8,
     /// <summary>
     /// Indicates that the client requested an unsupported WebTransport subprotocol.
     /// </summary>
-    UnsupportedProtocol = 8,
+    UnsupportedProtocol = 9,
     /// <summary>
     /// Indicates an error occurred when parsing the HTTP headers during the opening handshake.
     /// </summary>
-    HeaderError = 9,
+    HeaderError = 10,
     /// <summary>
     /// Indicates that the server responded with a redirect and the client must follow it to establish the session.
     /// </summary>
     /// <remarks>
     /// When a <see cref="WebTransportException"/> with <see cref="RedirectRequired"/> is thrown, the property <see cref="WebTransportException.RedirectLocation"/> contains the URI to redirect to.
     /// </remarks>
-    RedirectRequired = 10,
+    RedirectRequired = 11,
     /// <summary>
     /// Indicates that some limit has been exceeded.
     /// </summary>
-    LimitExceeded = 11
+    LimitExceeded = 12
 }
