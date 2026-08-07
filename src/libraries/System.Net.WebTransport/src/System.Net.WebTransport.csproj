@@ -24,7 +24,12 @@
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleConsumer.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
-    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/Capsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/CloseSessionCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/DrainSessionCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxDataCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxUnidirectionalStreamsCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxBidirectionalStreamsCapsule.cs" />
     <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleSender.cs" />
     <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
     <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
