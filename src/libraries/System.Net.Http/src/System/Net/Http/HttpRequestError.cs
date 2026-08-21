@@ -34,7 +34,7 @@ namespace System.Net.Http
         HttpProtocolError,
 
         /// <summary>
-        /// Extended CONNECT for WebSockets over HTTP/2 is not supported by the peer.
+        /// Extended CONNECT for requested protocol is not supported by the peer.
         /// </summary>
         ExtendedConnectNotSupported,
 

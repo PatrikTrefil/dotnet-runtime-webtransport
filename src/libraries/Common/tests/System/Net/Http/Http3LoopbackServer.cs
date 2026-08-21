@@ -35,6 +35,8 @@ namespace System.Net.Test.Common
                 {
                     var serverOptions = new QuicServerConnectionOptions()
                     {
+                        IdleTimeout = options.QuicConnectionIdleTimeout,
+                        KeepAliveInterval = options.QuicConnectionKeepAliveInterval,
                         DefaultStreamErrorCode = Http3LoopbackConnection.H3_REQUEST_CANCELLED,
                         DefaultCloseErrorCode = Http3LoopbackConnection.H3_NO_ERROR,
                         MaxInboundBidirectionalStreams = options.MaxInboundBidirectionalStreams,
@@ -65,13 +67,18 @@ namespace System.Net.Test.Common
             _cert.Dispose();
         }
 
-        private async Task<Http3LoopbackConnection> EstablishHttp3ConnectionAsync(params SettingsEntry[] settingsEntries)
+        private async Task<Http3LoopbackConnection> EstablishHttp3ConnectionAsync(params Http3SettingsEntry[] settingsEntries)
         {
-            QuicConnection con = await _listener.AcceptConnectionAsync().ConfigureAwait(false);
-            Http3LoopbackConnection connection = new Http3LoopbackConnection(con);
+            Http3LoopbackConnection connection = await AcceptConnectionWithoutSettingsAsync().ConfigureAwait(false);
 
             await connection.EstablishControlStreamAsync(settingsEntries).ConfigureAwait(false);
             return connection;
+        }
+
+        public async Task<Http3LoopbackConnection> AcceptConnectionWithoutSettingsAsync()
+        {
+            QuicConnection con = await _listener.AcceptConnectionAsync().ConfigureAwait(false);
+            return new Http3LoopbackConnection(con);
         }
 
         public override async Task<GenericLoopbackConnection> EstablishGenericConnectionAsync()
@@ -79,7 +86,7 @@ namespace System.Net.Test.Common
             return await EstablishHttp3ConnectionAsync().ConfigureAwait(false);
         }
 
-        public Task<Http3LoopbackConnection> EstablishConnectionAsync(params SettingsEntry[] settingsEntries)
+        public Task<Http3LoopbackConnection> EstablishConnectionAsync(params Http3SettingsEntry[] settingsEntries)
         {
             return EstablishHttp3ConnectionAsync(settingsEntries);
         }
@@ -143,6 +150,8 @@ namespace System.Net.Test.Common
     }
     public class Http3Options : GenericLoopbackOptions
     {
+        public TimeSpan QuicConnectionIdleTimeout { get; set; }
+        public TimeSpan QuicConnectionKeepAliveInterval { get; set; }
         public int MaxInboundUnidirectionalStreams { get; set; }
 
         public int MaxInboundBidirectionalStreams { get; set; }

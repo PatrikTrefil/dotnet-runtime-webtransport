@@ -67,6 +67,8 @@ namespace System.Net.Http
             set => Volatile.Write(ref _streamId, value);
         }
 
+        public bool ConnectProtocolEstablished { get; private set; }
+
         public Http3RequestStream(HttpRequestMessage request, Http3Connection connection, QuicStream stream)
         {
             _request = request;
@@ -104,7 +106,7 @@ namespace System.Net.Http
 
         private void RemoveFromConnectionIfDone()
         {
-            if (_responseRecvCompleted && _requestSendCompleted)
+            if (_responseRecvCompleted && _requestSendCompleted && !ConnectProtocolEstablished)
             {
                 _connection.RemoveStream(_stream);
             }
@@ -124,6 +126,7 @@ namespace System.Net.Http
                 {
                     await _stream.DisposeAsync().ConfigureAwait(false);
                 }
+
                 DisposeSyncHelper();
             }
         }
@@ -181,7 +184,7 @@ namespace System.Net.Http
 
                     // End the stream writing if there's no content to send, do it as part of the write so that the FIN flag isn't send in an empty QUIC frame.
                     // Note that there's no need to call Shutdown separately since the FIN flag in the last write is the same thing.
-                    await FlushSendBufferAsync(endStream: _request.Content == null, _requestBodyCancellationSource.Token).ConfigureAwait(false);
+                    await FlushSendBufferAsync(endStream: _request.Content == null && !_request.IsExtendedConnectRequest, _requestBodyCancellationSource.Token).ConfigureAwait(false);
                 }
 
                 Task sendRequestTask = _request.Content != null
@@ -238,7 +241,8 @@ namespace System.Net.Http
                 // If we've sent a body, wait for the writes to be closed (most likely already done).
                 // If sendRequestTask hasn't completed yet, we're doing duplex content transfers and can't wait for writes to be closed yet.
                 if (sendRequestTask.IsCompletedSuccessfully &&
-                    _stream.WritesClosed is { IsCompletedSuccessfully: false } writesClosed)
+                    _stream.WritesClosed is { IsCompletedSuccessfully: false } writesClosed &&
+                    !_request.IsExtendedConnectRequest)
                 {
                     try
                     {
@@ -251,38 +255,52 @@ namespace System.Net.Http
                 }
 
                 Debug.Assert(_response != null && _response.Content != null);
-                // Set our content stream.
-                var responseContent = (HttpConnectionResponseContent)_response.Content;
 
-                // If we have received Content-Length: 0 and have completed sending content (which may not be the case if duplex),
-                // we can close our Http3RequestStream immediately and return a singleton empty content stream. Otherwise, we
-                // need to return a Http3ReadStream which will be responsible for disposing the Http3RequestStream.
-                bool useEmptyResponseContent = responseContent.Headers.ContentLength == 0 && sendContentObserved;
-                if (useEmptyResponseContent)
+                if (_request.IsExtendedConnectRequest && _response.IsSuccessStatusCode && _response.Content is Http3ExtendedConnectContent extendedConnectContent)
                 {
-                    // Drain the response frames to read any trailing headers.
-                    await DrainContentLength0Frames(_requestBodyCancellationSource.Token).ConfigureAwait(false);
-                    responseContent.SetStream(EmptyReadStream.Instance);
+                    extendedConnectContent.ConnectStream = _stream;
+                    extendedConnectContent.ConnectStreamBuffer = _recvBuffer.ActiveMemory.ToArray();
+                    _recvBuffer.Dispose();
+                    _recvBuffer = default;
+                    disposeSelf = false; // it's the extended connect manager's responsibility to dispose the stream
                 }
                 else
                 {
-                    // A read stream is required to finish up the request.
-                    responseContent.SetStream(new Http3ReadStream(this));
+                    // Set our content stream.
+                    var responseContent = (HttpConnectionResponseContent)_response.Content;
+
+                    // If we have received Content-Length: 0 and have completed sending content (which may not be the case if duplex),
+                    // we can close our Http3RequestStream immediately and return a singleton empty content stream. Otherwise, we
+                    // need to return a Http3ReadStream which will be responsible for disposing the Http3RequestStream.
+                    bool useEmptyResponseContent = responseContent.Headers.ContentLength == 0 && sendContentObserved;
+
+                    if (useEmptyResponseContent)
+                    {
+                        // Drain the response frames to read any trailing headers.
+                        await DrainContentLength0Frames(_requestBodyCancellationSource.Token).ConfigureAwait(false);
+                        responseContent.SetStream(EmptyReadStream.Instance);
+                    }
+                    else
+                    {
+                        // A read stream is required to finish up the request.
+                        responseContent.SetStream(new Http3ReadStream(this));
+                    }
+
+                    // Process any Set-Cookie headers.
+                    if (_connection.Pool.Settings._useCookies)
+                    {
+                        CookieHelper.ProcessReceivedCookies(_response, _connection.Pool.Settings._cookieContainer!);
+                    }
+
+                    // If we're 100% done with the stream, dispose.
+                    disposeSelf = useEmptyResponseContent;
                 }
                 if (NetEventSource.Log.IsEnabled()) Trace($"Received response: {_response}");
 
-                // Process any Set-Cookie headers.
-                if (_connection.Pool.Settings._useCookies)
-                {
-                    CookieHelper.ProcessReceivedCookies(_response, _connection.Pool.Settings._cookieContainer!);
-                }
 
                 // To avoid a circular reference (stream->response->content->stream), null out the stream's response.
                 HttpResponseMessage response = _response;
                 _response = null;
-
-                // If we're 100% done with the stream, dispose.
-                disposeSelf = useEmptyResponseContent;
 
                 // Success, don't cancel the body.
                 shouldCancelBody = false;
@@ -710,6 +728,16 @@ namespace System.Net.Http
 
             int headerListSize = 4 * HeaderField.RfcOverhead; // Scheme, Method, Authority, Path
 
+            if (request.Headers.Protocol is string protocol)
+            {
+                Encoding? protocolEncoding = _connection.Pool.Settings._requestHeaderEncodingSelector?.Invoke(":protocol", request);
+                BufferLiteralHeaderWithoutNameReference(":protocol", protocol, protocolEncoding);
+                // The length of the encoded name may be shorter than the actual name.
+                // Ensure that headerListSize is always >= of the actual size.
+                headerListSize += protocol.Length;
+            }
+
+
             if (request.HasHeaders)
             {
                 // H3 does not support Transfer-Encoding: chunked.
@@ -1102,7 +1130,7 @@ namespace System.Net.Http
                 {
                     Version = HttpVersion.Version30,
                     RequestMessage = _request,
-                    Content = new HttpConnectionResponseContent(),
+                    Content = _request.IsExtendedConnectRequest && statusCode == 200 ? new Http3ExtendedConnectContent() : new HttpConnectionResponseContent(),
                     StatusCode = (HttpStatusCode)statusCode
                 };
 
@@ -1118,6 +1146,10 @@ namespace System.Net.Http
                 }
                 else
                 {
+                    if (statusCode == 200 && _response.RequestMessage.IsExtendedConnectRequest)
+                    {
+                        ConnectProtocolEstablished = true;
+                    }
                     _headerState = HeaderState.ResponseHeaders;
                     if (_expect100ContinueCompletionSource != null)
                     {

@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>$(NetCoreAppCurrent)-windows;$(NetCoreAppCurrent)-linux;$(NetCoreAppCurrent)-osx;$(NetCoreAppCurrent)</TargetFrameworks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- DesignTimeBuild requires all the TargetFramework Derived Properties to not be present in the first property group. -->
+  <PropertyGroup>
+    <TargetPlatformIdentifier>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</TargetPlatformIdentifier>
+    <GeneratePlatformNotSupportedAssemblyMessage Condition="'$(TargetPlatformIdentifier)' == ''">SR.PlatformNotSupported_NetWebTransport</GeneratePlatformNotSupportedAssemblyMessage>
+    <ApiExclusionListPath Condition="'$(TargetPlatformIdentifier)' == ''">ExcludeApiList.PNSE.txt</ApiExclusionListPath>
+  </PropertyGroup>
+
+  <!--
+    The non-platform target ($(NetCoreAppCurrent)) builds the PNSE assembly from ref and does not carry
+    full source XML docs, so suppress CS1591 for that leg only.
+  -->
+  <PropertyGroup Condition="'$(TargetPlatformIdentifier)' == ''">
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Source files -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleConsumer.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleProtocolException.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/Capsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/CloseSessionCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/DrainSessionCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxDataCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxUnidirectionalStreamsCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\Capsules/MaxBidirectionalStreamsCapsule.cs" />
+    <Compile Include="System\Net\WebTransport\CapsuleProtocol\CapsuleSender.cs" />
+    <Compile Include="System\Net\WebTransport\ClientWebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\ConcatenatedStream.cs" />
+    <Compile Include="System\Net\WebTransport\ErrorCodeRemapping.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSessionManager.cs" />
+    <Compile Include="System\Net\WebTransport\IMsQuicWebTransportHttpConnectionManager.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportExtendedConnectManager.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\MsQuicWebTransportStream.cs" />
+    <Compile Include="System\Net\WebTransport\NetEventSource.WebTransport.cs" />
+    <Compile Include="System\Net\WebTransport\StructuredFieldValuesForHttp.cs" />
+    <Compile Include="System\Net\WebTransport\ThrowHelper.cs" />
+    <Compile Include="System\Net\WebTransport\VariableLengthIntegerValidator.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportPendingStreamCleanup.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportAbortDirection.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportError.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportException.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSession.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSessionCreationOptions.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportSessionState.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportStream.cs" />
+    <Compile Include="System\Net\WebTransport\WebTransportStreamType.cs" />
+    <Compile Include="$(CommonPath)System\Net\ArrayBuffer.cs" Link="Common\System\Net\ArrayBuffer.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.cs" Link="Common\System\Net\Logging\NetEventSource.Common.cs" />
+    <Compile Include="$(CommonPath)System\Net\Logging\NetEventSource.Common.Associate.cs" Link="Common\System\Net\Logging\NetEventSource.Common.Associate.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Frames\Http3ErrorCode.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Http3SettingType.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Http3SettingType.cs" />
+    <Compile Include="$(CommonPath)System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" Link="Common\System\Net\Http\aspnetcore\Http3\Helpers\VariableLengthIntegerHelper.cs" />
+  </ItemGroup>
+
+  <!-- Unsupported platforms -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == ''">
+    <Compile Include="System\Net\WebTransport\WebTransportSession.Unsupported.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Collections\src\System.Collections.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Diagnostics.Tracing\src\System.Diagnostics.Tracing.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Memory\src\System.Memory.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Http\src\System.Net.Http.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Primitives\src\System.Net.Primitives.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Net.Quic\src\System.Net.Quic.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Runtime\src\System.Runtime.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Runtime.InteropServices\src\System.Runtime.InteropServices.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Threading\src\System.Threading.csproj" />
+    <ProjectReference Include="$(LibrariesProjectRoot)System.Threading.Channels\src\System.Threading.Channels.csproj" />
+  </ItemGroup>
+
+</Project>

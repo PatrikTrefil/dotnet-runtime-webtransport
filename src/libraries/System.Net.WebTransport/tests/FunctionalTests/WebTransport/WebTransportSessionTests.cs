@@ -1,0 +1,380 @@
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Net.Test.Common;
+using System.Threading;
+using System.Threading.Tasks;
+using Xunit;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Quic;
+using System.Net.Http;
+using System.Net.Http.Functional.Tests;
+using System.Diagnostics;
+
+namespace System.Net.WebTransport.Functional.Tests;
+
+
+[ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
+public sealed class WebTransportSessionTests : WebTransportTestBase, IAsyncDisposable
+{
+
+    public static readonly TheoryData<long> s_invalidVariableLengthIntegers = [VariableLengthIntegerHelper.MinValue - 1, VariableLengthIntegerHelper.MaxValue + 1];
+    public static readonly TheoryData<long> s_invalidStreamCountLimits = [-1, MaxOpenWebTransportStreamsPerType + 1];
+
+    public static readonly TheoryData<Func<WebTransportSession, CancellationToken, Task>> s_operationsAsParameters = [
+        (session, cancellationToken) => session.SetUnidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.SetBidirectionalStreamCountLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.SetDataSentLimitForPeerAsync(1, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.OpenOutboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Unidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.AcceptInboundStreamAsync(WebTransportStreamType.Bidirectional, cancellationToken).AsTask(),
+        (session, cancellationToken) => session.RequestCloseAsync(cancellationToken).AsTask(),
+        (session, cancellationToken) => session.CloseAsync(0, "", cancellationToken).AsTask(),
+        ];
+
+    [Theory]
+    [MemberData(nameof(s_invalidVariableLengthIntegers))]
+    public async Task InvalidVariableLengthIntegerPassedToSessionDataSentLimitThrows(long invalidVarInt)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetDataSentLimitForPeerAsync(invalidVarInt));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_invalidStreamCountLimits))]
+    public async Task InvalidValuePassedToStreamCountLimitsThrows(long invalidStreamCountLimit)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetUnidirectionalStreamCountLimitForPeerAsync(invalidStreamCountLimit));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>("limit", async () => await session.SetBidirectionalStreamCountLimitForPeerAsync(invalidStreamCountLimit));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [MemberData(nameof(s_operationsAsParameters))]
+    public async Task OperationCanceledExceptionIsThrownWhenCancellationIsRequested(Func<WebTransportSession, CancellationToken, Task> operation)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            CancellationTokenSource cts = new();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation(session, cts.Token));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningStreamBeforeSessionExistsWorks(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+        ReadOnlyMemory<byte> dataToSend = new byte[] { 1, 2, 3, 4, 5 };
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            await using WebTransportStream stream = await session.AcceptInboundStreamAsync(streamType);
+
+            byte[] receivedData = new byte[dataToSend.Length];
+
+            await stream.ReadExactlyAsync(receivedData);
+
+            Assert.Equal(dataToSend, receivedData);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using Http3LoopbackConnection connection = await _webTransportServer.AcceptWebTransportEnabledConnection(
+                new WebTransportHttpConnectionCreationOptions {
+                    MaxSessionCount = 1,
+                    InitialUnidirectionalStreamCountLimitForPeer = 1,
+                    InitialBidirectionalStreamCountLimitForPeer = 1,
+                    InitialDataSentLimitForPeer = 20
+                });
+
+            HttpRequestData httpRequestData = await connection.ReadRequestDataAsync(readBody: false).ConfigureAwait(false);
+            QuicStream connectStream = connection.CurrentStream.Stream;
+
+            QuicStreamType quicStreamType = streamType switch
+            {
+                WebTransportStreamType.Unidirectional => QuicStreamType.Unidirectional,
+                WebTransportStreamType.Bidirectional => QuicStreamType.Bidirectional,
+                _ => throw new ArgumentOutOfRangeException(nameof(streamType), "Invalid stream type")
+            };
+
+            long nextSessionId = 0;
+            await using QuicStream stream = await connection.OpenQuicStreamAsync(quicStreamType);
+
+            long streamTypeOrSignalValue = WebTransportStreamTypeHelper.GetStreamTypeOrSignalValue(streamType);
+
+            VariableLengthIntegerStreamHelper.Write(stream, streamTypeOrSignalValue);
+            VariableLengthIntegerStreamHelper.Write(stream, nextSessionId);
+            await stream.WriteAsync(dataToSend);
+
+            await connection.SendResponseAsync(content: null, isFinal: false);
+
+            await using WebTransportServerSession session = new() { Connection = connection, ConnectStream = connectStream };
+
+            Debug.Assert(session.SessionId == nextSessionId, $"Session ID prediction failed (expected: {nextSessionId}, received: {session.SessionId}).");
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningTooManyStreamsFromClientResultsInSuspension(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        int maximumNumberOfQuicStreamsPerConnection = streamType switch
+        {
+            WebTransportStreamType.Unidirectional => _http3Options.MaxInboundUnidirectionalStreams,
+            WebTransportStreamType.Bidirectional => _http3Options.MaxInboundBidirectionalStreams,
+            _ => throw new ArgumentException(nameof(streamType)),
+        };
+        int numberOfStreamsUsedForConnectionAndSessionSetup = streamType switch
+        {
+            WebTransportStreamType.Unidirectional => 1, // HTTP connection control stream
+            WebTransportStreamType.Bidirectional => 1, // WebTransport session CONNECT stream
+            _ => throw new ArgumentException(nameof(streamType)),
+        };
+
+        int maxNumberOfWebTransportStreamsThatCanBeOpen = maximumNumberOfQuicStreamsPerConnection
+            - numberOfStreamsUsedForConnectionAndSessionSetup;
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            List<WebTransportStream> streams = new();
+
+            for (int i = 0; i < maxNumberOfWebTransportStreamsThatCanBeOpen; i++)
+            {
+                streams.Add(await session.OpenOutboundStreamAsync(streamType));
+            }
+
+            CancellationTokenSource cts = new(5000);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await session.OpenOutboundStreamAsync(streamType, cts.Token));
+
+            await Task.WhenAll(streams.Select(s => s.DisposeAsync().AsTask()));
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(WebTransportStreamType.Unidirectional)]
+    [InlineData(WebTransportStreamType.Bidirectional)]
+    public async Task OpeningTooManyStreamsFromServerWithoutAcceptanceResultsInNewStreamsBeingRejected(WebTransportStreamType streamType)
+    {
+        using Barrier barrier = new(2);
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            (List<QuicStream> openStreams, QuicStream rejectedStream) = await WebTransportSessionTestHelper.OpenMorePendingStreamsThanAllowed(serverSession, streamType);
+
+            QuicException writesClosedEx = await Assert.ThrowsAsync<QuicException>(() => rejectedStream.WritesClosed);
+            Assert.Equal(QuicError.StreamAborted, writesClosedEx.QuicError);
+            Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, writesClosedEx.ApplicationErrorCode);
+
+            if (streamType == WebTransportStreamType.Bidirectional)
+            {
+                QuicException readsClosedEx = await Assert.ThrowsAsync<QuicException>(() => rejectedStream.ReadsClosed);
+                Assert.Equal(QuicError.StreamAborted, readsClosedEx.QuicError);
+                Assert.Equal((long)Http3ErrorCode.WebTransportBufferedStreamRejected, readsClosedEx.ApplicationErrorCode);
+            }
+
+            await Task.WhenAll(openStreams.Select(s => s.DisposeAsync().AsTask()));
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task PooledConnectionLifetimeDoesNotCloseWebTransportSession()
+    {
+        using Barrier barrier = new(2);
+
+        WebTransportStreamType streamType = WebTransportStreamType.Unidirectional;
+        Task clientTask = Task.Run(async () =>
+        {
+
+            TimeSpan pooledConnectionLifetime = TimeSpan.FromSeconds(10);
+            SocketsHttpHandler handler = TestHelper.CreateSocketsHttpHandler(allowAllCertificates: true);
+            // The following handler configuration makes it so that the connection pool manager cleans up the connection pools every second
+            handler.PooledConnectionLifetime = pooledConnectionLifetime;
+            handler.PooledConnectionIdleTimeout = TimeSpan.FromSeconds(4);
+            HttpClient client = new(handler);
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
+
+            WebTransportStream stream = await session.OpenOutboundStreamAsync(streamType);
+
+            CancellationTokenSource cts = new();
+            // This is to prevent idle timeout on the stream
+            Task sendDataTask = Task.Run(async () =>
+            {
+                using (stream)
+                {
+                    while (true)
+                    {
+                        await stream.WriteAsync(new byte[] { 1, 2, 3 });
+                        await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+                    }
+                }
+            }, cts.Token);
+
+            await Task.Delay(TimeSpan.FromSeconds(3)); // After some time the connection used by the WT session should have been removed from the pool
+
+            cts.Cancel();
+
+            Assert.Equal(WebTransportSessionState.Open, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            await using QuicStream stream = await serverSession.AcceptStreamFromServerAsync(streamType);
+
+            byte[] buffer = new byte[10];
+            while (true)
+            {
+                int bytesRead = await stream.ReadAsync(buffer);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+            }
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Fact]
+    public async Task PooledConnectionIdleTimeoutDoesNotCloseWebTransportSessionThatUsesKeepAlive()
+    {
+        using Barrier barrier = new(2);
+
+        TimeSpan idleTimeout = TimeSpan.FromSeconds(3);
+        _http3Options.QuicConnectionIdleTimeout = idleTimeout;
+        _http3Options.QuicConnectionKeepAliveInterval = TimeSpan.FromSeconds(1); // the keep alive is done by server in this test case, because System.Net.Http does not support client keep alive pings yet
+
+        using var httpServer = (Http3LoopbackServer)Http3LoopbackServerFactory.Singleton.CreateServer(_http3Options);
+        await using WebTransportLoopbackServer webTransportServer = new(httpServer, new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 });
+
+        Task clientTask = Task.Run(async () =>
+        {
+
+            SocketsHttpHandler handler = TestHelper.CreateSocketsHttpHandler(allowAllCertificates: true);
+            handler.PooledConnectionIdleTimeout = idleTimeout;
+            HttpClient client = new(handler);
+
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(new WebTransportSessionCreationOptions
+            {
+                Uri = webTransportServer.Address,
+                HttpMessageInvoker = client,
+                DefaultStreamErrorCode = 0,
+                HttpVersion = HttpVersion.Version30,
+            });
+
+            await Task.Delay(idleTimeout + TimeSpan.FromSeconds(1));
+
+            Assert.Equal(WebTransportSessionState.Open, session.State);
+
+            barrier.SignalAndWait();
+        });
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+}

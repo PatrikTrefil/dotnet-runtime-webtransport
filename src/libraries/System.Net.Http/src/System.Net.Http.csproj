@@ -50,6 +50,8 @@
              Include="System\Net\Http\HttpClientHandler.cs" />
     <Compile Include="System\Net\Http\HttpCompletionOption.cs" />
     <Compile Include="System\Net\Http\HttpContent.cs" />
+    <Compile Include="System\Net\Http\Http3ExtendedConnectManager.cs" />
+    <Compile Include="System\Net\Http\Http3ExtendedConnectContent.cs" />
     <Compile Include="System\Net\Http\HttpMessageHandler.cs" />
     <Compile Include="System\Net\Http\HttpMessageInvoker.cs" />
     <Compile Include="System\Net\Http\HttpMethod.cs" />

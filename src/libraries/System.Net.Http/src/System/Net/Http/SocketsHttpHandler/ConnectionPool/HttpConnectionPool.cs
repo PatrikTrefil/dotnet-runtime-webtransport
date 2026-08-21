@@ -406,8 +406,7 @@ namespace System.Net.Http
                     // Use HTTP/3 if possible.
                     if (GlobalHttpSettings.SocketsHttpHandler.AllowHttp3 && // guard to enable trimming HTTP/3 support
                         _http3Enabled &&
-                        (request.Version.Major >= 3 || (request.VersionPolicy == HttpVersionPolicy.RequestVersionOrHigher && IsSecure)) &&
-                        !request.IsExtendedConnectRequest)
+                        (request.Version.Major >= 3 || (request.VersionPolicy == HttpVersionPolicy.RequestVersionOrHigher && IsSecure)))
                     {
                         Debug.Assert(async);
                         if (QuicConnection.IsSupported)

@@ -1063,7 +1063,6 @@ namespace System.Net.Http.Functional.Tests
             });
         }
 
-        // TODO: Consider generalizing the the test cases below this line to HTTP/2 and HTTP/3.
         [Theory]
         [InlineData(1024, 1023)]
         [InlineData(1024, 1024)]
@@ -1595,11 +1594,9 @@ namespace System.Net.Http.Functional.Tests
                 },
                 async server =>
                 {
-                    var setting = new SettingsEntry { SettingId = SettingId.MaxHeaderListSize, Value = Limit };
-
                     await using GenericLoopbackConnection connection = UseVersion.Major == 2
-                        ? await ((Http2LoopbackServer)server).EstablishConnectionAsync(setting)
-                        : await ((Http3LoopbackServer)server).EstablishConnectionAsync(setting);
+                        ? await ((Http2LoopbackServer)server).EstablishConnectionAsync(new SettingsEntry { SettingId = SettingId.MaxHeaderListSize, Value = Limit })
+                        : await ((Http3LoopbackServer)server).EstablishConnectionAsync(new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = Limit });
 
                     await connection.ReadRequestDataAsync();
                     await connection.SendResponseAsync(content: "Hello world");

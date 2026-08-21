@@ -36,16 +36,45 @@ namespace System.Net.Http
         QPackBlockedStreams = 0x7,
 
         /// <summary>
-        /// SETTINGS_ENABLE_WEBTRANSPORT, default is 0 (off)
-        /// https://www.ietf.org/archive/id/draft-ietf-webtrans-http3-01.html#name-http-3-settings-parameter-r
+        /// SETTINGS_ENABLE_CONNECT_PROTOCOL
+        /// Value 1 indicates support for the Extended CONNECT
+        /// https://www.rfc-editor.org/rfc/rfc9220#section-5-2.4.1
         /// </summary>
-        EnableWebTransport = 0x2b603742,
+        EnableConnect = 0x8,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_DATA
+        /// Indicates the initial value for the session data limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-12.2.1"/>
+        WebTransportInitialMaxDataPerSession = 0x2b61,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI
+        /// Indicates the initial value for the unidirectional max stream limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_UNI"/>
+        WebTransportInitialMaxUnidirectionalStreamsPerSession = 0x2b64,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI
+        /// Indicates the initial value for the bidirectional max stream limit for WebTransport sessions.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#SETTINGS_WEBTRANSPORT_INITIAL_MAX_STREAMS_BIDI"/>
+        WebTransportInitialMaxBidirectionalStreamsPerSession = 0x2b65,
 
         /// <summary>
         /// H3_DATAGRAM, default is 0 (off)
         /// indicates that the server suppprts sending individual datagrams over Http/3
         /// rather than just streams.
         /// </summary>
-        H3Datagram = 0xffd277
+        H3Datagram = 0xffd277,
+
+        /// <summary>
+        /// SETTINGS_WEBTRANSPORT_MAX_SESSIONS
+        /// Indicates that the specified HTTP/3 endpoint is WebTransport-capable and the number of concurrent sessions it is willing to receive.
+        /// </summary>
+        /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-9.2-2"/>
+        WebTransportMaxSessions = 0xc671706a,
     }
 }

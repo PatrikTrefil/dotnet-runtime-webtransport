@@ -40,6 +40,7 @@ namespace System.Net.Test.Common
 
         // This is specifically request streams, not control streams
         private readonly Dictionary<int, Http3LoopbackStream> _openStreams = new Dictionary<int, Http3LoopbackStream>();
+        private readonly Dictionary<int, QuicStream> _openQuicStreams = new Dictionary<int, QuicStream>();
 
         private Http3LoopbackStream _currentStream;
         // We can't retrieve the stream ID after the stream is disposed, so store it separately
@@ -51,6 +52,7 @@ namespace System.Net.Test.Common
 
         public Http3LoopbackStream OutboundControlStream => _outboundControlStream ?? throw new Exception("Control stream has not been opened yet");
         public Http3LoopbackStream InboundControlStream => _inboundControlStream ?? throw new Exception("Inbound control stream has not been accepted yet");
+        public Http3LoopbackStream CurrentStream => _currentStream ?? throw new Exception("Current stream has not been set");
 
         public Http3LoopbackConnection(QuicConnection connection)
         {
@@ -63,6 +65,11 @@ namespace System.Net.Test.Common
         {
             // Close any remaining request streams (but NOT control streams, as these should not be closed while the connection is open)
             foreach (Http3LoopbackStream stream in _openStreams.Values)
+            {
+                await stream.DisposeAsync().ConfigureAwait(false);
+            }
+
+            foreach (QuicStream stream in _openQuicStreams.Values)
             {
                 await stream.DisposeAsync().ConfigureAwait(false);
             }
@@ -175,6 +182,24 @@ namespace System.Net.Test.Common
             return stream;
         }
 
+        public async Task<QuicStream> AcceptQuicStreamAsync()
+        {
+            await EnsureControlStreamAcceptedAsync().ConfigureAwait(false);
+            if (!_delayedStreams.TryDequeue(out QuicStream quicStream))
+            {
+                quicStream = await _connection.AcceptInboundStreamAsync().ConfigureAwait(false);
+            }
+
+            _openQuicStreams.Add(checked((int)quicStream.Id), quicStream);
+
+            return quicStream;
+        }
+
+        public async Task<QuicStream> OpenQuicStreamAsync(QuicStreamType streamType)
+        {
+            return await _connection.OpenOutboundStreamAsync(streamType).ConfigureAwait(false);
+        }
+
         public async Task<(Http3LoopbackStream clientControlStream, Http3LoopbackStream requestStream)> AcceptControlAndRequestStreamAsync()
         {
             Http3LoopbackStream requestStream = await AcceptRequestStreamAsync().ConfigureAwait(false);
@@ -183,7 +208,7 @@ namespace System.Net.Test.Common
             return (controlStream, requestStream);
         }
 
-        public async Task EstablishControlStreamAsync(SettingsEntry[] settingsEntries)
+        public async Task EstablishControlStreamAsync(Http3SettingsEntry[] settingsEntries)
         {
             _outboundControlStream = await OpenUnidirectionalStreamAsync().ConfigureAwait(false);
             await _outboundControlStream.SendUnidirectionalStreamTypeAsync(Http3LoopbackStream.ControlStream).ConfigureAwait(false);
@@ -264,7 +289,7 @@ namespace System.Net.Test.Common
             return request;
         }
 
-        public async Task ShutdownAsync(bool failCurrentRequest = false)
+        public async Task ShutdownAsync(bool failCurrentRequest = false, bool waitForClientDisconnectAndRejectNewStreams = true)
         {
             try
             {
@@ -289,7 +314,10 @@ namespace System.Net.Test.Common
                 return;
             }
 
-            await WaitForClientDisconnectAsync().ConfigureAwait(false);
+            if (waitForClientDisconnectAndRejectNewStreams)
+            {
+                await WaitForClientDisconnectAsync().ConfigureAwait(false);
+            }
         }
 
         // Wait for the client to close the connection, e.g. after we send a GOAWAY, or after the HttpClient is disposed.

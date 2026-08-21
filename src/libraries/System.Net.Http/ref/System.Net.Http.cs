@@ -43,6 +43,44 @@ namespace System.Net.Http
         protected override System.Threading.Tasks.Task SerializeToStreamAsync(System.IO.Stream stream, System.Net.TransportContext? context, System.Threading.CancellationToken cancellationToken) { throw null; }
     }
     public delegate System.Text.Encoding? HeaderEncodingSelector<TContext>(string headerName, TContext context);
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("linux")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("macos")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
+    public sealed partial class Http3ExtendedConnectContent : System.Net.Http.HttpContent
+    {
+        public Http3ExtendedConnectContent() { }
+        public System.Net.Quic.QuicStream ConnectStream { get { throw null; } }
+        public byte[] ConnectStreamBuffer { get { throw null; } }
+        public System.Net.Http.Http3ExtendedConnectManager ExtendedConnectManager { get { throw null; } }
+        protected override System.Threading.Tasks.Task SerializeToStreamAsync(System.IO.Stream stream, System.Net.TransportContext? context) { throw null; }
+        protected internal override bool TryComputeLength(out long length) { throw null; }
+    }
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("linux")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("macos")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
+    public abstract partial class Http3ExtendedConnectManager
+    {
+        public static readonly System.Net.Http.HttpRequestOptionsKey<System.Net.Http.Http3ExtendedConnectManager.Http3ExtendedConnectManagerValueFactory> RequestOptionsKey;
+        public Http3ExtendedConnectManager(System.Net.Http.Http3ExtendedConnectManagerCreationOptions options) { }
+        public abstract long BidirectionalStreamSignalValue { get; }
+        public abstract long UnidirectionalStreamType { get; }
+        protected System.Threading.Tasks.Task<System.Net.Quic.QuicStream> OpenOutboundStreamAsync(System.Net.Quic.QuicStreamType type, System.Threading.CancellationToken cancellationToken) { throw null; }
+        public abstract System.Threading.Tasks.Task ProcessGoAwayAsync();
+        public abstract System.Threading.Tasks.Task ProcessReceivedStreamAsync(System.Net.Quic.QuicStreamType streamType, byte[] initialData, System.Net.Quic.QuicStream stream);
+        public abstract System.Threading.Tasks.Task ReleaseSessionAfterFailedHandshakeAsync(System.Net.Quic.QuicStream? quicStream);
+        protected void RemoveOutboundStream(System.Net.Quic.QuicStreamType type) { }
+        protected System.Threading.Tasks.Task RemoveSessionAsync(System.Net.Quic.QuicStream connectStream) { throw null; }
+        public abstract void ReserveSession();
+        public abstract void ValidateAndProcessServerSettings(System.Collections.Generic.Dictionary<long, long> serverSettings);
+        public delegate System.Net.Http.Http3ExtendedConnectManager Http3ExtendedConnectManagerValueFactory(System.Net.Http.Http3ExtendedConnectManagerCreationOptions options);
+    }
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("linux")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("macos")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
+    public sealed partial class Http3ExtendedConnectManagerCreationOptions
+    {
+        internal Http3ExtendedConnectManagerCreationOptions() { }
+    }
     public partial class HttpClient : System.Net.Http.HttpMessageInvoker
     {
         public HttpClient() : base (default(System.Net.Http.HttpMessageHandler)) { }

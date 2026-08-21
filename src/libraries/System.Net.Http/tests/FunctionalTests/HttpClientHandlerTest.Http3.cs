@@ -86,6 +86,147 @@ namespace System.Net.Http.Functional.Tests
             await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(20_000);
         }
 
+        [Fact]
+        public async Task DuplicateSettingsIdentifier_ThrowsSettingsError()
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync(
+                    new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = 1024 },
+                    new Http3SettingsEntry { SettingId = Http3SettingType.MaxHeaderListSize, Value = 2048 });
+
+                await AssertThrowsQuicExceptionAsync(
+                    Http3LoopbackConnection.H3_SETTINGS_ERROR,
+                    () => connection.OutboundControlStream.Stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)),
+                    QuicError.ConnectionAborted,
+                    QuicError.StreamAborted);
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using HttpClient client = CreateHttpClient();
+
+                using HttpRequestMessage request = new()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = server.Address,
+                    Version = HttpVersion30,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionExact
+                };
+
+                await AssertProtocolErrorAsync(Http3LoopbackConnection.H3_SETTINGS_ERROR, () => client.SendAsync(request));
+            });
+
+            await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Fact]
+        public async Task ServerInitiatedBidirectionalStreamWithoutNegotiatedExtension_ThrowsStreamCreationError()
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync();
+                await using QuicStream stream = await connection.OpenQuicStreamAsync(QuicStreamType.Bidirectional);
+                await stream.WriteAsync(new byte[] { 0 }); // actually open the stream
+
+                await AssertThrowsQuicExceptionAsync(
+                    Http3LoopbackConnection.H3_STREAM_CREATION_ERROR,
+                    () => stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(10)),
+                    QuicError.ConnectionAborted,
+                    QuicError.StreamAborted);
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using HttpClient client = CreateHttpClient();
+                using HttpRequestMessage request = new()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = server.Address,
+                    Version = HttpVersion30,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionExact
+                };
+
+                await AssertProtocolErrorAsync(Http3LoopbackConnection.H3_STREAM_CREATION_ERROR, () => client.SendAsync(request));
+            });
+
+            await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Fact]
+        public async Task UnknownUnidirectionalStreamType_IgnoredAndRequestSucceeds()
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync();
+                await using Http3LoopbackStream unknownStream = await connection.OpenUnidirectionalStreamAsync();
+                await unknownStream.SendUnidirectionalStreamTypeAsync(0x21);
+                await AssertUnknownUnidirectionalStreamWasProcessedAsync(unknownStream);
+
+                await using Http3LoopbackStream requestStream = await connection.AcceptRequestStreamAsync();
+                await requestStream.ReadRequestDataAsync();
+                await requestStream.SendResponseAsync();
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using HttpClient client = CreateHttpClient();
+                using HttpRequestMessage request = new()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = server.Address,
+                    Version = HttpVersion30,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionExact
+                };
+
+                using HttpResponseMessage response = await client.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            });
+
+            await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(20_000);
+        }
+
+        [Fact]
+        public async Task UnknownUnidirectionalStreamType_WithMultiByteVarInt_IgnoredAndRequestSucceeds()
+        {
+            using Http3LoopbackServer server = CreateHttp3LoopbackServer();
+
+            Task serverTask = Task.Run(async () =>
+            {
+                await using Http3LoopbackConnection connection = await server.EstablishConnectionAsync();
+                await using Http3LoopbackStream unknownStream = await connection.OpenUnidirectionalStreamAsync();
+                await unknownStream.SendUnidirectionalStreamTypeAsync(1073741823); // encoded as a 4-byte varint
+                await AssertUnknownUnidirectionalStreamWasProcessedAsync(unknownStream);
+
+                await using Http3LoopbackStream requestStream = await connection.AcceptRequestStreamAsync();
+                await requestStream.ReadRequestDataAsync();
+                await requestStream.SendResponseAsync();
+            });
+
+            Task clientTask = Task.Run(async () =>
+            {
+                using HttpClient client = CreateHttpClient();
+                using HttpRequestMessage request = new()
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = server.Address,
+                    Version = HttpVersion30,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionExact
+                };
+
+                using HttpResponseMessage response = await client.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            });
+
+            await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(20_000);
+        }
+
         [Theory]
         [InlineData(10)]
         [InlineData(100)]
@@ -1793,7 +1934,7 @@ namespace System.Net.Http.Functional.Tests
                         await connection.OutboundControlStream.DisposeAsync();
                         try
                         {
-                            await connection.EstablishControlStreamAsync(Array.Empty<SettingsEntry>());
+                            await connection.EstablishControlStreamAsync(Array.Empty<Http3SettingsEntry>());
                         }
                         catch (QuicException ex) when (ex.QuicError == QuicError.ConnectionAborted && ex.ApplicationErrorCode == Http3LoopbackConnection.H3_CLOSED_CRITICAL_STREAM)
                         {
@@ -1903,10 +2044,26 @@ namespace System.Net.Http.Functional.Tests
             await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(200_000);
         }
 
+        private static async Task AssertUnknownUnidirectionalStreamWasProcessedAsync(Http3LoopbackStream unknownStream)
+        {
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(async () =>
+                await unknownStream.Stream.WritesClosed.WaitAsync(TimeSpan.FromSeconds(15)));
+            Assert.Equal(QuicError.StreamAborted, ex.QuicError);
+            Assert.Equal(Http3LoopbackConnection.H3_STREAM_CREATION_ERROR, ex.ApplicationErrorCode);
+        }
+
         private static async Task<QuicException> AssertThrowsQuicExceptionAsync(QuicError expectedError, Func<Task> testCode)
         {
             QuicException ex = await Assert.ThrowsAsync<QuicException>(testCode);
             Assert.Equal(expectedError, ex.QuicError);
+            return ex;
+        }
+
+        private static async Task<QuicException> AssertThrowsQuicExceptionAsync(long expectedApplicationErrorCode, Func<Task> testCode, params QuicError[] expectedErrors)
+        {
+            QuicException ex = await Assert.ThrowsAsync<QuicException>(testCode);
+            Assert.Contains(ex.QuicError, expectedErrors);
+            Assert.Equal(expectedApplicationErrorCode, ex.ApplicationErrorCode);
             return ex;
         }
 

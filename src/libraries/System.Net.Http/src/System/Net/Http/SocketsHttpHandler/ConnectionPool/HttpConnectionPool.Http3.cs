@@ -167,7 +167,7 @@ namespace System.Net.Http
                     continue;
                 }
 
-                streamAvailable = connection.TryReserveStream();
+                streamAvailable = connection.TryReserveRequestStream();
 
                 // Disable and remove the connection from the pool only if we can open another.
                 // If we have only single connection, use the underlying QuicConnection mechanism to wait for available streams.
@@ -379,7 +379,7 @@ namespace System.Net.Http
                 return;
             }
 
-            while (connection.TryReserveStream() || !EnableMultipleHttp3Connections)
+            while (connection.TryReserveRequestStream() || !EnableMultipleHttp3Connections)
             {
                 // Loop in case we get a request that has already been canceled or handled by a different connection.
                 while (true)
@@ -442,8 +442,8 @@ namespace System.Net.Http
                     }
                     else
                     {
-                        // TryReserveStream() always decrements the available stream counter when EnableMultipleHttp3Connections is false.
-                        connection.ReleaseStream();
+                        // TryReserveRequestStream() always decrements the available stream counter when EnableMultipleHttp3Connections is false.
+                        connection.ReleaseRequestStream();
 
                         if (added)
                         {
@@ -488,9 +488,9 @@ namespace System.Net.Http
 
             async Task DisableHttp3ConnectionAsync(Http3Connection connection)
             {
-                bool usable = await connection.WaitForAvailableStreamsAsync().ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+                bool usable = await connection.WaitForAvailableRequestStreamsAsync().ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
 
-                if (NetEventSource.Log.IsEnabled()) connection.Trace($"{nameof(connection.WaitForAvailableStreamsAsync)} completed, {nameof(usable)}={usable}");
+                if (NetEventSource.Log.IsEnabled()) connection.Trace($"{nameof(connection.WaitForAvailableRequestStreamsAsync)} completed, {nameof(usable)}={usable}");
 
                 if (usable)
                 {
@@ -512,7 +512,8 @@ namespace System.Net.Http
                     if (NetEventSource.Log.IsEnabled()) connection.Trace("HTTP3 connection no longer usable");
                     connection.Dispose();
                 }
-            };
+            }
+            ;
         }
 
         /// <summary>

@@ -102,6 +102,7 @@
       System.Net.WebClient;
       System.Net.WebHeaderCollection;
       System.Net.WebProxy;
+      System.Net.WebTransport;
       System.Net.WebSockets;
       System.Net.WebSockets.Client;
       System.Numerics.Vectors;

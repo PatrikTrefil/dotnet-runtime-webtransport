@@ -108,41 +108,4 @@ namespace System.Net.Http.Functional.Tests
         }
 
     }
-
-    internal class VersionHttpClientHandler : HttpClientHandler
-    {
-        private readonly Version _useVersion;
-
-        public VersionHttpClientHandler(Version useVersion)
-        {
-            _useVersion = useVersion;
-        }
-
-        protected override HttpResponseMessage Send(HttpRequestMessage request, Threading.CancellationToken cancellationToken)
-        {
-            if (request.Version == _useVersion)
-            {
-                request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
-            }
-
-            return base.Send(request, cancellationToken);
-        }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, Threading.CancellationToken cancellationToken)
-        {
-
-            if (request.Version == _useVersion)
-            {
-                request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
-            }
-
-            return base.SendAsync(request, cancellationToken);
-        }
-
-        protected static HttpRequestMessage CreateRequest(HttpMethod method, Uri uri, Version version, bool exactVersion = false) =>
-            new HttpRequestMessage(method, uri)
-            {
-                Version = version,
-            };
-    }
 }

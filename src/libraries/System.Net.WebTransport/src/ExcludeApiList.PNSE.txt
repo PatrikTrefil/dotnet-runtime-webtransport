@@ -1,0 +1,1 @@
+P:System.Net.WebTransport.WebTransportSession.IsSupported
