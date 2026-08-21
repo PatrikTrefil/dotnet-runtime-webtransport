@@ -7,6 +7,7 @@ using Xunit;
 using System.Threading;
 using System.Net.Quic;
 using System.Collections.Generic;
+using System.IO;
 
 namespace System.Net.WebTransport.Functional.Tests;
 
@@ -16,6 +17,13 @@ namespace System.Net.WebTransport.Functional.Tests;
 [ConditionalClass(typeof(WebTransportTestBase), nameof(IsWebTransportSupported))]
 public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTestBase
 {
+    public enum FlowControlLimitType
+    {
+        UnidirectionalStreams,
+        BidirectionalStreams,
+        Data
+    }
+
     internal override WebTransportHttpConnectionCreationOptions DefaultWebTransportHttpConnectionCreationOptions => new WebTransportHttpConnectionCreationOptions { MaxSessionCount = 1 };
 
     private const int s_minValidSizeOfMaxDataCapsuleValue = VariableLengthIntegerHelper.MinimumEncodedLength;
@@ -101,19 +109,66 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         return theoryData;
     }
 
-    [Fact]
-    public async Task SetUnidirectionalStreamCountLimitSendsCorrectCapsule()
+    private static ValueTask SetFlowControlLimitForPeerAsync(WebTransportSession session, FlowControlLimitType limitType, long limit) => limitType switch
+    {
+        FlowControlLimitType.UnidirectionalStreams => session.SetUnidirectionalStreamCountLimitForPeerAsync(limit),
+        FlowControlLimitType.BidirectionalStreams => session.SetBidirectionalStreamCountLimitForPeerAsync(limit),
+        FlowControlLimitType.Data => session.SetDataSentLimitForPeerAsync(limit),
+        _ => throw new ArgumentOutOfRangeException(nameof(limitType))
+    };
+
+    private static long GetFlowControlLimitForPeer(WebTransportSession session, FlowControlLimitType limitType) => limitType switch
+    {
+        FlowControlLimitType.UnidirectionalStreams => session.UnidirectionalStreamCountLimitForPeer,
+        FlowControlLimitType.BidirectionalStreams => session.BidirectionalStreamCountLimitForPeer,
+        FlowControlLimitType.Data => session.DataSentLimitForPeer,
+        _ => throw new ArgumentOutOfRangeException(nameof(limitType))
+    };
+
+    private static Task<long> ReadFlowControlLimitCapsuleAsync(Stream stream, FlowControlLimitType limitType) => limitType switch
+    {
+        FlowControlLimitType.UnidirectionalStreams => CapsuleHelper.ReadUnidirectionalStreamLimitCapsule(stream),
+        FlowControlLimitType.BidirectionalStreams => CapsuleHelper.ReadBidirectionalStreamLimitCapsule(stream),
+        FlowControlLimitType.Data => CapsuleHelper.ReadMaxDataCapsule(stream),
+        _ => throw new ArgumentOutOfRangeException(nameof(limitType))
+    };
+
+    private static WebTransportSessionCreationOptions WithInitialFlowControlLimit(WebTransportSessionCreationOptions options, FlowControlLimitType limitType, long limit)
+    {
+        if (!Enum.IsDefined(limitType))
+        {
+            throw new ArgumentOutOfRangeException(nameof(limitType));
+        }
+
+        return new WebTransportSessionCreationOptions
+        {
+            Uri = options.Uri,
+            HttpMessageInvoker = options.HttpMessageInvoker,
+            GracefulShutdownHandler = options.GracefulShutdownHandler,
+            AvailableSubProtocols = options.AvailableSubProtocols,
+            InitialUnidirectionalStreamCountLimitForPeer = limitType == FlowControlLimitType.UnidirectionalStreams ? limit : options.InitialUnidirectionalStreamCountLimitForPeer,
+            InitialBidirectionalStreamCountLimitForPeer = limitType == FlowControlLimitType.BidirectionalStreams ? limit : options.InitialBidirectionalStreamCountLimitForPeer,
+            InitialDataSentLimitForPeer = limitType == FlowControlLimitType.Data ? limit : options.InitialDataSentLimitForPeer,
+            DefaultStreamErrorCode = options.DefaultStreamErrorCode,
+            HttpVersion = options.HttpVersion,
+            HttpVersionPolicy = options.HttpVersionPolicy
+        };
+    }
+
+    [Theory]
+    [InlineData(FlowControlLimitType.UnidirectionalStreams)]
+    [InlineData(FlowControlLimitType.BidirectionalStreams)]
+    [InlineData(FlowControlLimitType.Data)]
+    public async Task FlowControlLimitCanIncrease(FlowControlLimitType limitType)
     {
         using Barrier barrier = new(2);
-        int expectedUnidirectionalStreamCountLimit = 1;
+        const int expectedLimit = 1;
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            long receivedMaxUnidirectionalStreams = await CapsuleHelper.ReadUnidirectionalStreamLimitCapsule(serverSession.ConnectStream);
-
-            Assert.Equal(expectedUnidirectionalStreamCountLimit, receivedMaxUnidirectionalStreams);
+            Assert.Equal(expectedLimit, await ReadFlowControlLimitCapsuleAsync(serverSession.ConnectStream, limitType));
 
             barrier.SignalAndWait();
         });
@@ -121,7 +176,42 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         Task clientTask = Task.Run(async () =>
         {
             await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
-            await session.SetUnidirectionalStreamCountLimitForPeerAsync(expectedUnidirectionalStreamCountLimit);
+            await SetFlowControlLimitForPeerAsync(session, limitType, expectedLimit);
+
+            Assert.Equal(expectedLimit, GetFlowControlLimitForPeer(session, limitType));
+            barrier.SignalAndWait();
+        });
+
+        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
+    }
+
+    [Theory]
+    [InlineData(FlowControlLimitType.UnidirectionalStreams)]
+    [InlineData(FlowControlLimitType.BidirectionalStreams)]
+    [InlineData(FlowControlLimitType.Data)]
+    public async Task FlowControlLimitCannotDecrease(FlowControlLimitType limitType)
+    {
+        using Barrier barrier = new(2);
+        const int initialLimit = 1;
+        const int decreasedLimit = 0;
+        WebTransportSessionCreationOptions options = WithInitialFlowControlLimit(_defaultWebTransportSessionCreationOptions, limitType, initialLimit);
+
+        Task serverTask = Task.Run(async () =>
+        {
+            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
+
+            barrier.SignalAndWait();
+        });
+
+        Task clientTask = Task.Run(async () =>
+        {
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(options);
+
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+                "limit",
+                () => SetFlowControlLimitForPeerAsync(session, limitType, decreasedLimit).AsTask());
+
+            Assert.Equal(initialLimit, GetFlowControlLimitForPeer(session, limitType));
 
             barrier.SignalAndWait();
         });
@@ -129,55 +219,33 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
     }
 
-    [Fact]
-    public async Task SetBidirectionalStreamCountLimitSendsCorrectCapsule()
+    [Theory]
+    [InlineData(FlowControlLimitType.UnidirectionalStreams)]
+    [InlineData(FlowControlLimitType.BidirectionalStreams)]
+    [InlineData(FlowControlLimitType.Data)]
+    public async Task SettingFlowControlLimitToCurrentValueDoesNotSendCapsule(FlowControlLimitType limitType)
     {
         using Barrier barrier = new(2);
-        int expectedBidirectionalStreamCountLimit = 2;
+        const int initialLimit = 1;
+        const int increasedLimit = 2;
+        WebTransportSessionCreationOptions options = WithInitialFlowControlLimit(_defaultWebTransportSessionCreationOptions, limitType, initialLimit);
 
         Task serverTask = Task.Run(async () =>
         {
             await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
 
-            long receivedMaxBidirectionalStreams = await CapsuleHelper.ReadBidirectionalStreamLimitCapsule(serverSession.ConnectStream);
-
-            Assert.Equal(expectedBidirectionalStreamCountLimit, receivedMaxBidirectionalStreams);
+            Assert.Equal(initialLimit, await ReadFlowControlLimitCapsuleAsync(serverSession.ConnectStream, limitType));
+            Assert.Equal(increasedLimit, await ReadFlowControlLimitCapsuleAsync(serverSession.ConnectStream, limitType));
 
             barrier.SignalAndWait();
         });
 
         Task clientTask = Task.Run(async () =>
         {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
-            await session.SetBidirectionalStreamCountLimitForPeerAsync(expectedBidirectionalStreamCountLimit);
+            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(options);
 
-            barrier.SignalAndWait();
-        });
-
-        await new[] { clientTask, serverTask }.WhenAllOrAnyFailed(TestTimeoutInMilliseconds);
-    }
-
-    [Fact]
-    public async Task SetDataSentLimitSendsCorrectCapsule()
-    {
-        using Barrier barrier = new(2);
-        int expectedDataSentLimit = 1024;
-
-        Task serverTask = Task.Run(async () =>
-        {
-            await using WebTransportServerSession serverSession = await _webTransportServer.AcceptHttpConnectionAndWebTransportServerSessionAsync();
-
-            long receivedDataSent = await CapsuleHelper.ReadMaxDataCapsule(serverSession.ConnectStream);
-
-            Assert.Equal(expectedDataSentLimit, receivedDataSent);
-
-            barrier.SignalAndWait();
-        });
-
-        Task clientTask = Task.Run(async () =>
-        {
-            await using WebTransportSession session = await ClientWebTransportSession.ConnectAsync(_defaultWebTransportSessionCreationOptions);
-            await session.SetDataSentLimitForPeerAsync(expectedDataSentLimit);
+            await SetFlowControlLimitForPeerAsync(session, limitType, initialLimit);
+            await SetFlowControlLimitForPeerAsync(session, limitType, increasedLimit);
 
             barrier.SignalAndWait();
         });
@@ -571,7 +639,7 @@ public sealed class WebTransportSessionConfigurationLimitsTests : WebTransportTe
         using Barrier barrier = new(2);
 
         int firstLimit = 1;
-        int secondLimit = maxDataSentLimit;
+        int secondLimit = firstLimit + maxDataSentLimit;
 
         Task clientTask = Task.Run(async () =>
         {

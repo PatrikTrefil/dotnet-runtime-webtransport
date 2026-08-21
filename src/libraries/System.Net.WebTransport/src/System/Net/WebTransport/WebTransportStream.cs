@@ -28,13 +28,13 @@ public abstract class WebTransportStream : Stream
     /// <summary>
     /// Gets a <see cref="Task"/> that will complete once the reading side has been closed (gracefully or abortively).
     /// </summary>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.4.1"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-4.3"/>
     public abstract Task ReadsClosed { get; }
 
     /// <summary>
     /// Gets a <see cref="Task"/> that will complete once the writing side has been closed (gracefully or abortively).
     /// </summary>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.3-11.2.1"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-4.3"/>
     public abstract Task WritesClosed { get; }
 
     /// <inheritdoc/>

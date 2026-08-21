@@ -213,4 +213,7 @@
   <data name="net_webtransport_invalid_stream_count_limit" xml:space="preserve">
     <value>The value {0} is not within the valid range [0, 65535).</value>
   </data>
+  <data name="net_webtransport_flow_control_limit_cannot_be_decreased" xml:space="preserve">
+    <value>The value {0} cannot be less than the current flow-control limit {1}.</value>
+  </data>
 </root>

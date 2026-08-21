@@ -445,13 +445,16 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        ThrowHelper.ValidateStreamCountLimit(limit);
+        ThrowHelper.ValidateStreamCountLimit(limit, UnidirectionalStreamCountLimitForPeer);
 
         ThrowIfInvalidState();
 
-        VariableLengthIntegerValidator.ThrowIfInvalid(limit);
-        MaxUnidirectionalStreamsCapsule capsule = new(limit);
+        if (limit == UnidirectionalStreamCountLimitForPeer)
+        {
+            return;
+        }
 
+        MaxUnidirectionalStreamsCapsule capsule = new(limit);
         await SendCapsuleAsync(
             capsule,
             static (session, capsule) => session.UnidirectionalStreamCountLimitForPeer = capsule.MaxUnidirectionalStreams,
@@ -464,12 +467,16 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
-        ThrowHelper.ValidateStreamCountLimit(limit);
+        ThrowHelper.ValidateStreamCountLimit(limit, BidirectionalStreamCountLimitForPeer);
 
         ThrowIfInvalidState();
-        VariableLengthIntegerValidator.ThrowIfInvalid(limit);
-        MaxBidirectionalStreamsCapsule capsule = new(limit);
 
+        if (limit == BidirectionalStreamCountLimitForPeer)
+        {
+            return;
+        }
+
+        MaxBidirectionalStreamsCapsule capsule = new(limit);
         await SendCapsuleAsync(
             capsule,
             stateUpdate: static (session, capsule) => session.BidirectionalStreamCountLimitForPeer = capsule.MaxBidirectionalStreams,
@@ -482,11 +489,16 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     {
         if (NetEventSource.Log.IsEnabled()) NetEventSource.Trace(this);
 
+        ThrowHelper.ValidateDataLimit(limit, DataSentLimitForPeer);
+
         ThrowIfInvalidState();
-        VariableLengthIntegerValidator.ThrowIfInvalid(limit);
+
+        if (limit == DataSentLimitForPeer)
+        {
+            return;
+        }
 
         MaxDataCapsule capsule = new(limit);
-
         await SendCapsuleAsync(
             capsule,
             static (session, capsule) => session.DataSentLimitForPeer = capsule.MaxData,
@@ -500,15 +512,18 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
         await _forPeerConfigurationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _capsuleSender.SendCapsuleAsync(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _capsuleSender.SendCapsuleAsync(capsule, completeWrites, cancellationToken).ConfigureAwait(false);
 
-            stateUpdate(this, capsule);
-        }
-        catch (Exception ex)
-        {
-            if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
-            CapsuleSenderExceptionHandler(ex);
-            throw;
+                stateUpdate(this, capsule);
+            }
+            catch (Exception ex)
+            {
+                if (NetEventSource.Log.IsEnabled()) NetEventSource.TraceException(this, ex);
+                CapsuleSenderExceptionHandler(ex);
+                throw;
+            }
         }
         finally
         {
@@ -858,7 +873,7 @@ internal sealed class MsQuicWebTransportSession : WebTransportSession
     /// <summary>
     /// This method should be called when peer initiates session drain operation.
     /// </summary>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-4.1-2.6.1"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-12#section-4.6"/>
     internal void ReceiveDrain()
     {
         if (State == WebTransportSessionState.Open)

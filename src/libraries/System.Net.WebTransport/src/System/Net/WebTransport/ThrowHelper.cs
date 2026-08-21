@@ -23,6 +23,34 @@ internal static class ThrowHelper
     }
 
     /// <summary>
+    /// Validates the stream count limit and ensures it does not decrease the current value.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="value"/> is outside the supported range or less than <paramref name="currentValue"/>.</exception>
+    internal static void ValidateStreamCountLimit(long value, long currentValue, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+    {
+        ValidateStreamCountLimit(value, paramName);
+        ValidateLimitNotDecreased(value, currentValue, paramName);
+    }
+
+    /// <summary>
+    /// Validates the data limit and ensures it does not decrease the current value.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="value"/> is outside the supported range or less than <paramref name="currentValue"/>.</exception>
+    internal static void ValidateDataLimit(long value, long currentValue, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+    {
+        VariableLengthIntegerValidator.ThrowIfInvalid(value, paramName);
+        ValidateLimitNotDecreased(value, currentValue, paramName);
+    }
+
+    private static void ValidateLimitNotDecreased(long value, long currentValue, string? paramName)
+    {
+        if (value < currentValue)
+        {
+            throw new ArgumentOutOfRangeException(paramName, SR.Format(SR.net_webtransport_flow_control_limit_cannot_be_decreased, value, currentValue));
+        }
+    }
+
+    /// <summary>
     /// Validates the session count limit is supported by MsQuic.
     /// </summary>
     /// <seealso href="https://microsoft.github.io/msquic/msquicdocs/docs/Streams.html#stream-id-flow-control"/>

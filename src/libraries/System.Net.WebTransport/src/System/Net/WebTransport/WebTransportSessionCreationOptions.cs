@@ -75,7 +75,7 @@ public sealed class WebTransportSessionCreationOptions
     /// Note that the server may choose not to use any of the provided protocols. In that case <see cref="WebTransportSession.SubProtocol"/> will be <c>null</c>.
     /// The value must be serializable as a list of tokens according to RFC 8941.
     /// </remarks>
-    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-10#section-2-9"/>
+    /// <seealso href="https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-overview-09#section-3.1"/>
     /// <seealso href="https://www.rfc-editor.org/rfc/rfc8941#name-serializing-a-token"/>
     /// <exception cref="ArgumentException">When the provided value is not serializable as a list of tokens according to RFC 8941.</exception>
     public string[]? AvailableSubProtocols
